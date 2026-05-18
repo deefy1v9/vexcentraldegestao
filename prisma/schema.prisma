@@ -1,0 +1,248 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  COLABORADOR
+}
+
+enum TaskStatus {
+  BACKLOG
+  TODO
+  EM_ANDAMENTO
+  EM_REVISAO
+  CONCLUIDO
+}
+
+enum TaskPriority {
+  BAIXA
+  MEDIA
+  ALTA
+  URGENTE
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      UserRole @default(COLABORADOR)
+  phone     String?
+  position  String?
+  salary    Float?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  activityLogs   ActivityLog[]
+  crmMessages    CrmMessage[]
+  assignedEvents CalendarEvent[]
+  assignedTasks  Task[]          @relation("TaskAssignee")
+  createdTasks   Task[]          @relation("TaskCreator")
+  taskComments   TaskComment[]
+}
+
+model Client {
+  id             String    @id @default(cuid())
+  name           String
+  cnpj           String?   @unique
+  email          String?
+  phone          String?
+  niche          String?
+  contractStart  DateTime?
+  contractEnd    DateTime?
+  contractMonths Int?
+  monthlyValue   Float?
+  paymentDay     Int?
+  status         String    @default("ATIVO")
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  credentials    ClientCredential[]
+  services       ClientService[]
+  calendarEvents CalendarEvent[]
+  payments       ClientPayment[]
+  crmContact     CrmContact?
+  tasks          Task[]
+}
+
+model ClientCredential {
+  id        String   @id @default(cuid())
+  clientId  String
+  type      String
+  label     String
+  username  String?
+  password  String?
+  url       String?
+  email     String?
+  notes     String?
+  createdAt DateTime @default(now())
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+model ClientService {
+  id          String    @id @default(cuid())
+  clientId    String
+  serviceName String
+  description String?
+  startDate   DateTime?
+  endDate     DateTime?
+  status      String    @default("ATIVO")
+  createdAt   DateTime  @default(now())
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+model CalendarEvent {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  startDate   DateTime
+  endDate     DateTime?
+  type        String    @default("ENTREGA")
+  status      String    @default("PENDENTE")
+  clientId    String?
+  assignedTo  String?
+  createdAt   DateTime  @default(now())
+
+  client       Client? @relation(fields: [clientId], references: [id])
+  assignedUser User?   @relation(fields: [assignedTo], references: [id])
+}
+
+model Task {
+  id          String       @id @default(cuid())
+  title       String
+  description String?
+  status      TaskStatus   @default(TODO)
+  priority    TaskPriority @default(MEDIA)
+  dueDate     DateTime?
+  clientId    String?
+  assigneeId  String?
+  creatorId   String
+  position    Int          @default(0)
+  tags        String[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  client   Client?       @relation(fields: [clientId], references: [id])
+  assignee User?         @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  creator  User          @relation("TaskCreator", fields: [creatorId], references: [id])
+  comments    TaskComment[]
+  attachments TaskAttachment[]
+}
+
+model TaskComment {
+  id        String   @id @default(cuid())
+  taskId    String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
+}
+
+model TaskAttachment {
+  id        String   @id @default(cuid())
+  taskId    String
+  fileName  String
+  fileUrl   String
+  fileSize  Int
+  fileType  String
+  createdAt DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  module    String
+  details   String?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model FinancialEntry {
+  id          String   @id @default(cuid())
+  type        String
+  category    String
+  description String
+  amount      Float
+  date        DateTime
+  isPaid      Boolean  @default(false)
+  clientId    String?
+  userId      String?
+  recurring   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+model ClientPayment {
+  id        String    @id @default(cuid())
+  clientId  String
+  month     Int
+  year      Int
+  amount    Float
+  dueDate   DateTime
+  paidAt    DateTime?
+  status    String    @default("PENDENTE")
+  createdAt DateTime  @default(now())
+
+  client Client @relation(fields: [clientId], references: [id])
+}
+
+model CrmContact {
+  id             String    @id @default(cuid())
+  clientId       String    @unique
+  whatsappNumber String
+  uazapiChatId   String?
+  lastMessage    DateTime?
+  createdAt      DateTime  @default(now())
+
+  client        Client            @relation(fields: [clientId], references: [id])
+  conversations CrmConversation[]
+}
+
+model CrmConversation {
+  id        String   @id @default(cuid())
+  contactId String
+  title     String?
+  status    String   @default("ABERTO")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  contact  CrmContact   @relation(fields: [contactId], references: [id])
+  messages CrmMessage[]
+}
+
+model CrmMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  senderId       String?
+  senderName     String?
+  content        String
+  messageType    String   @default("TEXT")
+  fromClient     Boolean  @default(false)
+  uazapiMsgId    String?
+  sentAt         DateTime @default(now())
+
+  conversation CrmConversation @relation(fields: [conversationId], references: [id])
+  sender       User?           @relation(fields: [senderId], references: [id])
+}
+
+model SystemSettings {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}

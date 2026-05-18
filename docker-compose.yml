@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: vex_gestao
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  app:
+    build: .
+    restart: always
+    ports:
+      - '3000:3000'
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/vex_gestao?schema=public
+      AUTH_SECRET: ${AUTH_SECRET}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      UAZAPI_URL: ${UAZAPI_URL}
+      UAZAPI_TOKEN: ${UAZAPI_TOKEN}
+      UAZAPI_INSTANCE: ${UAZAPI_INSTANCE}
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:
