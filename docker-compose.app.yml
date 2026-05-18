@@ -9,7 +9,7 @@ services:
       NEXTAUTH_URL: https://central.vexgrowth.com.br
       NODE_ENV: production
     networks:
-      - traefik-net   # <-- ALTERE para o nome da rede do Traefik existente
+      - traefik-public   # <-- ALTERE para o nome da rede do Traefik existente
       - internal
     depends_on:
       - db
@@ -77,7 +77,7 @@ volumes:
   vex-postgres-data:   # nome único para não conflitar com outros projetos
 
 networks:
-  traefik-net:         # <-- ALTERE para o nome da rede do Traefik existente
+  traefik-public:         # <-- ALTERE para o nome da rede do Traefik existente
     external: true
   internal:
     driver: overlay
