@@ -6,10 +6,10 @@ services:
     environment:
       DATABASE_URL: postgresql://vex:${DB_PASSWORD}@db:5432/vex_gestao
       AUTH_SECRET: ${AUTH_SECRET}
-      NEXTAUTH_URL: ${NEXTAUTH_URL}
+      NEXTAUTH_URL: https://central.vexgrowth.com.br
       NODE_ENV: production
     networks:
-      - traefik-public
+      - traefik-net   # <-- ALTERE para o nome da rede do Traefik existente
       - internal
     depends_on:
       - db
@@ -32,13 +32,17 @@ services:
           memory: 512M
       labels:
         - traefik.enable=true
-        - traefik.http.routers.vex.rule=PathPrefix(`/`)
+        # Rota HTTP → redireciona para HTTPS
+        - traefik.http.routers.vex.rule=Host(`central.vexgrowth.com.br`)
         - traefik.http.routers.vex.entrypoints=web
+        - traefik.http.routers.vex.middlewares=vex-redirect
+        - traefik.http.middlewares.vex-redirect.redirectscheme.scheme=https
+        # Rota HTTPS com SSL automático
+        - traefik.http.routers.vex-secure.rule=Host(`central.vexgrowth.com.br`)
+        - traefik.http.routers.vex-secure.entrypoints=websecure
+        - traefik.http.routers.vex-secure.tls=true
+        - traefik.http.routers.vex-secure.tls.certresolver=letsencrypt
         - traefik.http.services.vex.loadbalancer.server.port=3000
-        # Descomente para HTTPS com domínio:
-        # - traefik.http.routers.vex-secure.rule=Host(`seudominio.com.br`)
-        # - traefik.http.routers.vex-secure.entrypoints=websecure
-        # - traefik.http.routers.vex-secure.tls.certresolver=letsencrypt
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/auth/session"]
       interval: 30s
@@ -53,7 +57,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: vex_gestao
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - vex-postgres-data:/var/lib/postgresql/data
     networks:
       - internal
     deploy:
@@ -70,10 +74,11 @@ services:
       retries: 5
 
 volumes:
-  postgres-data:
+  vex-postgres-data:   # nome único para não conflitar com outros projetos
 
 networks:
-  traefik-public:
+  traefik-net:         # <-- ALTERE para o nome da rede do Traefik existente
     external: true
   internal:
     driver: overlay
+    name: vex-internal  # nome único para não conflitar

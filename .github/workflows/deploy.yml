@@ -66,9 +66,7 @@ jobs:
             docker pull ghcr.io/${{ env.IMAGE_NAME }}:latest
             export DB_PASSWORD="${{ secrets.DB_PASSWORD }}"
             export AUTH_SECRET="${{ secrets.AUTH_SECRET }}"
-            export NEXTAUTH_URL="${{ secrets.NEXTAUTH_URL }}"
             docker stack deploy \
               --compose-file /opt/vex/docker-compose.app.yml \
               --with-registry-auth \
               vex
-            docker service update --force vex_app || true
