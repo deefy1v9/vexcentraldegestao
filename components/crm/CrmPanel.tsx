@@ -14,7 +14,7 @@ interface Message {
   messageType?: string
   senderName?: string | null
   sender?: { id: string; name: string } | null
-  sentAt: string
+  sentAt: string | Date
 }
 
 interface Conversation {
@@ -30,7 +30,7 @@ interface Contact {
   whatsappNumber: string
   client: { id: string; name: string; phone?: string | null }
   conversations: Conversation[]
-  lastMessage?: string | null
+  lastMessage?: string | Date | null
 }
 
 interface AvailableClient {
