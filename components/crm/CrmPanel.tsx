@@ -45,11 +45,11 @@ function getInitial(name: string) {
   return name.charAt(0).toUpperCase()
 }
 
-function formatTime(dateStr: string) {
+function formatTime(dateStr: string | Date) {
   return new Date(dateStr).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 }
 
-function formatDay(dateStr: string) {
+function formatDay(dateStr: string | Date) {
   const d = new Date(dateStr)
   const today = new Date()
   if (d.toDateString() === today.toDateString()) return 'Hoje'
