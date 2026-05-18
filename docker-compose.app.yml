@@ -1,0 +1,79 @@
+version: "3.9"
+
+services:
+  app:
+    image: ghcr.io/deefy1v9/vexcentraldegestao:latest
+    environment:
+      DATABASE_URL: postgresql://vex:${DB_PASSWORD}@db:5432/vex_gestao
+      AUTH_SECRET: ${AUTH_SECRET}
+      NEXTAUTH_URL: ${NEXTAUTH_URL}
+      NODE_ENV: production
+    networks:
+      - traefik-public
+      - internal
+    depends_on:
+      - db
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+        order: start-first
+        failure_action: rollback
+        delay: 10s
+      rollback_config:
+        parallelism: 1
+        order: stop-first
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      resources:
+        limits:
+          memory: 512M
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.vex.rule=PathPrefix(`/`)
+        - traefik.http.routers.vex.entrypoints=web
+        - traefik.http.services.vex.loadbalancer.server.port=3000
+        # Descomente para HTTPS com domínio:
+        # - traefik.http.routers.vex-secure.rule=Host(`seudominio.com.br`)
+        # - traefik.http.routers.vex-secure.entrypoints=websecure
+        # - traefik.http.routers.vex-secure.tls.certresolver=letsencrypt
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/auth/session"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: vex
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: vex_gestao
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - internal
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      resources:
+        limits:
+          memory: 256M
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vex -d vex_gestao"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres-data:
+
+networks:
+  traefik-public:
+    external: true
+  internal:
+    driver: overlay
