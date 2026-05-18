@@ -41,7 +41,7 @@ services:
         - traefik.http.routers.vex-secure.rule=Host(`central.vexgrowth.com.br`)
         - traefik.http.routers.vex-secure.entrypoints=websecure
         - traefik.http.routers.vex-secure.tls=true
-        - traefik.http.routers.vex-secure.tls.certresolver=letsencrypt
+        - traefik.http.routers.vex-secure.tls.certresolver=mytlschallenge
         - traefik.http.services.vex.loadbalancer.server.port=3000
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/auth/session"]
