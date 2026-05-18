@@ -21,7 +21,7 @@ interface Conversation {
   id: string
   title?: string | null
   status: string
-  updatedAt: string
+  updatedAt: string | Date
   messages: Message[]
 }
 
