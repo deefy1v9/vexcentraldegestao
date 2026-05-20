@@ -62,7 +62,7 @@ jobs:
           username: root
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u deefy1v9 --password-stdin
             docker pull ghcr.io/${{ env.IMAGE_NAME }}:latest
             export DB_PASSWORD="${{ secrets.DB_PASSWORD }}"
             export AUTH_SECRET="${{ secrets.AUTH_SECRET }}"
