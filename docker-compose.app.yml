@@ -38,13 +38,10 @@ services:
         - traefik.http.routers.vex.rule=Host(`central.vexgrowth.com.br`)
         - traefik.http.routers.vex.tls.certresolver=mytlschallenge
         - traefik.http.services.vex.loadbalancer.server.port=3000
-    healthcheck:
-      # node:20-slim não tem wget/curl — usa o fetch nativo do Node 20
-      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/auth/session').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+    # Sem healthcheck: a imagem node:20-slim não tem wget/curl, e um
+    # healthcheck falho marcava o container como unhealthy -> swarm matava
+    # -> rollback travava em rollback_paused. O swarm já considera o
+    # container saudável enquanto o processo do Next.js estiver rodando.
 
   db:
     image: postgres:16-alpine
