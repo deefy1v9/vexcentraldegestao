@@ -6,8 +6,8 @@ const ALLOWED_KEYS = ['UAZAPI_URL', 'UAZAPI_TOKEN']
 
 export async function GET() {
   // Expõe o UAZAPI_TOKEN — restrito a administradores.
-  const { response } = await requireAdmin()
-  if (response) return response
+  const gate = await requireAdmin()
+  if (gate instanceof NextResponse) return gate
 
   const rows = await prisma.$queryRaw<Array<{ key: string; value: string }>>`
     SELECT key, value FROM "SystemSettings" WHERE key IN ('UAZAPI_URL', 'UAZAPI_TOKEN')
@@ -19,8 +19,8 @@ export async function GET() {
 }
 
 export async function PUT(req: NextRequest) {
-  const { response } = await requireAdmin()
-  if (response) return response
+  const gate = await requireAdmin()
+  if (gate instanceof NextResponse) return gate
 
   const body = await req.json()
 

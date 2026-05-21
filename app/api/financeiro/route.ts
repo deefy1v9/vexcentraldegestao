@@ -5,8 +5,8 @@ import { logActivity } from '@/lib/activity'
 
 export async function GET(req: NextRequest) {
   // Receita, custos e salários — dados financeiros restritos a administradores.
-  const { response } = await requireAdmin()
-  if (response) return response
+  const gate = await requireAdmin()
+  if (gate instanceof NextResponse) return gate
 
   const { searchParams } = new URL(req.url)
   const month = Number(searchParams.get('month') || new Date().getMonth() + 1)
@@ -63,8 +63,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const { user, response } = await requireAdmin()
-  if (response) return response
+  const user = await requireAdmin()
+  if (user instanceof NextResponse) return user
 
   const body = await req.json()
   const entry = await prisma.financialEntry.create({

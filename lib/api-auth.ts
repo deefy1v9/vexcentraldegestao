@@ -8,10 +8,6 @@ export interface SessionUser {
   role: 'ADMIN' | 'COLABORADOR'
 }
 
-type Guard =
-  | { user: SessionUser; response: null }
-  | { user: null; response: NextResponse }
-
 /** Retorna o usuário da sessão atual, ou null se não autenticado. */
 export async function getSessionUser(): Promise<SessionUser | null> {
   const session = await auth()
@@ -21,24 +17,19 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 
 /**
  * Exige um usuário autenticado.
- * Uso: `const { user, response } = await requireUser(); if (response) return response`
+ * Uso: `const u = await requireUser(); if (u instanceof NextResponse) return u`
+ * — depois disso, `u` é um SessionUser.
  */
-export async function requireUser(): Promise<Guard> {
+export async function requireUser(): Promise<SessionUser | NextResponse> {
   const user = await getSessionUser()
-  if (!user) {
-    return { user: null, response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
-  }
-  return { user, response: null }
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  return user
 }
 
 /** Exige um usuário com papel ADMIN. */
-export async function requireAdmin(): Promise<Guard> {
+export async function requireAdmin(): Promise<SessionUser | NextResponse> {
   const user = await getSessionUser()
-  if (!user) {
-    return { user: null, response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
-  }
-  if (user.role !== 'ADMIN') {
-    return { user: null, response: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
-  }
-  return { user, response: null }
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (user.role !== 'ADMIN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  return user
 }

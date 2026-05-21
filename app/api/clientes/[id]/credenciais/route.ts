@@ -5,8 +5,8 @@ import { logActivity } from '@/lib/activity'
 import { encryptSecret, decryptSecret } from '@/lib/crypto'
 
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { response } = await requireUser()
-  if (response) return response
+  const gate = await requireUser()
+  if (gate instanceof NextResponse) return gate
 
   const { id } = await params
   const credentials = await prisma.clientCredential.findMany({ where: { clientId: id } })
@@ -18,8 +18,8 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { user, response } = await requireUser()
-  if (response) return response
+  const user = await requireUser()
+  if (user instanceof NextResponse) return user
 
   const { id } = await params
   const body = await req.json().catch(() => ({}))
@@ -43,8 +43,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { user, response } = await requireUser()
-  if (response) return response
+  const user = await requireUser()
+  if (user instanceof NextResponse) return user
 
   const { id } = await params
   const { searchParams } = new URL(req.url)

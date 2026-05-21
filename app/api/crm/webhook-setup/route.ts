@@ -4,8 +4,8 @@ import { isConfigured, uazSetWebhook } from '@/lib/uazapi'
 import { getWebhookSecret } from '@/lib/webhook-secret'
 
 export async function POST(req: NextRequest) {
-  const { response } = await requireAdmin()
-  if (response) return response
+  const gate = await requireAdmin()
+  if (gate instanceof NextResponse) return gate
 
   if (!await isConfigured()) {
     return NextResponse.json({ error: 'UAZAPI não configurado' }, { status: 503 })

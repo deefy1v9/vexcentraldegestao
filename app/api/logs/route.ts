@@ -4,8 +4,8 @@ import { prisma } from '@/lib/prisma'
 
 export async function GET(req: NextRequest) {
   // Logs de atividade de todos os usuários — restrito a administradores.
-  const { response } = await requireAdmin()
-  if (response) return response
+  const gate = await requireAdmin()
+  if (gate instanceof NextResponse) return gate
 
   const { searchParams } = new URL(req.url)
   const userId = searchParams.get('userId')

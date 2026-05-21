@@ -3,8 +3,8 @@ import { requireAdmin } from '@/lib/api-auth'
 import { isConfigured, uazDisconnect } from '@/lib/uazapi'
 
 export async function POST() {
-  const { response } = await requireAdmin()
-  if (response) return response
+  const gate = await requireAdmin()
+  if (gate instanceof NextResponse) return gate
 
   if (!await isConfigured()) {
     return NextResponse.json({ error: 'UAZAPI não configurado' }, { status: 503 })

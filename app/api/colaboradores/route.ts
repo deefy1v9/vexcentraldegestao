@@ -5,8 +5,8 @@ import { logActivity } from '@/lib/activity'
 import bcrypt from 'bcryptjs'
 
 export async function GET() {
-  const { user, response } = await requireUser()
-  if (response) return response
+  const user = await requireUser()
+  if (user instanceof NextResponse) return user
 
   const users = await prisma.user.findMany({
     select: {
@@ -31,8 +31,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const { user, response } = await requireAdmin()
-  if (response) return response
+  const user = await requireAdmin()
+  if (user instanceof NextResponse) return user
 
   const body = await req.json()
   const { name, email, password, role, phone, position, salary } = body

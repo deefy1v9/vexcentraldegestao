@@ -5,8 +5,8 @@ import { logActivity } from '@/lib/activity'
 
 export async function PUT(req: NextRequest) {
   // Alterar status de pagamento é uma ação financeira — só administradores.
-  const { user, response } = await requireAdmin()
-  if (response) return response
+  const user = await requireAdmin()
+  if (user instanceof NextResponse) return user
 
   const body = await req.json().catch(() => ({}))
   const { paymentId, status } = body
