@@ -9,6 +9,9 @@ import { NextResponse } from 'next/server'
  * O provider de credenciais (que usa Prisma/bcrypt) fica só em lib/auth.ts.
  */
 export const authConfig = {
+  // Necessário ao rodar atrás de um proxy reverso (Traefik) fora da Vercel.
+  // Sem isto o next-auth v5 lança UntrustedHost e a sessão nunca resolve.
+  trustHost: true,
   pages: { signIn: '/login' },
   providers: [],
   callbacks: {
