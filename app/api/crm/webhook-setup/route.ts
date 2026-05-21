@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { requireAdmin } from '@/lib/api-auth'
 import { isConfigured, uazSetWebhook } from '@/lib/uazapi'
+import { getWebhookSecret } from '@/lib/webhook-secret'
 
 export async function POST(req: NextRequest) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { response } = await requireAdmin()
+  if (response) return response
 
   if (!await isConfigured()) {
     return NextResponse.json({ error: 'UAZAPI não configurado' }, { status: 503 })
@@ -16,7 +17,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'baseUrl não informado' }, { status: 400 })
   }
 
-  const webhookUrl = `${baseUrl}/api/crm/webhook`
+  // Registra a URL do webhook já com o token secreto, para que o endpoint
+  // /api/crm/webhook consiga rejeitar requisições não autênticas.
+  const secret = getWebhookSecret()
+  const webhookUrl = secret
+    ? `${baseUrl}/api/crm/webhook?token=${encodeURIComponent(secret)}`
+    : `${baseUrl}/api/crm/webhook`
+
   try {
     const data = await uazSetWebhook(webhookUrl)
     return NextResponse.json({ ok: true, webhookUrl, uazapi: data })

@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { isValidWebhookToken } from '@/lib/webhook-secret'
 
 export async function POST(req: NextRequest) {
   try {
+    // Endpoint público (chamado pela UAZAPI): exige o token compartilhado.
+    const token = new URL(req.url).searchParams.get('token')
+    if (!isValidWebhookToken(token)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const body = await req.json()
     const { event, data } = body
 

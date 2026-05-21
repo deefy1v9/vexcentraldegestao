@@ -1,14 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { requireAdmin } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
 
 export async function PUT(req: NextRequest) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Alterar status de pagamento é uma ação financeira — só administradores.
+  const { user, response } = await requireAdmin()
+  if (response) return response
 
-  const body = await req.json()
+  const body = await req.json().catch(() => ({}))
   const { paymentId, status } = body
+
+  if (!paymentId || typeof paymentId !== 'string') {
+    return NextResponse.json({ error: 'paymentId inválido' }, { status: 400 })
+  }
+  if (!status || typeof status !== 'string') {
+    return NextResponse.json({ error: 'status inválido' }, { status: 400 })
+  }
 
   const payment = await prisma.clientPayment.update({
     where: { id: paymentId },
@@ -19,6 +27,6 @@ export async function PUT(req: NextRequest) {
     include: { client: { select: { name: true } } },
   })
 
-  await logActivity((session.user as any).id, `marcou pagamento como ${status}`, 'Financeiro', payment.client.name)
+  await logActivity(user.id, `marcou pagamento como ${status}`, 'Financeiro', payment.client.name)
   return NextResponse.json(payment)
 }

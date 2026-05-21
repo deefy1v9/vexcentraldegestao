@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { requireAdmin } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 
 const ALLOWED_KEYS = ['UAZAPI_URL', 'UAZAPI_TOKEN']
 
 export async function GET() {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Expõe o UAZAPI_TOKEN — restrito a administradores.
+  const { response } = await requireAdmin()
+  if (response) return response
 
   const rows = await prisma.$queryRaw<Array<{ key: string; value: string }>>`
     SELECT key, value FROM "SystemSettings" WHERE key IN ('UAZAPI_URL', 'UAZAPI_TOKEN')
@@ -18,11 +19,8 @@ export async function GET() {
 }
 
 export async function PUT(req: NextRequest) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if ((session.user as any)?.role !== 'ADMIN') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
+  const { response } = await requireAdmin()
+  if (response) return response
 
   const body = await req.json()
 

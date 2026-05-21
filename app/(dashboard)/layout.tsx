@@ -3,6 +3,10 @@ import { redirect } from 'next/navigation'
 import Sidebar from '@/components/layout/Sidebar'
 import SessionProvider from '@/components/layout/SessionProvider'
 
+// Garante que o dashboard nunca seja renderizado de forma estática:
+// a verificação de sessão precisa rodar a cada requisição.
+export const dynamic = 'force-dynamic'
+
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await auth()
   if (!session) redirect('/login')

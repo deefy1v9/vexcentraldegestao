@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { requireUser, requireAdmin } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
 import bcrypt from 'bcryptjs'
 
 export async function GET() {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { user, response } = await requireUser()
+  if (response) return response
 
   const users = await prisma.user.findMany({
     select: {
@@ -17,16 +17,22 @@ export async function GET() {
     orderBy: { name: 'asc' },
   })
 
+  // Salário só é visível para administradores.
+  if (user.role !== 'ADMIN') {
+    return NextResponse.json(
+      users.map((u) => ({
+        id: u.id, name: u.name, email: u.email, role: u.role,
+        phone: u.phone, position: u.position, isActive: u.isActive,
+        createdAt: u.createdAt, _count: u._count,
+      })),
+    )
+  }
   return NextResponse.json(users)
 }
 
 export async function POST(req: NextRequest) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  if ((session.user as any).role !== 'ADMIN') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
+  const { user, response } = await requireAdmin()
+  if (response) return response
 
   const body = await req.json()
   const { name, email, password, role, phone, position, salary } = body
@@ -36,7 +42,7 @@ export async function POST(req: NextRequest) {
 
   const hashed = await bcrypt.hash(password || 'mudar@123', 10)
 
-  const user = await prisma.user.create({
+  const created = await prisma.user.create({
     data: {
       name, email, password: hashed,
       role: role || 'COLABORADOR',
@@ -45,8 +51,8 @@ export async function POST(req: NextRequest) {
     },
   })
 
-  await logActivity((session.user as any).id, 'cadastrou colaborador', 'Colaboradores', user.name)
+  await logActivity(user.id, 'cadastrou colaborador', 'Colaboradores', created.name)
 
-  const { password: _, ...safe } = user
+  const { password: _, ...safe } = created
   return NextResponse.json(safe, { status: 201 })
 }

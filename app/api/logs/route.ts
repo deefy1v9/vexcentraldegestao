@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { requireAdmin } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 
 export async function GET(req: NextRequest) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Logs de atividade de todos os usuários — restrito a administradores.
+  const { response } = await requireAdmin()
+  if (response) return response
 
   const { searchParams } = new URL(req.url)
   const userId = searchParams.get('userId')

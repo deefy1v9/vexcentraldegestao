@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { requireAdmin } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
 
 export async function GET(req: NextRequest) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Receita, custos e salários — dados financeiros restritos a administradores.
+  const { response } = await requireAdmin()
+  if (response) return response
 
   const { searchParams } = new URL(req.url)
   const month = Number(searchParams.get('month') || new Date().getMonth() + 1)
@@ -62,8 +63,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { user, response } = await requireAdmin()
+  if (response) return response
 
   const body = await req.json()
   const entry = await prisma.financialEntry.create({
@@ -78,6 +79,6 @@ export async function POST(req: NextRequest) {
     },
   })
 
-  await logActivity((session.user as any).id, 'registrou lançamento financeiro', 'Financeiro', body.description)
+  await logActivity(user.id, 'registrou lançamento financeiro', 'Financeiro', body.description)
   return NextResponse.json(entry, { status: 201 })
 }
