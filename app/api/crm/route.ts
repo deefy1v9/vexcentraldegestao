@@ -28,10 +28,17 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
-  const { clientId, whatsappNumber } = body
+  const clientId: string | undefined = body.clientId || undefined
+  const whatsappNumber = String(body.whatsappNumber || '').replace(/\D/g, '')
+  if (!whatsappNumber) {
+    return NextResponse.json({ error: 'Número de WhatsApp inválido' }, { status: 400 })
+  }
 
-  const contact = await prisma.crmContact.create({
-    data: {
+  // Se o número já foi capturado pelo webhook, apenas vincula o cliente.
+  const contact = await prisma.crmContact.upsert({
+    where: { whatsappNumber },
+    update: { clientId },
+    create: {
       clientId,
       whatsappNumber,
       conversations: {

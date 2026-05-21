@@ -28,7 +28,8 @@ interface Conversation {
 interface Contact {
   id: string
   whatsappNumber: string
-  client: { id: string; name: string; phone?: string | null }
+  name?: string | null
+  client?: { id: string; name: string; phone?: string | null } | null
   conversations: Conversation[]
   lastMessage?: string | Date | null
 }
@@ -43,6 +44,15 @@ type ConnectionState = 'checking' | 'connected' | 'disconnected' | 'unconfigured
 
 function getInitial(name: string) {
   return name.charAt(0).toUpperCase()
+}
+
+// Nome de exibição: cliente vinculado, ou nome capturado do WhatsApp, ou o número.
+function contactName(c: {
+  client?: { name: string } | null
+  name?: string | null
+  whatsappNumber: string
+}) {
+  return c.client?.name || c.name || c.whatsappNumber
 }
 
 function formatTime(dateStr: string | Date) {
@@ -161,6 +171,19 @@ export default function CrmPanel({
     return () => clearInterval(iv)
   }, [activeConvId, refreshMessages])
 
+  // ─── Contact list polling ─────────────────────────────────────────────────
+  // Mantém a lista de conversas atualizada quando o webhook captura novos
+  // contatos/mensagens, sem precisar recarregar a página.
+  const refreshContacts = useCallback(async () => {
+    const r = await fetch('/api/crm')
+    if (r.ok) setContacts(await r.json())
+  }, [])
+
+  useEffect(() => {
+    const iv = setInterval(refreshContacts, 15000)
+    return () => clearInterval(iv)
+  }, [refreshContacts])
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
@@ -257,7 +280,7 @@ export default function CrmPanel({
   // ─── Derived ──────────────────────────────────────────────────────────────
   const filteredContacts = contacts.filter(
     (c) =>
-      c.client.name.toLowerCase().includes(search.toLowerCase()) ||
+      contactName(c).toLowerCase().includes(search.toLowerCase()) ||
       c.whatsappNumber.includes(search),
   )
   const messageGroups = groupByDay(messages)
@@ -346,10 +369,10 @@ export default function CrmPanel({
                   }`}
                 >
                   <div className="w-9 h-9 bg-[#030A8C] rounded-full flex items-center justify-center shrink-0">
-                    <span className="text-white font-bold text-sm">{getInitial(contact.client.name)}</span>
+                    <span className="text-white font-bold text-sm">{getInitial(contactName(contact))}</span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 truncate">{contact.client.name}</p>
+                    <p className="text-sm font-semibold text-gray-900 truncate">{contactName(contact)}</p>
                     <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
                       <Phone className="w-3 h-3" />
                       {contact.whatsappNumber}
@@ -374,10 +397,10 @@ export default function CrmPanel({
           {/* Chat header */}
           <div className="bg-white border-b border-gray-200 px-5 py-3 flex items-center gap-3 shrink-0">
             <div className="w-9 h-9 bg-[#030A8C] rounded-full flex items-center justify-center shrink-0">
-              <span className="text-white font-bold text-sm">{getInitial(selectedContact.client.name)}</span>
+              <span className="text-white font-bold text-sm">{getInitial(contactName(selectedContact))}</span>
             </div>
             <div className="flex-1">
-              <p className="font-semibold text-gray-900 text-sm">{selectedContact.client.name}</p>
+              <p className="font-semibold text-gray-900 text-sm">{contactName(selectedContact)}</p>
               <p className="text-xs text-gray-400">{selectedContact.whatsappNumber}</p>
             </div>
             <button onClick={refreshMessages} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors" title="Atualizar">
@@ -412,7 +435,7 @@ export default function CrmPanel({
                       <div key={msg.id} className={`flex ${msg.fromClient ? 'justify-start' : 'justify-end'}`}>
                         <div className="max-w-[70%]">
                           <p className={`text-[10px] font-semibold mb-1 ${msg.fromClient ? 'text-gray-500' : 'text-[#030A8C] text-right'}`}>
-                            {msg.fromClient ? (selectedContact.client.name) : (msg.sender?.name || msg.senderName || 'Colaborador')}
+                            {msg.fromClient ? contactName(selectedContact) : (msg.sender?.name || msg.senderName || 'Colaborador')}
                           </p>
                           <div className={`rounded-2xl px-4 py-2.5 ${
                             msg.fromClient
