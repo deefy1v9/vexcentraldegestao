@@ -44,3 +44,6 @@ next-env.d.ts
 
 # user uploads
 /public/uploads/
+
+# claude code internal memory
+/memory/

@@ -31,20 +31,16 @@ services:
         limits:
           memory: 512M
       labels:
+        # Padrão idêntico aos outros projetos que funcionam neste Traefik.
+        # O redirect HTTP→HTTPS já é global no Traefik (entrypoints.web.http.redirections).
         - traefik.enable=true
-        # Rota HTTP → redireciona para HTTPS
+        - traefik.http.routers.vex.entrypoints=websecure
         - traefik.http.routers.vex.rule=Host(`central.vexgrowth.com.br`)
-        - traefik.http.routers.vex.entrypoints=web
-        - traefik.http.routers.vex.middlewares=vex-redirect
-        - traefik.http.middlewares.vex-redirect.redirectscheme.scheme=https
-        # Rota HTTPS com SSL automático
-        - traefik.http.routers.vex-secure.rule=Host(`central.vexgrowth.com.br`)
-        - traefik.http.routers.vex-secure.entrypoints=websecure
-        - traefik.http.routers.vex-secure.tls=true
-        - traefik.http.routers.vex-secure.tls.certresolver=mytlschallenge
+        - traefik.http.routers.vex.tls.certresolver=mytlschallenge
         - traefik.http.services.vex.loadbalancer.server.port=3000
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/auth/session"]
+      # node:20-slim não tem wget/curl — usa o fetch nativo do Node 20
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/auth/session').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 30s
       timeout: 10s
       retries: 3
