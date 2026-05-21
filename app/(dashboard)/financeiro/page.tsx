@@ -1,8 +1,14 @@
+import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
+import { getSessionUser } from '@/lib/api-auth'
 import Header from '@/components/layout/Header'
 import FinanceiroPanel from '@/components/financeiro/FinanceiroPanel'
 
 export default async function FinanceiroPage() {
+  // Página financeira: restrita a administradores.
+  const user = await getSessionUser()
+  if (!user || user.role !== 'ADMIN') redirect('/dashboard')
+
   const now = new Date()
   const month = now.getMonth() + 1
   const year = now.getFullYear()

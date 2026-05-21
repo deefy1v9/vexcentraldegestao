@@ -1,4 +1,6 @@
+import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
+import { getSessionUser } from '@/lib/api-auth'
 import Header from '@/components/layout/Header'
 import { formatDateTime } from '@/lib/utils'
 
@@ -7,6 +9,10 @@ export default async function LogsPage({
 }: {
   searchParams: Promise<{ userId?: string; module?: string }>
 }) {
+  // Logs de atividade: restritos a administradores.
+  const user = await getSessionUser()
+  if (!user || user.role !== 'ADMIN') redirect('/dashboard')
+
   const { userId, module } = await searchParams
 
   const [logs, users] = await Promise.all([

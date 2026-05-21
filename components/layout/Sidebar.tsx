@@ -58,6 +58,7 @@ export default function Sidebar() {
   const { data: session } = useSession()
   const name = session?.user?.name ?? ''
   const role = (session?.user as any)?.role ?? ''
+  const isAdmin = role === 'ADMIN'
 
   return (
     <div className="p-3 shrink-0">
@@ -86,9 +87,11 @@ export default function Sidebar() {
               Geral
             </p>
             <div className="space-y-0.5">
-              {generalItems.map((item) => (
-                <NavItem key={item.href} {...item} />
-              ))}
+              {/* Financeiro e Logs são exclusivos de administradores. */}
+              {isAdmin &&
+                generalItems.map((item) => (
+                  <NavItem key={item.href} {...item} />
+                ))}
               <button
                 onClick={() => signOut({ callbackUrl: '/login' })}
                 className="w-full relative flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-400 hover:text-gray-700 hover:bg-gray-50 transition-all rounded-r-xl"
