@@ -36,12 +36,14 @@ export default function FinanceiroPanel({
   initialEntries,
   initialPayments,
   salaries,
+  serviceRevenue,
   month,
   year,
 }: {
   initialEntries: Entry[]
   initialPayments: Payment[]
   salaries: Salary[]
+  serviceRevenue: number
   month: number
   year: number
 }) {
@@ -53,12 +55,11 @@ export default function FinanceiroPanel({
     type: 'CUSTO', category: '', description: '', amount: '', date: new Date().toISOString().split('T')[0], isPaid: false
   })
 
-  const totalRevenue = payments.filter((p) => p.status === 'PAGO').reduce((s, p) => s + p.amount, 0)
   const pendingRevenue = payments.filter((p) => p.status === 'PENDENTE').reduce((s, p) => s + p.amount, 0)
   const totalSalaries = salaries.reduce((s, u) => s + (u.salary || 0), 0)
   const otherCosts = entries.filter((e) => e.type === 'CUSTO').reduce((s, e) => s + e.amount, 0)
   const totalCosts = totalSalaries + otherCosts
-  const netProfit = totalRevenue - totalCosts
+  const netProfit = serviceRevenue - totalCosts
 
   async function createEntry() {
     const res = await fetch('/api/financeiro', {
@@ -100,7 +101,7 @@ export default function FinanceiroPanel({
       {/* Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Receita do Mês', value: formatCurrency(totalRevenue), sub: `${formatCurrency(pendingRevenue)} pendente`, icon: TrendingUp, color: 'text-green-600 bg-green-50' },
+          { label: 'Receita do Mês', value: formatCurrency(serviceRevenue), sub: `${formatCurrency(pendingRevenue)} pendente`, icon: TrendingUp, color: 'text-green-600 bg-green-50' },
           { label: 'Custos Totais', value: formatCurrency(totalCosts), sub: `${formatCurrency(totalSalaries)} salários`, icon: TrendingDown, color: 'text-red-600 bg-red-50' },
           { label: 'Lucro Líquido', value: formatCurrency(netProfit), sub: netProfit >= 0 ? 'positivo' : 'negativo', icon: DollarSign, color: `${netProfit >= 0 ? 'text-[#030A8C] bg-blue-50' : 'text-red-600 bg-red-50'}` },
           { label: 'Salários', value: formatCurrency(totalSalaries), sub: `${salaries.length} colaboradores`, icon: Users, color: 'text-purple-600 bg-purple-50' },
@@ -149,8 +150,8 @@ export default function FinanceiroPanel({
           {activeTab === 'overview' && (
             <div className="space-y-3">
               <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                <span className="text-sm font-medium text-gray-700">Receita Recebida</span>
-                <span className="text-sm font-bold text-green-700">{formatCurrency(totalRevenue)}</span>
+                <span className="text-sm font-medium text-gray-700">Receita de Serviços Ativos</span>
+                <span className="text-sm font-bold text-green-700">{formatCurrency(serviceRevenue)}</span>
               </div>
               <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
                 <span className="text-sm font-medium text-gray-700">Receita Pendente</span>

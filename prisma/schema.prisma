@@ -89,14 +89,21 @@ model ClientCredential {
 }
 
 model ClientService {
-  id          String    @id @default(cuid())
-  clientId    String
-  serviceName String
-  description String?
-  startDate   DateTime?
-  endDate     DateTime?
-  status      String    @default("ATIVO")
-  createdAt   DateTime  @default(now())
+  id                 String    @id @default(cuid())
+  clientId           String
+  serviceName        String
+  customName         String?
+  description        String?
+  monthlyValue       Float?
+  paymentType        String?
+  contractDuration   Int?
+  firstPaymentDate   DateTime?
+  totalContractValue Float?
+  observations       String?
+  startDate          DateTime?
+  endDate            DateTime?
+  status             String    @default("ATIVO")
+  createdAt          DateTime  @default(now())
 
   client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 }

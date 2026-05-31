@@ -22,6 +22,7 @@ async function getDashboardData() {
     upcomingEvents,
     recentLogs,
     recentTasks,
+    serviceRevenueAgg,
   ] = await Promise.all([
     prisma.client.count(),
     prisma.client.count({ where: { status: 'ATIVO' } }),
@@ -55,11 +56,13 @@ async function getDashboardData() {
       orderBy: { createdAt: 'desc' },
       take: 6,
     }),
+    prisma.clientService.aggregate({
+      _sum: { monthlyValue: true },
+      where: { status: 'ATIVO', client: { status: 'ATIVO' } },
+    }),
   ])
 
-  const totalRevenue = monthPayments
-    .filter((p) => p.status === 'PAGO')
-    .reduce((s, p) => s + p.amount, 0)
+  const serviceRevenue = serviceRevenueAgg._sum.monthlyValue ?? 0
 
   const pendingRevenue = monthPayments
     .filter((p) => p.status === 'PENDENTE')
@@ -68,7 +71,7 @@ async function getDashboardData() {
   return {
     totalClients, activeClients, inactiveClients,
     totalUsers, pendingTasks, inProgressTasks, doneTasks,
-    totalRevenue, pendingRevenue,
+    serviceRevenue, pendingRevenue,
     monthPayments: monthPayments.slice(0, 5),
     upcomingEvents,
     recentLogs,
@@ -124,7 +127,7 @@ export default async function DashboardPage() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {[
             { label: 'Clientes Ativos', value: String(d.activeClients), sub: `${d.totalClients} total`, icon: Building2, href: '/clientes', color: '#030A8C' },
-            { label: 'Faturamento', value: formatCurrency(d.totalRevenue), sub: `${formatCurrency(d.pendingRevenue)} pendente`, icon: DollarSign, href: '/financeiro', color: '#10b981' },
+            { label: 'Faturamento', value: formatCurrency(d.serviceRevenue), sub: `${formatCurrency(d.pendingRevenue)} pendente`, icon: DollarSign, href: '/financeiro', color: '#10b981' },
             { label: 'Em Andamento', value: String(d.inProgressTasks), sub: `${d.pendingTasks} a fazer`, icon: Kanban, href: '/demandas', color: '#f59e0b' },
             { label: 'Colaboradores', value: String(d.totalUsers), sub: 'ativos', icon: Users, href: '/colaboradores', color: '#8b5cf6' },
           ].map((s) => (

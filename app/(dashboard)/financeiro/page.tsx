@@ -15,7 +15,7 @@ export default async function FinanceiroPage() {
   const start = new Date(year, month - 1, 1)
   const end = new Date(year, month, 0, 23, 59, 59)
 
-  const [entries, clientPayments, salaries] = await Promise.all([
+  const [entries, clientPayments, salaries, serviceRevenueAgg] = await Promise.all([
     prisma.financialEntry.findMany({
       where: { date: { gte: start, lte: end } },
       orderBy: { date: 'desc' },
@@ -29,7 +29,13 @@ export default async function FinanceiroPage() {
       where: { isActive: true, salary: { not: null } },
       select: { id: true, name: true, position: true, salary: true },
     }),
+    prisma.clientService.aggregate({
+      _sum: { monthlyValue: true },
+      where: { status: 'ATIVO', client: { status: 'ATIVO' } },
+    }),
   ])
+
+  const serviceRevenue = serviceRevenueAgg._sum.monthlyValue ?? 0
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -38,6 +44,7 @@ export default async function FinanceiroPage() {
         initialEntries={entries}
         initialPayments={clientPayments}
         salaries={salaries}
+        serviceRevenue={serviceRevenue}
         month={month}
         year={year}
       />

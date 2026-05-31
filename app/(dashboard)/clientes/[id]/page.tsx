@@ -3,15 +3,9 @@ import { notFound } from 'next/navigation'
 import Header from '@/components/layout/Header'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import Link from 'next/link'
-import { ArrowLeft, Globe, Mail, Instagram, Facebook, Lock, Eye } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import ClientCredentialsPanel from '@/components/clientes/ClientCredentialsPanel'
-
-const CRED_ICONS: Record<string, React.ElementType> = {
-  wordpress: Globe,
-  email: Mail,
-  instagram: Instagram,
-  facebook: Facebook,
-}
+import ClientServicesPanel from '@/components/clientes/ClientServicesPanel'
 
 export default async function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -75,20 +69,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
             </div>
 
             {/* Services */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <h2 className="font-semibold text-gray-900 mb-4">Serviços Contratados</h2>
-              {client.services.length === 0 ? (
-                <p className="text-sm text-gray-500">Nenhum serviço cadastrado</p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {client.services.map((s) => (
-                    <span key={s.id} className="bg-[#030A8C]/10 text-[#030A8C] text-sm px-3 py-1.5 rounded-lg font-medium">
-                      {s.serviceName}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
+            <ClientServicesPanel clientId={id} initialServices={client.services} />
 
             {/* Credentials */}
             <ClientCredentialsPanel clientId={id} initialCredentials={client.credentials} />

@@ -55,10 +55,23 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     })
 
     if (Array.isArray(services)) {
-      await tx.clientService.deleteMany({ where: { clientId: id } })
-      if (services.length > 0) {
+      const currentServices = await tx.clientService.findMany({ where: { clientId: id } })
+      const currentNames = currentServices.map((s) => s.serviceName)
+      const newNames = services as string[]
+
+      // Remove serviços que foram retirados da lista
+      const removedNames = currentNames.filter((name) => !newNames.includes(name))
+      if (removedNames.length > 0) {
+        await tx.clientService.deleteMany({
+          where: { clientId: id, serviceName: { in: removedNames } },
+        })
+      }
+
+      // Adiciona serviços novos preservando os existentes (com seus dados financeiros)
+      const addedNames = newNames.filter((name) => !currentNames.includes(name))
+      if (addedNames.length > 0) {
         await tx.clientService.createMany({
-          data: services.map((s: string) => ({ clientId: id, serviceName: s })),
+          data: addedNames.map((name: string) => ({ clientId: id, serviceName: name })),
         })
       }
     }
