@@ -1,3 +1,4 @@
+import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { notFound } from 'next/navigation'
 import Header from '@/components/layout/Header'
@@ -8,12 +9,22 @@ import ClientCredentialsPanel from '@/components/clientes/ClientCredentialsPanel
 import ClientServicesPanel from '@/components/clientes/ClientServicesPanel'
 
 export default async function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
+  const [session, { id }] = await Promise.all([auth(), params])
+  const isAdmin = (session?.user as any)?.role === 'ADMIN'
+
   const client = await prisma.client.findUnique({
     where: { id },
     include: {
       credentials: true,
-      services: true,
+      services: {
+        include: {
+          payments: {
+            select: { id: true, status: true, amount: true, dueDate: true },
+            orderBy: { dueDate: 'asc' },
+          },
+        },
+        orderBy: { createdAt: 'asc' },
+      },
       calendarEvents: { orderBy: { startDate: 'asc' }, take: 5 },
       payments: { orderBy: { dueDate: 'desc' }, take: 6 },
     },
@@ -36,10 +47,12 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
             <div className="bg-white rounded-xl border border-gray-200 p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="font-semibold text-gray-900">Dados do Cliente</h2>
-                <Link href={`/clientes/${id}/editar`}
-                  className="text-xs text-[#030A8C] hover:underline font-medium">
-                  Editar
-                </Link>
+                {isAdmin && (
+                  <Link href={`/clientes/${id}/editar`}
+                    className="text-xs text-[#030A8C] hover:underline font-medium">
+                    Editar
+                  </Link>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 {[
@@ -69,7 +82,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
             </div>
 
             {/* Services */}
-            <ClientServicesPanel clientId={id} initialServices={client.services} />
+            <ClientServicesPanel clientId={id} initialServices={client.services} isAdmin={isAdmin} />
 
             {/* Credentials */}
             <ClientCredentialsPanel clientId={id} initialCredentials={client.credentials} />

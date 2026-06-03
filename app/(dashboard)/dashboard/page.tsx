@@ -2,17 +2,17 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import Header from '@/components/layout/Header'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { Users, Building2, DollarSign, Kanban, ArrowUpRight } from 'lucide-react'
+import { Users, Building2, DollarSign, Kanban, ArrowUpRight, TrendingUp, TrendingDown, AlertTriangle, BarChart3 } from 'lucide-react'
 import Link from 'next/link'
 
 async function getDashboardData() {
   const now = new Date()
   const month = now.getMonth() + 1
   const year = now.getFullYear()
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
 
   const [
     totalClients,
-    activeClients,
     inactiveClients,
     totalUsers,
     pendingTasks,
@@ -23,9 +23,12 @@ async function getDashboardData() {
     recentLogs,
     recentTasks,
     serviceRevenueAgg,
+    recebidaAgg,
+    pendenteAgg,
+    atrasadaAgg,
+    activeClientsWithService,
   ] = await Promise.all([
     prisma.client.count(),
-    prisma.client.count({ where: { status: 'ATIVO' } }),
     prisma.client.count({ where: { status: 'INATIVO' } }),
     prisma.user.count({ where: { isActive: true } }),
     prisma.task.count({ where: { status: 'TODO' } }),
@@ -56,22 +59,62 @@ async function getDashboardData() {
       orderBy: { createdAt: 'desc' },
       take: 6,
     }),
+    // MRR: soma dos valores mensais de serviços ativos em clientes ativos
     prisma.clientService.aggregate({
       _sum: { monthlyValue: true },
       where: { status: 'ATIVO', client: { status: 'ATIVO' } },
     }),
+    // Receita recebida (mês corrente)
+    prisma.clientPayment.aggregate({
+      _sum: { amount: true },
+      where: { status: 'PAGO', month, year },
+    }),
+    // Receita pendente (dentro do prazo)
+    prisma.clientPayment.aggregate({
+      _sum: { amount: true },
+      where: { status: 'PENDENTE', dueDate: { gte: startOfToday } },
+    }),
+    // Receita atrasada (vencida e não paga)
+    prisma.clientPayment.aggregate({
+      _sum: { amount: true },
+      where: { status: 'PENDENTE', dueDate: { lt: startOfToday } },
+    }),
+    // Clientes ativos com pelo menos um serviço ativo
+    prisma.client.count({
+      where: { status: 'ATIVO', services: { some: { status: 'ATIVO' } } },
+    }),
   ])
 
-  const serviceRevenue = serviceRevenueAgg._sum.monthlyValue ?? 0
+  const mrr = serviceRevenueAgg._sum.monthlyValue ?? 0
+  const arr = mrr * 12
+  const recebida = recebidaAgg._sum.amount ?? 0
+  const pendente = pendenteAgg._sum.amount ?? 0
+  const atrasada = atrasadaAgg._sum.amount ?? 0
+  const prevista = recebida + pendente + atrasada
+  const ticketMedio = activeClientsWithService > 0 ? mrr / activeClientsWithService : 0
+  const inadimplencia = prevista > 0 ? (atrasada / prevista) * 100 : 0
 
   const pendingRevenue = monthPayments
     .filter((p) => p.status === 'PENDENTE')
     .reduce((s, p) => s + p.amount, 0)
 
   return {
-    totalClients, activeClients, inactiveClients,
-    totalUsers, pendingTasks, inProgressTasks, doneTasks,
-    serviceRevenue, pendingRevenue,
+    totalClients,
+    activeClients: activeClientsWithService,
+    inactiveClients,
+    totalUsers,
+    pendingTasks,
+    inProgressTasks,
+    doneTasks,
+    mrr,
+    arr,
+    recebida,
+    pendente,
+    atrasada,
+    prevista,
+    ticketMedio,
+    inadimplencia,
+    pendingRevenue,
     monthPayments: monthPayments.slice(0, 5),
     upcomingEvents,
     recentLogs,
@@ -97,6 +140,7 @@ const STATUS_DOT: Record<string, string> = {
 
 export default async function DashboardPage() {
   const session = await auth()
+  const isAdmin = (session?.user as any)?.role === 'ADMIN'
   const d = await getDashboardData()
   const firstName = session?.user?.name?.split(' ')[0]
   const now = new Date()
@@ -108,7 +152,7 @@ export default async function DashboardPage() {
 
       <div className="flex-1 overflow-y-auto p-6 space-y-5">
 
-        {/* Welcome + action */}
+        {/* Welcome */}
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-bold text-gray-900">Olá, {firstName} 👋</h2>
@@ -123,31 +167,117 @@ export default async function DashboardPage() {
           </Link>
         </div>
 
-        {/* KPI cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {[
-            { label: 'Clientes Ativos', value: String(d.activeClients), sub: `${d.totalClients} total`, icon: Building2, href: '/clientes', color: '#030A8C' },
-            { label: 'Faturamento', value: formatCurrency(d.serviceRevenue), sub: `${formatCurrency(d.pendingRevenue)} pendente`, icon: DollarSign, href: '/financeiro', color: '#10b981' },
-            { label: 'Em Andamento', value: String(d.inProgressTasks), sub: `${d.pendingTasks} a fazer`, icon: Kanban, href: '/demandas', color: '#f59e0b' },
-            { label: 'Colaboradores', value: String(d.totalUsers), sub: 'ativos', icon: Users, href: '/colaboradores', color: '#8b5cf6' },
-          ].map((s) => (
+        {/* KPI cards — Admin vê todos, colaborador vê apenas operacionais */}
+        <div className={`grid gap-3 ${isAdmin ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-1 sm:grid-cols-3'}`}>
+          <Link
+            href="/clientes"
+            className="group bg-white border border-gray-100 rounded-xl p-5 hover:border-gray-200 transition-all"
+          >
+            <div className="flex items-start justify-between mb-4">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#030A8C22' }}>
+                <Building2 className="w-4 h-4" style={{ color: '#030A8C' }} />
+              </div>
+              <ArrowUpRight className="w-3.5 h-3.5 text-gray-300 group-hover:text-gray-500 transition-colors" />
+            </div>
+            <p className="text-2xl font-bold text-gray-900 leading-none">{d.activeClients}</p>
+            <p className="text-xs text-gray-500 mt-1">Clientes Ativos</p>
+            <p className="text-[11px] text-gray-400 mt-0.5">{d.totalClients} total</p>
+          </Link>
+
+          {isAdmin && (
             <Link
-              key={s.label}
-              href={s.href}
+              href="/financeiro"
               className="group bg-white border border-gray-100 rounded-xl p-5 hover:border-gray-200 transition-all"
             >
               <div className="flex items-start justify-between mb-4">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: s.color + '22' }}>
-                  <s.icon className="w-4 h-4" style={{ color: s.color }} />
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#10b98122' }}>
+                  <DollarSign className="w-4 h-4" style={{ color: '#10b981' }} />
                 </div>
                 <ArrowUpRight className="w-3.5 h-3.5 text-gray-300 group-hover:text-gray-500 transition-colors" />
               </div>
-              <p className="text-2xl font-bold text-gray-900 leading-none">{s.value}</p>
-              <p className="text-xs text-gray-500 mt-1">{s.label}</p>
-              <p className="text-[11px] text-gray-400 mt-0.5">{s.sub}</p>
+              <p className="text-2xl font-bold text-gray-900 leading-none">{formatCurrency(d.mrr)}</p>
+              <p className="text-xs text-gray-500 mt-1">Faturamento</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">{formatCurrency(d.pendingRevenue)} pendente</p>
             </Link>
-          ))}
+          )}
+
+          <Link
+            href="/demandas"
+            className="group bg-white border border-gray-100 rounded-xl p-5 hover:border-gray-200 transition-all"
+          >
+            <div className="flex items-start justify-between mb-4">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#f59e0b22' }}>
+                <Kanban className="w-4 h-4" style={{ color: '#f59e0b' }} />
+              </div>
+              <ArrowUpRight className="w-3.5 h-3.5 text-gray-300 group-hover:text-gray-500 transition-colors" />
+            </div>
+            <p className="text-2xl font-bold text-gray-900 leading-none">{d.inProgressTasks}</p>
+            <p className="text-xs text-gray-500 mt-1">Em Andamento</p>
+            <p className="text-[11px] text-gray-400 mt-0.5">{d.pendingTasks} a fazer</p>
+          </Link>
+
+          <Link
+            href="/colaboradores"
+            className="group bg-white border border-gray-100 rounded-xl p-5 hover:border-gray-200 transition-all"
+          >
+            <div className="flex items-start justify-between mb-4">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#8b5cf622' }}>
+                <Users className="w-4 h-4" style={{ color: '#8b5cf6' }} />
+              </div>
+              <ArrowUpRight className="w-3.5 h-3.5 text-gray-300 group-hover:text-gray-500 transition-colors" />
+            </div>
+            <p className="text-2xl font-bold text-gray-900 leading-none">{d.totalUsers}</p>
+            <p className="text-xs text-gray-500 mt-1">Colaboradores</p>
+            <p className="text-[11px] text-gray-400 mt-0.5">ativos</p>
+          </Link>
         </div>
+
+        {/* Métricas financeiras detalhadas — somente ADMIN */}
+        {isAdmin && (
+          <>
+            {/* Receitas */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {[
+                { label: 'Receita Prevista', value: formatCurrency(d.prevista), sub: 'mês corrente', icon: BarChart3, color: '#6366f1' },
+                { label: 'Receita Recebida', value: formatCurrency(d.recebida), sub: 'mês corrente', icon: TrendingUp, color: '#10b981' },
+                { label: 'Receita Pendente', value: formatCurrency(d.pendente), sub: 'dentro do prazo', icon: DollarSign, color: '#f59e0b' },
+                { label: 'Receita Atrasada', value: formatCurrency(d.atrasada), sub: 'vencida não paga', icon: AlertTriangle, color: '#ef4444' },
+              ].map((s) => (
+                <div key={s.label} className="bg-white border border-gray-100 rounded-xl p-5">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: s.color + '22' }}>
+                      <s.icon className="w-4 h-4" style={{ color: s.color }} />
+                    </div>
+                  </div>
+                  <p className="text-xl font-bold text-gray-900 leading-none">{s.value}</p>
+                  <p className="text-xs text-gray-500 mt-1">{s.label}</p>
+                  <p className="text-[11px] text-gray-400 mt-0.5">{s.sub}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* MRR / ARR / Ticket / Inadimplência */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {[
+                { label: 'MRR', value: formatCurrency(d.mrr), sub: 'receita recorrente mensal', icon: TrendingUp, color: '#10b981' },
+                { label: 'ARR', value: formatCurrency(d.arr), sub: 'receita recorrente anual', icon: BarChart3, color: '#6366f1' },
+                { label: 'Ticket Médio', value: formatCurrency(d.ticketMedio), sub: `${d.activeClients} clientes ativos`, icon: DollarSign, color: '#030A8C' },
+                { label: 'Inadimplência', value: `${d.inadimplencia.toFixed(1)}%`, sub: 'atrasado / previsto', icon: TrendingDown, color: d.inadimplencia > 10 ? '#ef4444' : '#6b7280' },
+              ].map((s) => (
+                <div key={s.label} className="bg-white border border-gray-100 rounded-xl p-5">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: s.color + '22' }}>
+                      <s.icon className="w-4 h-4" style={{ color: s.color }} />
+                    </div>
+                  </div>
+                  <p className="text-xl font-bold text-gray-900 leading-none">{s.value}</p>
+                  <p className="text-xs text-gray-500 mt-1">{s.label}</p>
+                  <p className="text-[11px] text-gray-400 mt-0.5">{s.sub}</p>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
 
         {/* Middle columns */}
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
@@ -188,34 +318,36 @@ export default async function DashboardPage() {
           {/* Right column — 2 cols */}
           <div className="lg:col-span-2 space-y-4">
 
-            {/* Payments */}
-            <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
-              <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
-                <p className="font-semibold text-gray-900 text-sm">Pagamentos do Mês</p>
-                <Link href="/financeiro" className="text-gray-400 hover:text-gray-600 transition-colors">
-                  <ArrowUpRight className="w-3.5 h-3.5" />
-                </Link>
-              </div>
-              {d.monthPayments.length === 0 ? (
-                <p className="text-xs text-gray-400 text-center py-5">Sem pagamentos este mês</p>
-              ) : (
-                <div className="divide-y divide-gray-100">
-                  {d.monthPayments.map((p) => (
-                    <div key={p.id} className="flex items-center justify-between px-5 py-2.5">
-                      <p className="text-xs text-gray-700 truncate flex-1 mr-2">{p.client.name}</p>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <p className="text-xs font-semibold text-gray-900">{formatCurrency(p.amount)}</p>
-                        <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold ${
-                          p.status === 'PAGO' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
-                        }`}>
-                          {p.status}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+            {/* Payments — somente ADMIN */}
+            {isAdmin && (
+              <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
+                <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
+                  <p className="font-semibold text-gray-900 text-sm">Pagamentos do Mês</p>
+                  <Link href="/financeiro" className="text-gray-400 hover:text-gray-600 transition-colors">
+                    <ArrowUpRight className="w-3.5 h-3.5" />
+                  </Link>
                 </div>
-              )}
-            </div>
+                {d.monthPayments.length === 0 ? (
+                  <p className="text-xs text-gray-400 text-center py-5">Sem pagamentos este mês</p>
+                ) : (
+                  <div className="divide-y divide-gray-100">
+                    {d.monthPayments.map((p) => (
+                      <div key={p.id} className="flex items-center justify-between px-5 py-2.5">
+                        <p className="text-xs text-gray-700 truncate flex-1 mr-2">{p.client.name}</p>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <p className="text-xs font-semibold text-gray-900">{formatCurrency(p.amount)}</p>
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold ${
+                            p.status === 'PAGO' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
+                          }`}>
+                            {p.status}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Upcoming events */}
             <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
@@ -251,9 +383,11 @@ export default async function DashboardPage() {
         <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
           <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
             <p className="font-semibold text-gray-900 text-sm">Atividade Recente</p>
-            <Link href="/logs" className="text-[10px] text-gray-400 hover:text-gray-600 flex items-center gap-1">
-              Ver logs <ArrowUpRight className="w-3 h-3" />
-            </Link>
+            {isAdmin && (
+              <Link href="/logs" className="text-[10px] text-gray-400 hover:text-gray-600 flex items-center gap-1">
+                Ver logs <ArrowUpRight className="w-3 h-3" />
+              </Link>
+            )}
           </div>
           {d.recentLogs.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-6">Nenhuma atividade registrada</p>

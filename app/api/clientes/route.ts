@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { requireUser, requireAdmin } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
 
 export async function GET(req: NextRequest) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await requireUser()
+  if (gate instanceof NextResponse) return gate
 
   const { searchParams } = new URL(req.url)
   const search = searchParams.get('search') || ''
@@ -28,8 +28,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const admin = await requireAdmin()
+  if (admin instanceof NextResponse) return admin
+  const session = { user: admin }
 
   const body = await req.json()
   const {
