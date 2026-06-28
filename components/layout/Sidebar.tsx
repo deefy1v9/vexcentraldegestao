@@ -41,14 +41,14 @@ function NavItem({ href, label, icon: Icon }: { href: string; label: string; ico
       className={cn(
         'relative flex items-center gap-3 px-4 py-2.5 text-sm transition-all rounded-r-xl',
         active
-          ? 'text-[#030A8C] font-semibold bg-[#030A8C]/5'
+          ? 'text-[#0A1A3F] font-semibold bg-[#0A1A3F]/5'
           : 'text-gray-400 font-medium hover:text-gray-700 hover:bg-gray-50'
       )}
     >
       {active && (
         <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-[#F74A13] rounded-r-full" />
       )}
-      <Icon className={cn('w-[18px] h-[18px] shrink-0', active ? 'text-[#030A8C]' : 'text-gray-400')} />
+      <Icon className={cn('w-[18px] h-[18px] shrink-0', active ? 'text-[#0A1A3F]' : 'text-gray-400')} />
       {label}
     </Link>
   )
@@ -107,7 +107,7 @@ export default function Sidebar() {
         <div className="p-3">
           <div className="bg-gray-900 rounded-xl p-4 relative overflow-hidden">
             <div className="absolute -right-4 -top-4 w-20 h-20 bg-[#F74A13]/20 rounded-full" />
-            <div className="absolute -right-2 bottom-0 w-14 h-14 bg-[#030A8C]/20 rounded-full" />
+            <div className="absolute -right-2 bottom-0 w-14 h-14 bg-[#0A1A3F]/20 rounded-full" />
 
             <div className="relative">
               <div className="w-7 h-7 bg-[#F74A13] rounded-lg flex items-center justify-center mb-3">
@@ -120,7 +120,7 @@ export default function Sidebar() {
                 Vex Agency v1.0
               </p>
               <div className="flex items-center gap-2 bg-white/10 rounded-lg px-2 py-1.5">
-                <div className="w-5 h-5 bg-[#030A8C] rounded-full flex items-center justify-center shrink-0">
+                <div className="w-5 h-5 bg-[#0A1A3F] rounded-full flex items-center justify-center shrink-0">
                   <span className="text-white text-[9px] font-bold">{getInitials(name)}</span>
                 </div>
                 <div className="min-w-0">

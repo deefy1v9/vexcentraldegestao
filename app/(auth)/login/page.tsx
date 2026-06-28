@@ -27,7 +27,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-lg p-8 w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="w-14 h-14 bg-[#030A8C] rounded-xl flex items-center justify-center mx-auto mb-4">
+          <div className="w-14 h-14 bg-[#0A1A3F] rounded-xl flex items-center justify-center mx-auto mb-4">
             <span className="text-white text-2xl font-bold">V</span>
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Central de Gestão</h1>
@@ -41,7 +41,7 @@ export default function LoginPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#030A8C] focus:border-transparent"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0A1A3F] focus:border-transparent"
               placeholder="seu@email.com"
               required
             />
@@ -52,7 +52,7 @@ export default function LoginPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#030A8C] focus:border-transparent"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0A1A3F] focus:border-transparent"
               placeholder="••••••••"
               required
             />
@@ -63,7 +63,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-[#030A8C] text-white py-2.5 px-4 rounded-lg font-medium hover:bg-[#02077a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-[#0A1A3F] text-white py-2.5 px-4 rounded-lg font-medium hover:bg-[#06112B] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Entrando...' : 'Entrar'}
           </button>

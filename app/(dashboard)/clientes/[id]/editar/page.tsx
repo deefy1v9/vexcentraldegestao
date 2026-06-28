@@ -118,7 +118,7 @@ export default function EditClientePage() {
       <div className="flex flex-col h-full overflow-hidden">
         <Header title="Carregando..." />
         <div className="flex-1 flex items-center justify-center">
-          <div className="w-8 h-8 border-2 border-[#030A8C] border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-2 border-[#0A1A3F] border-t-transparent rounded-full animate-spin" />
         </div>
       </div>
     )
@@ -203,9 +203,9 @@ export default function EditClientePage() {
               <h2 className="font-bold text-gray-900">Serviços Contratados</h2>
               <div className="flex flex-wrap gap-2 mb-3">
                 {services.map((s) => (
-                  <span key={s} className="flex items-center gap-1.5 bg-[#030A8C]/10 text-[#030A8C] px-3 py-1.5 rounded-lg text-sm font-medium">
+                  <span key={s} className="flex items-center gap-1.5 bg-[#0A1A3F]/10 text-[#0A1A3F] px-3 py-1.5 rounded-lg text-sm font-medium">
                     {s}
-                    <button type="button" onClick={() => setServices((prev) => prev.filter((x) => x !== s))} className="text-[#030A8C]/50 hover:text-red-500 transition-colors">×</button>
+                    <button type="button" onClick={() => setServices((prev) => prev.filter((x) => x !== s))} className="text-[#0A1A3F]/50 hover:text-red-500 transition-colors">×</button>
                   </span>
                 ))}
               </div>
@@ -217,7 +217,7 @@ export default function EditClientePage() {
                   placeholder="Adicionar serviço..."
                   className="input flex-1"
                 />
-                <button type="button" onClick={addService} className="px-4 py-2 bg-[#030A8C]/10 text-[#030A8C] rounded-xl text-sm font-medium hover:bg-[#030A8C] hover:text-white transition-colors">
+                <button type="button" onClick={addService} className="px-4 py-2 bg-[#0A1A3F]/10 text-[#0A1A3F] rounded-xl text-sm font-medium hover:bg-[#0A1A3F] hover:text-white transition-colors">
                   Adicionar
                 </button>
               </div>
@@ -240,7 +240,7 @@ export default function EditClientePage() {
               <button
                 type="submit"
                 disabled={saving}
-                className="flex items-center gap-2 px-5 py-2.5 bg-[#030A8C] text-white rounded-xl text-sm font-medium hover:bg-[#02077a] transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 px-5 py-2.5 bg-[#0A1A3F] text-white rounded-xl text-sm font-medium hover:bg-[#06112B] transition-colors disabled:opacity-50"
               >
                 <Save className="w-4 h-4" />
                 {saving ? 'Salvando...' : 'Salvar Alterações'}

@@ -78,7 +78,7 @@ export default function Header({ title, subtitle }: HeaderProps) {
               </span>
             )}
             {count === 0 && (
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#030A8C] rounded-full" />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#0A1A3F] rounded-full" />
             )}
           </button>
 
@@ -133,7 +133,7 @@ export default function Header({ title, subtitle }: HeaderProps) {
 
         {/* User */}
         <div className="flex items-center gap-2.5 ml-2 pl-3 border-l border-gray-100">
-          <div className="w-9 h-9 bg-[#030A8C] rounded-full flex items-center justify-center shadow-sm">
+          <div className="w-9 h-9 bg-[#0A1A3F] rounded-full flex items-center justify-center shadow-sm">
             <span className="text-white text-xs font-bold">{getInitials(name)}</span>
           </div>
           <div className="hidden sm:block">

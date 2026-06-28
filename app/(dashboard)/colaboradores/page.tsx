@@ -20,7 +20,7 @@ export default async function ColaboradoresPage() {
         <div className="flex justify-end mb-6">
           <Link
             href="/colaboradores/novo"
-            className="flex items-center gap-2 bg-[#030A8C] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#02077a] transition-colors"
+            className="flex items-center gap-2 bg-[#0A1A3F] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#06112B] transition-colors"
           >
             <Plus className="w-4 h-4" />
             Novo Colaborador
@@ -29,9 +29,9 @@ export default async function ColaboradoresPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {users.map((user) => (
-            <div key={user.id} className="bg-white rounded-2xl border border-gray-200 p-5 hover:border-[#030A8C] hover:bg-gray-50 transition-all group">
+            <div key={user.id} className="bg-white rounded-2xl border border-gray-200 p-5 hover:border-[#0A1A3F] hover:bg-gray-50 transition-all group">
               <div className="flex items-start gap-4">
-                <div className="w-11 h-11 bg-[#030A8C] rounded-full flex items-center justify-center shrink-0">
+                <div className="w-11 h-11 bg-[#0A1A3F] rounded-full flex items-center justify-center shrink-0">
                   <span className="text-white font-bold text-base">
                     {user.name.charAt(0).toUpperCase()}
                   </span>
@@ -40,7 +40,7 @@ export default async function ColaboradoresPage() {
                   <div className="flex items-center justify-between gap-2">
                     <p className="font-semibold text-gray-900 text-sm truncate">{user.name}</p>
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${
-                      user.role === 'ADMIN' ? 'bg-purple-100 text-purple-700' : 'bg-[#030A8C]/10 text-[#030A8C]'
+                      user.role === 'ADMIN' ? 'bg-purple-100 text-purple-700' : 'bg-[#0A1A3F]/10 text-[#0A1A3F]'
                     }`}>
                       {user.role}
                     </span>
@@ -73,7 +73,7 @@ export default async function ColaboradoresPage() {
                     </div>
                     <Link
                       href={`/colaboradores/${user.id}`}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-[#030A8C]/10 text-[#030A8C] rounded-lg text-xs font-medium hover:bg-[#030A8C] hover:text-white transition-colors"
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0A1A3F]/10 text-[#0A1A3F] rounded-lg text-xs font-medium hover:bg-[#0A1A3F] hover:text-white transition-colors"
                     >
                       <Pencil className="w-3 h-3" />
                       Editar

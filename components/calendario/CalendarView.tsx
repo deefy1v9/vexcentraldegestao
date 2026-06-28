@@ -175,7 +175,7 @@ export default function CalendarView({
           </button>
           <button
             onClick={() => { setForm((f) => ({ ...f, startDate: today.toISOString().split('T')[0] })); setShowForm(true) }}
-            className="flex items-center gap-2 bg-[#030A8C] text-white px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-[#02077a] transition-colors"
+            className="flex items-center gap-2 bg-[#0A1A3F] text-white px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-[#06112B] transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
             Criar evento
@@ -273,7 +273,7 @@ export default function CalendarView({
                   <select
                     value={selectedEvent.status}
                     onChange={(e) => updateStatus(selectedEvent.id, e.target.value)}
-                    className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs text-gray-700 outline-none focus:border-[#030A8C]"
+                    className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs text-gray-700 outline-none focus:border-[#0A1A3F]"
                   >
                     <option value="PENDENTE">Pendente</option>
                     <option value="EM_ANDAMENTO">Em Andamento</option>
@@ -325,7 +325,7 @@ export default function CalendarView({
           <div className="bg-white border border-gray-200 rounded-2xl w-full max-w-lg shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between p-5 border-b border-gray-100">
               <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-[#030A8C]" />
+                <Calendar className="w-4 h-4 text-[#0A1A3F]" />
                 <h3 className="font-semibold text-gray-900">Novo Evento</h3>
               </div>
               <button onClick={() => setShowForm(false)} className="p-1 hover:bg-gray-100 rounded-lg transition-colors">
@@ -391,7 +391,7 @@ export default function CalendarView({
                 Cancelar
               </button>
               <button onClick={createEvent} disabled={!form.title || !form.startDate}
-                className="px-4 py-2 text-sm bg-[#030A8C] text-white rounded-lg hover:bg-[#02077a] disabled:opacity-50 transition-colors">
+                className="px-4 py-2 text-sm bg-[#0A1A3F] text-white rounded-lg hover:bg-[#06112B] disabled:opacity-50 transition-colors">
                 Criar Evento
               </button>
             </div>

@@ -139,13 +139,13 @@ export default function ClientServicesPanel({
     <div className="bg-white rounded-xl border border-gray-200 p-6">
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-semibold text-gray-900 flex items-center gap-2">
-          <Briefcase className="w-4 h-4 text-[#030A8C]" />
+          <Briefcase className="w-4 h-4 text-[#0A1A3F]" />
           Serviços Contratados
         </h2>
         {isAdmin && (
           <button
             onClick={() => setShowForm(!showForm)}
-            className="flex items-center gap-1 text-sm text-[#030A8C] hover:underline font-medium"
+            className="flex items-center gap-1 text-sm text-[#0A1A3F] hover:underline font-medium"
           >
             <Plus className="w-4 h-4" />
             Adicionar
@@ -217,8 +217,8 @@ export default function ClientServicesPanel({
                   onClick={() => { setForm((p) => ({ ...p, contractDuration: String(chip.value) })); setCustomDuration('') }}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
                     Number(form.contractDuration) === chip.value && !customDuration
-                      ? 'bg-[#030A8C] text-white border-[#030A8C]'
-                      : 'bg-white text-gray-700 border-gray-300 hover:border-[#030A8C] hover:text-[#030A8C]'
+                      ? 'bg-[#0A1A3F] text-white border-[#0A1A3F]'
+                      : 'bg-white text-gray-700 border-gray-300 hover:border-[#0A1A3F] hover:text-[#0A1A3F]'
                   }`}
                 >
                   {chip.label}
@@ -229,8 +229,8 @@ export default function ClientServicesPanel({
                 onClick={() => setCustomDuration(customDuration ? '' : (form.contractDuration || ''))}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
                   customDuration
-                    ? 'bg-[#030A8C] text-white border-[#030A8C]'
-                    : 'bg-white text-gray-700 border-gray-300 hover:border-[#030A8C] hover:text-[#030A8C]'
+                    ? 'bg-[#0A1A3F] text-white border-[#0A1A3F]'
+                    : 'bg-white text-gray-700 border-gray-300 hover:border-[#0A1A3F] hover:text-[#0A1A3F]'
                 }`}
               >
                 Outro...
@@ -269,14 +269,14 @@ export default function ClientServicesPanel({
           {boletoCount > 0 && valor > 0 && (
             <div className="flex items-center justify-between bg-blue-50 border border-blue-100 rounded-lg px-4 py-3">
               <div>
-                <p className="text-sm font-medium text-[#030A8C]">
+                <p className="text-sm font-medium text-[#0A1A3F]">
                   {boletoCount} {boletoCount === 1 ? 'boleto será gerado' : 'boletos serão gerados'} automaticamente
                 </p>
                 <p className="text-xs text-blue-600 mt-0.5">
                   Total do contrato: {formatCurrency(totalContractValue)}
                 </p>
               </div>
-              <span className="text-3xl font-black text-[#030A8C]">{boletoCount}</span>
+              <span className="text-3xl font-black text-[#0A1A3F]">{boletoCount}</span>
             </div>
           )}
 
@@ -302,7 +302,7 @@ export default function ClientServicesPanel({
             <button
               onClick={addService}
               disabled={!form.serviceName || !form.monthlyValue || !form.contractDuration || saving}
-              className="px-4 py-2 text-sm bg-[#030A8C] text-white rounded-lg hover:bg-[#02077a] transition-colors disabled:opacity-50 font-medium"
+              className="px-4 py-2 text-sm bg-[#0A1A3F] text-white rounded-lg hover:bg-[#06112B] transition-colors disabled:opacity-50 font-medium"
             >
               {saving
                 ? 'Salvando...'
@@ -327,7 +327,7 @@ export default function ClientServicesPanel({
               <div key={svc.id} className="border border-gray-200 rounded-lg p-4">
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="bg-[#030A8C]/10 text-[#030A8C] text-sm px-3 py-1 rounded-lg font-medium">
+                    <span className="bg-[#0A1A3F]/10 text-[#0A1A3F] text-sm px-3 py-1 rounded-lg font-medium">
                       {svc.customName || svc.serviceName}
                     </span>
                     {svc.customName && (
@@ -370,7 +370,7 @@ export default function ClientServicesPanel({
                   {svc.totalContractValue != null && (
                     <div>
                       <span className="text-gray-400">Total: </span>
-                      <span className="font-semibold text-[#030A8C]">{formatCurrency(svc.totalContractValue)}</span>
+                      <span className="font-semibold text-[#0A1A3F]">{formatCurrency(svc.totalContractValue)}</span>
                     </div>
                   )}
                   {svc.startDate && (

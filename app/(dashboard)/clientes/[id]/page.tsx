@@ -49,7 +49,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
                 <h2 className="font-semibold text-gray-900">Dados do Cliente</h2>
                 {isAdmin && (
                   <Link href={`/clientes/${id}/editar`}
-                    className="text-xs text-[#030A8C] hover:underline font-medium">
+                    className="text-xs text-[#0A1A3F] hover:underline font-medium">
                     Editar
                   </Link>
                 )}
@@ -99,7 +99,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
                 <div className="space-y-2">
                   {client.calendarEvents.map((ev) => (
                     <div key={ev.id} className="flex items-start gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-[#030A8C] mt-1.5 shrink-0" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#0A1A3F] mt-1.5 shrink-0" />
                       <div>
                         <p className="text-sm font-medium text-gray-900">{ev.title}</p>
                         <p className="text-xs text-gray-500">{formatDate(ev.startDate)}</p>

@@ -5,8 +5,8 @@
 }
 
 :root {
-  --primary: #030A8C;
-  --primary-dark: #02077a;
+  --primary: #0A1A3F;
+  --primary-dark: #06112B;
   --orange: #F74A13;
   --background: #F0F2F8;
   --surface: #ffffff;
@@ -36,8 +36,8 @@ body {
 }
 
 .input:focus {
-  border-color: #030A8C;
-  box-shadow: 0 0 0 3px rgba(5, 59, 201, 0.1);
+  border-color: #0A1A3F;
+  box-shadow: 0 0 0 3px rgba(10, 26, 63, 0.12);
 }
 
 .input::placeholder {

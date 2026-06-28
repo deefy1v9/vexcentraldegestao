@@ -103,7 +103,7 @@ export default function FinanceiroPanel({
         {[
           { label: 'Receita do Mês', value: formatCurrency(serviceRevenue), sub: `${formatCurrency(pendingRevenue)} pendente`, icon: TrendingUp, color: 'text-green-600 bg-green-50' },
           { label: 'Custos Totais', value: formatCurrency(totalCosts), sub: `${formatCurrency(totalSalaries)} salários`, icon: TrendingDown, color: 'text-red-600 bg-red-50' },
-          { label: 'Lucro Líquido', value: formatCurrency(netProfit), sub: netProfit >= 0 ? 'positivo' : 'negativo', icon: DollarSign, color: `${netProfit >= 0 ? 'text-[#030A8C] bg-blue-50' : 'text-red-600 bg-red-50'}` },
+          { label: 'Lucro Líquido', value: formatCurrency(netProfit), sub: netProfit >= 0 ? 'positivo' : 'negativo', icon: DollarSign, color: `${netProfit >= 0 ? 'text-[#0A1A3F] bg-blue-50' : 'text-red-600 bg-red-50'}` },
           { label: 'Salários', value: formatCurrency(totalSalaries), sub: `${salaries.length} colaboradores`, icon: Users, color: 'text-purple-600 bg-purple-50' },
         ].map((card) => (
           <div key={card.label} className="bg-white rounded-xl border border-gray-200 p-5">
@@ -128,7 +128,7 @@ export default function FinanceiroPanel({
               onClick={() => setActiveTab(tab.key)}
               className={`px-5 py-3 text-sm font-medium transition-colors ${
                 activeTab === tab.key
-                  ? 'text-[#030A8C] border-b-2 border-[#030A8C]'
+                  ? 'text-[#0A1A3F] border-b-2 border-[#0A1A3F]'
                   : 'text-gray-500 hover:text-gray-900'
               }`}
             >
@@ -138,7 +138,7 @@ export default function FinanceiroPanel({
           <div className="flex-1" />
           {(activeTab === 'costs') && (
             <button onClick={() => setShowNewEntry(true)}
-              className="flex items-center gap-1 mr-3 my-2 px-3 py-1.5 bg-[#030A8C] text-white rounded-lg text-xs font-medium">
+              className="flex items-center gap-1 mr-3 my-2 px-3 py-1.5 bg-[#0A1A3F] text-white rounded-lg text-xs font-medium">
               <Plus className="w-3.5 h-3.5" />
               Novo Custo
             </button>
@@ -165,9 +165,9 @@ export default function FinanceiroPanel({
                 <span className="text-sm font-medium text-gray-700">Outros Custos</span>
                 <span className="text-sm font-bold text-red-700">- {formatCurrency(otherCosts)}</span>
               </div>
-              <div className={`flex items-center justify-between p-4 rounded-lg border-2 ${netProfit >= 0 ? 'bg-blue-50 border-[#030A8C]' : 'bg-red-50 border-red-400'}`}>
+              <div className={`flex items-center justify-between p-4 rounded-lg border-2 ${netProfit >= 0 ? 'bg-blue-50 border-[#0A1A3F]' : 'bg-red-50 border-red-400'}`}>
                 <span className="text-base font-bold text-gray-900">Lucro Líquido</span>
-                <span className={`text-lg font-bold ${netProfit >= 0 ? 'text-[#030A8C]' : 'text-red-700'}`}>
+                <span className={`text-lg font-bold ${netProfit >= 0 ? 'text-[#0A1A3F]' : 'text-red-700'}`}>
                   {formatCurrency(netProfit)}
                 </span>
               </div>
@@ -244,7 +244,7 @@ export default function FinanceiroPanel({
                     <button onClick={() => setShowNewEntry(false)}
                       className="text-xs px-3 py-1.5 text-gray-600 hover:bg-gray-200 rounded-lg">Cancelar</button>
                     <button onClick={createEntry} disabled={!form.description || !form.amount}
-                      className="text-xs px-3 py-1.5 bg-[#030A8C] text-white rounded-lg hover:bg-[#02077a] disabled:opacity-50">Salvar</button>
+                      className="text-xs px-3 py-1.5 bg-[#0A1A3F] text-white rounded-lg hover:bg-[#06112B] disabled:opacity-50">Salvar</button>
                   </div>
                 </div>
               )}
@@ -277,7 +277,7 @@ export default function FinanceiroPanel({
                 salaries.map((user) => (
                   <div key={user.id} className="flex items-center justify-between p-3 border border-gray-100 rounded-lg">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-[#030A8C] rounded-full flex items-center justify-center">
+                      <div className="w-8 h-8 bg-[#0A1A3F] rounded-full flex items-center justify-center">
                         <span className="text-white text-xs font-bold">{user.name.charAt(0)}</span>
                       </div>
                       <div>

@@ -98,7 +98,7 @@ export default function NovoColaboradorPage() {
                 Cancelar
               </Link>
               <button type="submit" disabled={loading}
-                className="px-6 py-2.5 bg-[#030A8C] text-white rounded-lg text-sm font-medium hover:bg-[#02077a] transition-colors disabled:opacity-50">
+                className="px-6 py-2.5 bg-[#0A1A3F] text-white rounded-lg text-sm font-medium hover:bg-[#06112B] transition-colors disabled:opacity-50">
                 {loading ? 'Salvando...' : 'Cadastrar Colaborador'}
               </button>
             </div>

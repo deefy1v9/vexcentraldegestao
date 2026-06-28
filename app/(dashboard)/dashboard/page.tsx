@@ -160,7 +160,7 @@ export default async function DashboardPage() {
           </div>
           <Link
             href="/demandas"
-            className="flex items-center gap-2 bg-[#030A8C] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#02077a] transition-colors"
+            className="flex items-center gap-2 bg-[#0A1A3F] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#06112B] transition-colors"
           >
             <Kanban className="w-4 h-4" />
             Ver Demandas
@@ -174,8 +174,8 @@ export default async function DashboardPage() {
             className="group bg-white border border-gray-100 rounded-xl p-5 hover:border-gray-200 transition-all"
           >
             <div className="flex items-start justify-between mb-4">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#030A8C22' }}>
-                <Building2 className="w-4 h-4" style={{ color: '#030A8C' }} />
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#0A1A3F22' }}>
+                <Building2 className="w-4 h-4" style={{ color: '#0A1A3F' }} />
               </div>
               <ArrowUpRight className="w-3.5 h-3.5 text-gray-300 group-hover:text-gray-500 transition-colors" />
             </div>
@@ -261,7 +261,7 @@ export default async function DashboardPage() {
               {[
                 { label: 'MRR', value: formatCurrency(d.mrr), sub: 'receita recorrente mensal', icon: TrendingUp, color: '#10b981' },
                 { label: 'ARR', value: formatCurrency(d.arr), sub: 'receita recorrente anual', icon: BarChart3, color: '#6366f1' },
-                { label: 'Ticket Médio', value: formatCurrency(d.ticketMedio), sub: `${d.activeClients} clientes ativos`, icon: DollarSign, color: '#030A8C' },
+                { label: 'Ticket Médio', value: formatCurrency(d.ticketMedio), sub: `${d.activeClients} clientes ativos`, icon: DollarSign, color: '#0A1A3F' },
                 { label: 'Inadimplência', value: `${d.inadimplencia.toFixed(1)}%`, sub: 'atrasado / previsto', icon: TrendingDown, color: d.inadimplencia > 10 ? '#ef4444' : '#6b7280' },
               ].map((s) => (
                 <div key={s.label} className="bg-white border border-gray-100 rounded-xl p-5">
@@ -304,7 +304,7 @@ export default async function DashboardPage() {
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="text-[10px] text-gray-400">{STATUS_LABEL[task.status]}</span>
                       {task.assignee && (
-                        <div className="w-5 h-5 bg-[#030A8C] rounded-full flex items-center justify-center">
+                        <div className="w-5 h-5 bg-[#0A1A3F] rounded-full flex items-center justify-center">
                           <span className="text-white text-[9px] font-bold">{task.assignee.name.charAt(0)}</span>
                         </div>
                       )}
@@ -363,12 +363,12 @@ export default async function DashboardPage() {
                 <div className="divide-y divide-gray-100">
                   {d.upcomingEvents.map((ev) => (
                     <div key={ev.id} className="flex items-start gap-3 px-5 py-2.5">
-                      <div className="w-1 h-1 rounded-full bg-[#030A8C] mt-2 shrink-0" />
+                      <div className="w-1 h-1 rounded-full bg-[#0A1A3F] mt-2 shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium text-gray-900 truncate">{ev.title}</p>
                         <div className="flex gap-1.5 mt-0.5">
                           {ev.client && <p className="text-[10px] text-gray-400">{ev.client.name} ·</p>}
-                          <p className="text-[10px] text-[#030A8C]">{formatDate(ev.startDate)}</p>
+                          <p className="text-[10px] text-[#0A1A3F]">{formatDate(ev.startDate)}</p>
                         </div>
                       </div>
                     </div>
@@ -400,7 +400,7 @@ export default async function DashboardPage() {
                     i % 4 !== 3 ? 'lg:border-r border-gray-100' : ''
                   }`}
                 >
-                  <div className="w-7 h-7 bg-[#030A8C] rounded-full flex items-center justify-center shrink-0">
+                  <div className="w-7 h-7 bg-[#0A1A3F] rounded-full flex items-center justify-center shrink-0">
                     <span className="text-white text-[10px] font-bold">{log.user.name.charAt(0)}</span>
                   </div>
                   <div className="flex-1 min-w-0">

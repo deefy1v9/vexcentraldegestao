@@ -106,7 +106,7 @@ export default function EditColaboradorPage() {
       <div className="flex flex-col h-full overflow-hidden">
         <Header title="Carregando..." />
         <div className="flex-1 flex items-center justify-center">
-          <div className="w-8 h-8 border-2 border-[#030A8C] border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-2 border-[#0A1A3F] border-t-transparent rounded-full animate-spin" />
         </div>
       </div>
     )
@@ -129,8 +129,8 @@ export default function EditColaboradorPage() {
               <form onSubmit={handleSave} className="space-y-4">
                 <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
                   <h2 className="font-bold text-gray-900 flex items-center gap-2">
-                    <div className="w-7 h-7 bg-[#030A8C]/10 rounded-lg flex items-center justify-center">
-                      <Mail className="w-4 h-4 text-[#030A8C]" />
+                    <div className="w-7 h-7 bg-[#0A1A3F]/10 rounded-lg flex items-center justify-center">
+                      <Mail className="w-4 h-4 text-[#0A1A3F]" />
                     </div>
                     Dados Pessoais
                   </h2>
@@ -192,8 +192,8 @@ export default function EditColaboradorPage() {
 
                 <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
                   <h2 className="font-bold text-gray-900 flex items-center gap-2">
-                    <div className="w-7 h-7 bg-[#030A8C]/10 rounded-lg flex items-center justify-center">
-                      <DollarSign className="w-4 h-4 text-[#030A8C]" />
+                    <div className="w-7 h-7 bg-[#0A1A3F]/10 rounded-lg flex items-center justify-center">
+                      <DollarSign className="w-4 h-4 text-[#0A1A3F]" />
                     </div>
                     Financeiro
                   </h2>
@@ -228,7 +228,7 @@ export default function EditColaboradorPage() {
                   <button
                     type="submit"
                     disabled={saving}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-[#030A8C] text-white rounded-xl text-sm font-medium hover:bg-[#02077a] transition-colors disabled:opacity-50"
+                    className="flex items-center gap-2 px-5 py-2.5 bg-[#0A1A3F] text-white rounded-xl text-sm font-medium hover:bg-[#06112B] transition-colors disabled:opacity-50"
                   >
                     <Save className="w-4 h-4" />
                     {saving ? 'Salvando...' : 'Salvar Alterações'}
@@ -256,12 +256,12 @@ export default function EditColaboradorPage() {
               {/* Stats */}
               <div className="bg-white rounded-2xl border border-gray-200 p-5">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 bg-[#030A8C] rounded-full flex items-center justify-center">
+                  <div className="w-12 h-12 bg-[#0A1A3F] rounded-full flex items-center justify-center">
                     <span className="text-white font-bold text-lg">{user.name.charAt(0)}</span>
                   </div>
                   <div>
                     <p className="font-bold text-gray-900 text-sm">{user.name}</p>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${user.role === 'ADMIN' ? 'bg-purple-100 text-purple-700' : 'bg-[#030A8C]/10 text-[#030A8C]'}`}>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${user.role === 'ADMIN' ? 'bg-purple-100 text-purple-700' : 'bg-[#0A1A3F]/10 text-[#0A1A3F]'}`}>
                       {user.role}
                     </span>
                   </div>
@@ -311,7 +311,7 @@ export default function EditColaboradorPage() {
                   <div className="space-y-2">
                     {user.activityLogs.slice(0, 8).map((log) => (
                       <div key={log.id} className="flex items-start gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-[#030A8C] mt-1.5 shrink-0" />
+                        <div className="w-1.5 h-1.5 rounded-full bg-[#0A1A3F] mt-1.5 shrink-0" />
                         <div>
                           <p className="text-xs text-gray-700">{log.action}</p>
                           <p className="text-[10px] text-gray-500">{log.module} · {formatDateTime(log.createdAt)}</p>

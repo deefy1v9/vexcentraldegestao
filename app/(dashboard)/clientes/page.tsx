@@ -35,12 +35,12 @@ export default async function ClientesPage({
               name="search"
               defaultValue={search}
               placeholder="Buscar por nome, CNPJ ou nicho..."
-              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#030A8C] bg-white text-gray-900 placeholder:text-gray-400"
+              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0A1A3F] bg-white text-gray-900 placeholder:text-gray-400"
             />
           </form>
           <Link
             href="/clientes/novo"
-            className="flex items-center gap-2 bg-[#030A8C] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#02077a] transition-colors"
+            className="flex items-center gap-2 bg-[#0A1A3F] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#06112B] transition-colors"
           >
             <Plus className="w-4 h-4" />
             Novo Cliente
@@ -77,7 +77,7 @@ export default async function ClientesPage({
                 <tr>
                   <td colSpan={6} className="text-center py-12 text-gray-500 text-sm">
                     Nenhum cliente encontrado.{' '}
-                    <Link href="/clientes/novo" className="text-[#030A8C] hover:underline">
+                    <Link href="/clientes/novo" className="text-[#0A1A3F] hover:underline">
                       Cadastrar primeiro cliente
                     </Link>
                   </td>
@@ -87,7 +87,7 @@ export default async function ClientesPage({
                   <tr key={client.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3">
                       <Link href={`/clientes/${client.id}`} className="block">
-                        <p className="text-sm font-semibold text-gray-900 hover:text-[#030A8C]">
+                        <p className="text-sm font-semibold text-gray-900 hover:text-[#0A1A3F]">
                           {client.name}
                         </p>
                         {client.cnpj && (
@@ -101,7 +101,7 @@ export default async function ClientesPage({
                     <td className="px-4 py-3 hidden lg:table-cell">
                       <div className="flex flex-wrap gap-1">
                         {client.services.slice(0, 3).map((s) => (
-                          <span key={s.id} className="text-xs bg-[#030A8C]/10 text-[#030A8C] px-2 py-0.5 rounded-full">
+                          <span key={s.id} className="text-xs bg-[#0A1A3F]/10 text-[#0A1A3F] px-2 py-0.5 rounded-full">
                             {s.serviceName}
                           </span>
                         ))}
@@ -130,7 +130,7 @@ export default async function ClientesPage({
                     <td className="px-4 py-3 text-right">
                       <Link
                         href={`/clientes/${client.id}/editar`}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#030A8C]/10 text-[#030A8C] rounded-lg text-xs font-medium hover:bg-[#030A8C] hover:text-white transition-colors"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#0A1A3F]/10 text-[#0A1A3F] rounded-lg text-xs font-medium hover:bg-[#0A1A3F] hover:text-white transition-colors"
                       >
                         <Pencil className="w-3 h-3" />
                         Editar

@@ -320,7 +320,7 @@ export default function CrmPanel({
               </button>
               <button
                 onClick={() => setShowAddContact(true)}
-                className="w-7 h-7 bg-[#030A8C] text-white rounded-lg flex items-center justify-center hover:bg-[#02077a] transition-colors"
+                className="w-7 h-7 bg-[#0A1A3F] text-white rounded-lg flex items-center justify-center hover:bg-[#06112B] transition-colors"
               >
                 <Plus className="w-4 h-4" />
               </button>
@@ -332,7 +332,7 @@ export default function CrmPanel({
             <span className={`w-2 h-2 rounded-full shrink-0 ${connDot}`} />
             <span className="text-xs text-gray-600 flex-1">{connLabel}</span>
             {connState !== 'connected' && connState !== 'checking' && connState !== 'unconfigured' && (
-              <button onClick={connectWhatsApp} disabled={connecting} className="text-[10px] text-[#030A8C] font-semibold hover:underline">
+              <button onClick={connectWhatsApp} disabled={connecting} className="text-[10px] text-[#0A1A3F] font-semibold hover:underline">
                 {connecting ? 'Aguarde...' : 'Conectar'}
               </button>
             )}
@@ -344,7 +344,7 @@ export default function CrmPanel({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar conversa..."
-              className="w-full bg-gray-50 border border-gray-200 rounded-lg pl-8 pr-3 py-1.5 text-xs text-gray-900 placeholder-gray-400 outline-none focus:border-[#030A8C]"
+              className="w-full bg-gray-50 border border-gray-200 rounded-lg pl-8 pr-3 py-1.5 text-xs text-gray-900 placeholder-gray-400 outline-none focus:border-[#0A1A3F]"
             />
           </div>
         </div>
@@ -365,10 +365,10 @@ export default function CrmPanel({
                   key={contact.id}
                   onClick={() => selectContact(contact)}
                   className={`w-full flex items-start gap-3 px-4 py-3 transition-colors text-left border-b border-gray-100 ${
-                    isSelected ? 'bg-[#030A8C]/10 border-l-2 border-l-[#030A8C]' : 'hover:bg-gray-50'
+                    isSelected ? 'bg-[#0A1A3F]/10 border-l-2 border-l-[#0A1A3F]' : 'hover:bg-gray-50'
                   }`}
                 >
-                  <div className="w-9 h-9 bg-[#030A8C] rounded-full flex items-center justify-center shrink-0">
+                  <div className="w-9 h-9 bg-[#0A1A3F] rounded-full flex items-center justify-center shrink-0">
                     <span className="text-white font-bold text-sm">{getInitial(contactName(contact))}</span>
                   </div>
                   <div className="flex-1 min-w-0">
@@ -396,7 +396,7 @@ export default function CrmPanel({
 
           {/* Chat header */}
           <div className="bg-white border-b border-gray-200 px-5 py-3 flex items-center gap-3 shrink-0">
-            <div className="w-9 h-9 bg-[#030A8C] rounded-full flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 bg-[#0A1A3F] rounded-full flex items-center justify-center shrink-0">
               <span className="text-white font-bold text-sm">{getInitial(contactName(selectedContact))}</span>
             </div>
             <div className="flex-1">
@@ -434,13 +434,13 @@ export default function CrmPanel({
                     {group.messages.map((msg) => (
                       <div key={msg.id} className={`flex ${msg.fromClient ? 'justify-start' : 'justify-end'}`}>
                         <div className="max-w-[70%]">
-                          <p className={`text-[10px] font-semibold mb-1 ${msg.fromClient ? 'text-gray-500' : 'text-[#030A8C] text-right'}`}>
+                          <p className={`text-[10px] font-semibold mb-1 ${msg.fromClient ? 'text-gray-500' : 'text-[#0A1A3F] text-right'}`}>
                             {msg.fromClient ? contactName(selectedContact) : (msg.sender?.name || msg.senderName || 'Colaborador')}
                           </p>
                           <div className={`rounded-2xl px-4 py-2.5 ${
                             msg.fromClient
                               ? 'bg-white border border-gray-200 text-gray-900 rounded-tl-sm shadow-sm'
-                              : 'bg-[#030A8C] text-white rounded-tr-sm'
+                              : 'bg-[#0A1A3F] text-white rounded-tr-sm'
                           }`}>
                             <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                             <p className={`text-[10px] mt-1 ${msg.fromClient ? 'text-gray-400' : 'text-blue-200'}`}>
@@ -459,11 +459,11 @@ export default function CrmPanel({
 
           {/* Message input */}
           <div className="bg-white border-t border-gray-200 px-5 py-4 shrink-0">
-            <div className="flex items-end gap-2 bg-white border border-gray-200 rounded-2xl px-3 py-2 focus-within:border-[#030A8C] transition-colors">
+            <div className="flex items-end gap-2 bg-white border border-gray-200 rounded-2xl px-3 py-2 focus-within:border-[#0A1A3F] transition-colors">
               <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploading}
-                className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-[#030A8C] transition-colors shrink-0 self-end mb-0.5"
+                className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-[#0A1A3F] transition-colors shrink-0 self-end mb-0.5"
                 title="Enviar arquivo"
               >
                 {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
@@ -481,7 +481,7 @@ export default function CrmPanel({
               <button
                 onClick={sendMessage}
                 disabled={sending || !newMsg.trim()}
-                className="w-8 h-8 bg-[#030A8C] text-white rounded-xl flex items-center justify-center hover:bg-[#02077a] transition-colors disabled:opacity-40 shrink-0"
+                className="w-8 h-8 bg-[#0A1A3F] text-white rounded-xl flex items-center justify-center hover:bg-[#06112B] transition-colors disabled:opacity-40 shrink-0"
               >
                 {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
               </button>
@@ -522,7 +522,7 @@ export default function CrmPanel({
                     value={credsForm.UAZAPI_URL}
                     onChange={(e) => setCredsForm((f) => ({ ...f, UAZAPI_URL: e.target.value }))}
                     placeholder="https://api.uazapi.com"
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 outline-none focus:border-[#030A8C] bg-white"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 outline-none focus:border-[#0A1A3F] bg-white"
                   />
                 </div>
                 <div>
@@ -532,13 +532,13 @@ export default function CrmPanel({
                     onChange={(e) => setCredsForm((f) => ({ ...f, UAZAPI_TOKEN: e.target.value }))}
                     placeholder="seu-token-aqui"
                     type="password"
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 outline-none focus:border-[#030A8C] bg-white"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 outline-none focus:border-[#0A1A3F] bg-white"
                   />
                 </div>
                 <button
                   onClick={saveCreds}
                   disabled={savingCreds || (!credsForm.UAZAPI_URL && !credsForm.UAZAPI_TOKEN)}
-                  className="w-full py-2 bg-[#030A8C] text-white text-xs font-semibold rounded-lg hover:bg-[#02077a] disabled:opacity-40 transition-colors flex items-center justify-center gap-2"
+                  className="w-full py-2 bg-[#0A1A3F] text-white text-xs font-semibold rounded-lg hover:bg-[#06112B] disabled:opacity-40 transition-colors flex items-center justify-center gap-2"
                 >
                   {savingCreds ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Salvando...</> : credsSaved ? <><Check className="w-3.5 h-3.5" /> Salvo!</> : 'Salvar credenciais'}
                 </button>
@@ -569,7 +569,7 @@ export default function CrmPanel({
                 <button
                   onClick={connectWhatsApp}
                   disabled={connecting || connState === 'unconfigured'}
-                  className="w-full py-2.5 bg-[#030A8C] text-white text-sm font-semibold rounded-xl hover:bg-[#02077a] disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                  className="w-full py-2.5 bg-[#0A1A3F] text-white text-sm font-semibold rounded-xl hover:bg-[#06112B] disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
                 >
                   {connecting
                     ? <><Loader2 className="w-4 h-4 animate-spin" /> Gerando QR...</>
@@ -627,7 +627,7 @@ export default function CrmPanel({
                 <select
                   value={addForm.clientId}
                   onChange={(e) => setAddForm((f) => ({ ...f, clientId: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white text-gray-900 outline-none focus:border-[#030A8C]"
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white text-gray-900 outline-none focus:border-[#0A1A3F]"
                 >
                   <option value="">Selecione um cliente</option>
                   {availableClients.map((c) => (
@@ -640,7 +640,7 @@ export default function CrmPanel({
                 <input
                   value={addForm.whatsappNumber}
                   onChange={(e) => setAddForm((f) => ({ ...f, whatsappNumber: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white text-gray-900 outline-none focus:border-[#030A8C]"
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white text-gray-900 outline-none focus:border-[#0A1A3F]"
                   placeholder="Ex: 5511999999999"
                 />
                 <p className="text-xs text-gray-400 mt-1">Formato: 55 + DDD + número (sem espaços ou símbolos)</p>
@@ -656,7 +656,7 @@ export default function CrmPanel({
               <button
                 onClick={addContact}
                 disabled={!addForm.clientId || !addForm.whatsappNumber}
-                className="px-4 py-2 text-sm bg-[#030A8C] text-white rounded-lg hover:bg-[#02077a] disabled:opacity-50 transition-colors"
+                className="px-4 py-2 text-sm bg-[#0A1A3F] text-white rounded-lg hover:bg-[#06112B] disabled:opacity-50 transition-colors"
               >
                 Adicionar
               </button>

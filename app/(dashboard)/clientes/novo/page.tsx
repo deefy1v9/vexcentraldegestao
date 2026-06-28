@@ -154,7 +154,7 @@ export default function NovoClientePage() {
               <div className="flex items-center justify-between mb-4">
                 <h2 className="font-semibold text-gray-900">Serviços Contratados</h2>
                 <button type="button" onClick={addService}
-                  className="flex items-center gap-1 text-sm text-[#030A8C] hover:underline">
+                  className="flex items-center gap-1 text-sm text-[#0A1A3F] hover:underline">
                   <Plus className="w-4 h-4" /> Adicionar
                 </button>
               </div>
@@ -200,7 +200,7 @@ export default function NovoClientePage() {
                 Cancelar
               </Link>
               <button type="submit" disabled={loading}
-                className="px-6 py-2.5 bg-[#030A8C] text-white rounded-lg text-sm font-medium hover:bg-[#02077a] transition-colors disabled:opacity-50">
+                className="px-6 py-2.5 bg-[#0A1A3F] text-white rounded-lg text-sm font-medium hover:bg-[#06112B] transition-colors disabled:opacity-50">
                 {loading ? 'Salvando...' : 'Cadastrar Cliente'}
               </button>
             </div>

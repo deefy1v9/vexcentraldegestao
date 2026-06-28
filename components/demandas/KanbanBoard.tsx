@@ -261,7 +261,7 @@ export default function KanbanBoard({
             onClick={() => setSelectedUserId('all')}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
               selectedUserId === 'all'
-                ? 'bg-[#030A8C] text-white'
+                ? 'bg-[#0A1A3F] text-white'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
@@ -276,15 +276,15 @@ export default function KanbanBoard({
               key={user.id}
               onClick={() => setSelectedUserId(user.id)}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                active ? 'bg-[#030A8C] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                active ? 'bg-[#0A1A3F] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
-              <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${active ? 'bg-white/20 text-white' : 'bg-[#030A8C]/10 text-[#030A8C]'}`}>
+              <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${active ? 'bg-white/20 text-white' : 'bg-[#0A1A3F]/10 text-[#0A1A3F]'}`}>
                 {user.name.charAt(0)}
               </div>
               {user.name.split(' ')[0]}
               {count > 0 && (
-                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${active ? 'bg-white/20 text-white' : 'bg-[#030A8C] text-white'}`}>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${active ? 'bg-white/20 text-white' : 'bg-[#0A1A3F] text-white'}`}>
                   {count}
                 </span>
               )}
@@ -326,7 +326,7 @@ export default function KanbanBoard({
                 </div>
 
                 {showNewForm === col.key && (
-                  <div className="bg-white rounded-xl border-2 border-[#030A8C] p-3.5 mb-3 shadow-md">
+                  <div className="bg-white rounded-xl border-2 border-[#0A1A3F] p-3.5 mb-3 shadow-md">
                     <input
                       autoFocus
                       value={newTaskTitle}
@@ -369,12 +369,12 @@ export default function KanbanBoard({
 
                     {/* Date, client, assignee */}
                     <div className="space-y-1.5 mb-3">
-                      <input type="date" value={newTaskDue} onChange={(e) => setNewTaskDue(e.target.value)} className="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white text-gray-700 outline-none focus:border-[#030A8C]" />
-                      <select value={newTaskClient} onChange={(e) => setNewTaskClient(e.target.value)} className="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white text-gray-700 outline-none focus:border-[#030A8C]">
+                      <input type="date" value={newTaskDue} onChange={(e) => setNewTaskDue(e.target.value)} className="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white text-gray-700 outline-none focus:border-[#0A1A3F]" />
+                      <select value={newTaskClient} onChange={(e) => setNewTaskClient(e.target.value)} className="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white text-gray-700 outline-none focus:border-[#0A1A3F]">
                         <option value="">Sem cliente</option>
                         {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                       </select>
-                      <select value={newTaskAssignee} onChange={(e) => setNewTaskAssignee(e.target.value)} className="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white text-gray-700 outline-none focus:border-[#030A8C]">
+                      <select value={newTaskAssignee} onChange={(e) => setNewTaskAssignee(e.target.value)} className="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white text-gray-700 outline-none focus:border-[#0A1A3F]">
                         <option value="">Responsável</option>
                         {users.map((u) => <option key={u.id} value={u.id}>{u.name.split(' ')[0]}</option>)}
                       </select>
@@ -400,7 +400,7 @@ export default function KanbanBoard({
                       <button
                         type="button"
                         onClick={() => newTaskFileInputRef.current?.click()}
-                        className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-[#030A8C] transition-colors"
+                        className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-[#0A1A3F] transition-colors"
                         title="Anexar arquivo"
                       >
                         <Paperclip className="w-4 h-4" />
@@ -421,7 +421,7 @@ export default function KanbanBoard({
                       <button onClick={resetForm} className="px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-100 rounded-lg transition-colors">
                         Cancelar
                       </button>
-                      <button onClick={() => createTask(col.key)} disabled={!newTaskTitle.trim() || creating} className="px-4 py-1.5 bg-[#030A8C] text-white text-xs font-semibold rounded-lg hover:bg-[#02077a] disabled:opacity-40 transition-colors">
+                      <button onClick={() => createTask(col.key)} disabled={!newTaskTitle.trim() || creating} className="px-4 py-1.5 bg-[#0A1A3F] text-white text-xs font-semibold rounded-lg hover:bg-[#06112B] disabled:opacity-40 transition-colors">
                         {creating ? 'Criando...' : 'Criar'}
                       </button>
                     </div>
@@ -432,7 +432,7 @@ export default function KanbanBoard({
                   {colTasks.length === 0 && showNewForm !== col.key && (
                     <div
                       onClick={() => { setShowNewForm(col.key); setNewTaskAssignee(selectedUserId !== 'all' ? selectedUserId : isAdmin ? '' : currentUserId) }}
-                      className="border-2 border-dashed border-gray-200 rounded-xl p-4 text-center cursor-pointer hover:border-[#030A8C]/40 hover:bg-[#030A8C]/5 transition-all"
+                      className="border-2 border-dashed border-gray-200 rounded-xl p-4 text-center cursor-pointer hover:border-[#0A1A3F]/40 hover:bg-[#0A1A3F]/5 transition-all"
                     >
                       <Plus className="w-4 h-4 text-gray-400 mx-auto mb-1" />
                       <p className="text-xs text-gray-400">Adicionar demanda</p>
@@ -445,7 +445,7 @@ export default function KanbanBoard({
                       draggable
                       onDragStart={() => { dragRef.current = task.id }}
                       onClick={() => openTask(task)}
-                      className="bg-white rounded-xl border border-gray-200 p-3 cursor-pointer hover:border-[#030A8C] transition-all"
+                      className="bg-white rounded-xl border border-gray-200 p-3 cursor-pointer hover:border-[#0A1A3F] transition-all"
                     >
                       <div className="flex items-start justify-between gap-2 mb-1.5">
                         <p className="text-sm font-semibold text-gray-900 leading-snug flex-1">{task.title}</p>
@@ -459,7 +459,7 @@ export default function KanbanBoard({
                       )}
 
                       {task.client && (
-                        <span className="inline-block text-[10px] bg-[#030A8C]/10 text-[#030A8C] px-2 py-0.5 rounded-full font-medium mb-2">
+                        <span className="inline-block text-[10px] bg-[#0A1A3F]/10 text-[#0A1A3F] px-2 py-0.5 rounded-full font-medium mb-2">
                           {task.client.name}
                         </span>
                       )}
@@ -468,7 +468,7 @@ export default function KanbanBoard({
                         <div className="flex items-center gap-2">
                           {task.assignee && (
                             <div className="flex items-center gap-1">
-                              <div className="w-5 h-5 bg-[#030A8C] rounded-full flex items-center justify-center">
+                              <div className="w-5 h-5 bg-[#0A1A3F] rounded-full flex items-center justify-center">
                                 <span className="text-white text-[9px] font-bold">{task.assignee.name.charAt(0)}</span>
                               </div>
                               <span className="text-[11px] text-gray-400">{task.assignee.name.split(' ')[0]}</span>
@@ -515,7 +515,7 @@ export default function KanbanBoard({
                 {!editMode ? (
                   <button
                     onClick={() => startEdit(selectedTask)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#030A8C] bg-[#030A8C]/10 rounded-lg hover:bg-[#030A8C] hover:text-white transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#0A1A3F] bg-[#0A1A3F]/10 rounded-lg hover:bg-[#0A1A3F] hover:text-white transition-colors"
                   >
                     <Pencil className="w-3.5 h-3.5" />
                     Editar
@@ -531,7 +531,7 @@ export default function KanbanBoard({
                     <button
                       onClick={saveTask}
                       disabled={saving || !editForm.title.trim()}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-[#030A8C] text-white rounded-lg hover:bg-[#02077a] disabled:opacity-50 transition-colors"
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-[#0A1A3F] text-white rounded-lg hover:bg-[#06112B] disabled:opacity-50 transition-colors"
                     >
                       <Save className="w-3.5 h-3.5" />
                       {saving ? 'Salvando...' : 'Salvar'}
@@ -601,7 +601,7 @@ export default function KanbanBoard({
                       autoFocus
                       value={editForm.title}
                       onChange={(e) => setEditForm((p) => ({ ...p, title: e.target.value }))}
-                      className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm font-semibold text-gray-900 bg-white outline-none focus:border-[#030A8C]"
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm font-semibold text-gray-900 bg-white outline-none focus:border-[#0A1A3F]"
                       placeholder="Título da demanda"
                     />
                   </div>
@@ -612,7 +612,7 @@ export default function KanbanBoard({
                       value={editForm.description}
                       onChange={(e) => setEditForm((p) => ({ ...p, description: e.target.value }))}
                       rows={3}
-                      className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white outline-none focus:border-[#030A8C] resize-none"
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white outline-none focus:border-[#0A1A3F] resize-none"
                       placeholder="Descrição opcional..."
                     />
                   </div>
@@ -623,7 +623,7 @@ export default function KanbanBoard({
                       <select
                         value={editForm.status}
                         onChange={(e) => setEditForm((p) => ({ ...p, status: e.target.value as TaskStatus }))}
-                        className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white text-gray-900 outline-none focus:border-[#030A8C]"
+                        className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white text-gray-900 outline-none focus:border-[#0A1A3F]"
                       >
                         {COLUMNS.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
                       </select>
@@ -634,7 +634,7 @@ export default function KanbanBoard({
                       <select
                         value={editForm.priority}
                         onChange={(e) => setEditForm((p) => ({ ...p, priority: e.target.value as TaskPriority }))}
-                        className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white text-gray-900 outline-none focus:border-[#030A8C]"
+                        className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white text-gray-900 outline-none focus:border-[#0A1A3F]"
                       >
                         <option value="BAIXA">Baixa</option>
                         <option value="MEDIA">Média</option>
@@ -648,7 +648,7 @@ export default function KanbanBoard({
                       <select
                         value={editForm.assigneeId}
                         onChange={(e) => setEditForm((p) => ({ ...p, assigneeId: e.target.value }))}
-                        className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white text-gray-900 outline-none focus:border-[#030A8C]"
+                        className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white text-gray-900 outline-none focus:border-[#0A1A3F]"
                       >
                         <option value="">Sem responsável</option>
                         {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
@@ -660,7 +660,7 @@ export default function KanbanBoard({
                       <select
                         value={editForm.clientId}
                         onChange={(e) => setEditForm((p) => ({ ...p, clientId: e.target.value }))}
-                        className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white text-gray-900 outline-none focus:border-[#030A8C]"
+                        className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white text-gray-900 outline-none focus:border-[#0A1A3F]"
                       >
                         <option value="">Sem cliente</option>
                         {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -673,7 +673,7 @@ export default function KanbanBoard({
                         type="date"
                         value={editForm.dueDate}
                         onChange={(e) => setEditForm((p) => ({ ...p, dueDate: e.target.value }))}
-                        className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white text-gray-900 outline-none focus:border-[#030A8C]"
+                        className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white text-gray-900 outline-none focus:border-[#0A1A3F]"
                       />
                     </div>
                   </div>
@@ -690,7 +690,7 @@ export default function KanbanBoard({
                     <button
                       onClick={() => fileInputRef.current?.click()}
                       disabled={uploading}
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-[#030A8C] bg-[#030A8C]/10 rounded-lg hover:bg-[#030A8C] hover:text-white transition-colors disabled:opacity-50"
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-[#0A1A3F] bg-[#0A1A3F]/10 rounded-lg hover:bg-[#0A1A3F] hover:text-white transition-colors disabled:opacity-50"
                     >
                       <Paperclip className="w-3 h-3" />
                       {uploading ? 'Enviando...' : 'Anexar arquivo'}
@@ -716,8 +716,8 @@ export default function KanbanBoard({
                                 <img src={att.fileUrl} alt={att.fileName} className="w-full h-full object-cover" />
                               </a>
                             ) : (
-                              <div className="w-10 h-10 bg-[#030A8C]/10 rounded-lg flex items-center justify-center shrink-0">
-                                <Icon className="w-5 h-5 text-[#030A8C]" />
+                              <div className="w-10 h-10 bg-[#0A1A3F]/10 rounded-lg flex items-center justify-center shrink-0">
+                                <Icon className="w-5 h-5 text-[#0A1A3F]" />
                               </div>
                             )}
                             <div className="flex-1 min-w-0">
@@ -757,7 +757,7 @@ export default function KanbanBoard({
                     {comments.map((c) => (
                       <div key={c.id} className="bg-gray-50 rounded-xl p-3">
                         <div className="flex items-center gap-2 mb-1">
-                          <div className="w-6 h-6 bg-[#030A8C] rounded-full flex items-center justify-center">
+                          <div className="w-6 h-6 bg-[#0A1A3F] rounded-full flex items-center justify-center">
                             <span className="text-white text-[10px] font-bold">{c.user.name.charAt(0)}</span>
                           </div>
                           <span className="text-xs font-semibold text-gray-900">{c.user.name}</span>
@@ -778,12 +778,12 @@ export default function KanbanBoard({
                       onChange={(e) => setNewComment(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && sendComment()}
                       placeholder="Adicionar comentário..."
-                      className="flex-1 border border-gray-200 bg-white text-gray-900 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#030A8C] placeholder-gray-400"
+                      className="flex-1 border border-gray-200 bg-white text-gray-900 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#0A1A3F] placeholder-gray-400"
                     />
                     <button
                       onClick={sendComment}
                       disabled={!newComment.trim()}
-                      className="px-3 py-2 bg-[#030A8C] text-white rounded-xl text-sm font-medium hover:bg-[#02077a] disabled:opacity-40 transition-colors"
+                      className="px-3 py-2 bg-[#0A1A3F] text-white rounded-xl text-sm font-medium hover:bg-[#06112B] disabled:opacity-40 transition-colors"
                     >
                       Enviar
                     </button>

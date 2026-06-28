@@ -67,12 +67,12 @@ export default function ClientCredentialsPanel({
     <div className="bg-white rounded-xl border border-gray-200 p-6">
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-semibold text-gray-900 flex items-center gap-2">
-          <Lock className="w-4 h-4 text-[#030A8C]" />
+          <Lock className="w-4 h-4 text-[#0A1A3F]" />
           Cofre de Credenciais
         </h2>
         <button
           onClick={() => setShowForm(!showForm)}
-          className="flex items-center gap-1 text-sm text-[#030A8C] hover:underline font-medium"
+          className="flex items-center gap-1 text-sm text-[#0A1A3F] hover:underline font-medium"
         >
           <Plus className="w-4 h-4" />
           Adicionar
@@ -128,7 +128,7 @@ export default function ClientCredentialsPanel({
               Cancelar
             </button>
             <button onClick={addCredential}
-              className="px-3 py-1.5 text-sm bg-[#030A8C] text-white rounded-lg hover:bg-[#02077a] transition-colors">
+              className="px-3 py-1.5 text-sm bg-[#0A1A3F] text-white rounded-lg hover:bg-[#06112B] transition-colors">
               Salvar
             </button>
           </div>
@@ -143,7 +143,7 @@ export default function ClientCredentialsPanel({
             <div key={cred.id} className="border border-gray-200 rounded-lg p-4">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs bg-blue-50 text-[#030A8C] px-2 py-0.5 rounded-full font-medium capitalize">
+                  <span className="text-xs bg-blue-50 text-[#0A1A3F] px-2 py-0.5 rounded-full font-medium capitalize">
                     {cred.type}
                   </span>
                   <p className="text-sm font-semibold text-gray-900">{cred.label}</p>
@@ -158,7 +158,7 @@ export default function ClientCredentialsPanel({
                   <div className="flex items-center gap-1 text-gray-600">
                     <span className="text-gray-400">URL:</span>
                     <a href={cred.url} target="_blank" rel="noopener noreferrer"
-                      className="text-[#030A8C] hover:underline truncate max-w-[160px]">{cred.url}</a>
+                      className="text-[#0A1A3F] hover:underline truncate max-w-[160px]">{cred.url}</a>
                   </div>
                 )}
                 {cred.email && (
