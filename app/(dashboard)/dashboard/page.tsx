@@ -5,11 +5,13 @@ import { formatCurrency, formatDate } from '@/lib/utils'
 import { Users, Building2, DollarSign, Kanban, ArrowUpRight, TrendingUp, TrendingDown, AlertTriangle, BarChart3 } from 'lucide-react'
 import Link from 'next/link'
 
-async function getDashboardData() {
+async function getDashboardData(viewer: { id: string; isAdmin: boolean }) {
   const now = new Date()
   const month = now.getMonth() + 1
   const year = now.getFullYear()
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  // Admin vê os números da agência inteira; colaborador, só o que é dele.
+  const taskScope = viewer.isAdmin ? {} : { assigneeId: viewer.id }
 
   const [
     totalClients,
@@ -22,18 +24,18 @@ async function getDashboardData() {
     upcomingEvents,
     recentLogs,
     recentTasks,
-    serviceRevenueAgg,
+    clientRevenueAgg,
     recebidaAgg,
     pendenteAgg,
     atrasadaAgg,
-    activeClientsWithService,
+    activeClients,
   ] = await Promise.all([
     prisma.client.count(),
     prisma.client.count({ where: { status: 'INATIVO' } }),
     prisma.user.count({ where: { isActive: true } }),
-    prisma.task.count({ where: { status: 'TODO' } }),
-    prisma.task.count({ where: { status: 'EM_ANDAMENTO' } }),
-    prisma.task.count({ where: { status: 'CONCLUIDO' } }),
+    prisma.task.count({ where: { status: 'TODO', ...taskScope } }),
+    prisma.task.count({ where: { status: 'EM_ANDAMENTO', ...taskScope } }),
+    prisma.task.count({ where: { status: 'CONCLUIDO', ...taskScope } }),
     prisma.clientPayment.findMany({
       where: { month, year },
       include: { client: { select: { name: true } } },
@@ -50,8 +52,9 @@ async function getDashboardData() {
       orderBy: { createdAt: 'desc' },
       take: 8,
     }),
+    // Colaborador só enxerga as demandas atribuídas a ele.
     prisma.task.findMany({
-      where: { status: { not: 'CONCLUIDO' } },
+      where: { status: { not: 'CONCLUIDO' }, ...taskScope },
       include: {
         assignee: { select: { name: true } },
         client: { select: { name: true } },
@@ -59,10 +62,11 @@ async function getDashboardData() {
       orderBy: { createdAt: 'desc' },
       take: 6,
     }),
-    // MRR: soma dos valores mensais de serviços ativos em clientes ativos
-    prisma.clientService.aggregate({
+    // Faturamento: soma do valor mensal contratado dos clientes ativos —
+    // o mesmo número que aparece na coluna "Valor Mensal" da tela Clientes.
+    prisma.client.aggregate({
       _sum: { monthlyValue: true },
-      where: { status: 'ATIVO', client: { status: 'ATIVO' } },
+      where: { status: 'ATIVO' },
     }),
     // Receita recebida (mês corrente)
     prisma.clientPayment.aggregate({
@@ -79,19 +83,16 @@ async function getDashboardData() {
       _sum: { amount: true },
       where: { status: 'PENDENTE', dueDate: { lt: startOfToday } },
     }),
-    // Clientes ativos com pelo menos um serviço ativo
-    prisma.client.count({
-      where: { status: 'ATIVO', services: { some: { status: 'ATIVO' } } },
-    }),
+    prisma.client.count({ where: { status: 'ATIVO' } }),
   ])
 
-  const mrr = serviceRevenueAgg._sum.monthlyValue ?? 0
+  const mrr = clientRevenueAgg._sum.monthlyValue ?? 0
   const arr = mrr * 12
   const recebida = recebidaAgg._sum.amount ?? 0
   const pendente = pendenteAgg._sum.amount ?? 0
   const atrasada = atrasadaAgg._sum.amount ?? 0
   const prevista = recebida + pendente + atrasada
-  const ticketMedio = activeClientsWithService > 0 ? mrr / activeClientsWithService : 0
+  const ticketMedio = activeClients > 0 ? mrr / activeClients : 0
   const inadimplencia = prevista > 0 ? (atrasada / prevista) * 100 : 0
 
   const pendingRevenue = monthPayments
@@ -100,7 +101,7 @@ async function getDashboardData() {
 
   return {
     totalClients,
-    activeClients: activeClientsWithService,
+    activeClients,
     inactiveClients,
     totalUsers,
     pendingTasks,
@@ -141,7 +142,7 @@ const STATUS_DOT: Record<string, string> = {
 export default async function DashboardPage() {
   const session = await auth()
   const isAdmin = (session?.user as any)?.role === 'ADMIN'
-  const d = await getDashboardData()
+  const d = await getDashboardData({ id: (session?.user as any)?.id, isAdmin })
   const firstName = session?.user?.name?.split(' ')[0]
   const now = new Date()
   const timeStr = now.toLocaleString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
@@ -167,8 +168,8 @@ export default async function DashboardPage() {
           </Link>
         </div>
 
-        {/* KPI cards — Admin vê todos, colaborador vê apenas operacionais */}
-        <div className={`grid gap-3 ${isAdmin ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-1 sm:grid-cols-3'}`}>
+        {/* KPI cards — Admin vê todos; colaborador vê só clientes e demandas */}
+        <div className={`grid gap-3 ${isAdmin ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-1 sm:grid-cols-2'}`}>
           <Link
             href="/clientes"
             className="group bg-white border border-gray-100 rounded-xl p-5 hover:border-gray-200 transition-all"
@@ -216,20 +217,22 @@ export default async function DashboardPage() {
             <p className="text-[11px] text-gray-400 mt-0.5">{d.pendingTasks} a fazer</p>
           </Link>
 
-          <Link
-            href="/colaboradores"
-            className="group bg-white border border-gray-100 rounded-xl p-5 hover:border-gray-200 transition-all"
-          >
-            <div className="flex items-start justify-between mb-4">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#8b5cf622' }}>
-                <Users className="w-4 h-4" style={{ color: '#8b5cf6' }} />
+          {isAdmin && (
+            <Link
+              href="/colaboradores"
+              className="group bg-white border border-gray-100 rounded-xl p-5 hover:border-gray-200 transition-all"
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#8b5cf622' }}>
+                  <Users className="w-4 h-4" style={{ color: '#8b5cf6' }} />
+                </div>
+                <ArrowUpRight className="w-3.5 h-3.5 text-gray-300 group-hover:text-gray-500 transition-colors" />
               </div>
-              <ArrowUpRight className="w-3.5 h-3.5 text-gray-300 group-hover:text-gray-500 transition-colors" />
-            </div>
-            <p className="text-2xl font-bold text-gray-900 leading-none">{d.totalUsers}</p>
-            <p className="text-xs text-gray-500 mt-1">Colaboradores</p>
-            <p className="text-[11px] text-gray-400 mt-0.5">ativos</p>
-          </Link>
+              <p className="text-2xl font-bold text-gray-900 leading-none">{d.totalUsers}</p>
+              <p className="text-xs text-gray-500 mt-1">Colaboradores</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">ativos</p>
+            </Link>
+          )}
         </div>
 
         {/* Métricas financeiras detalhadas — somente ADMIN */}
@@ -282,8 +285,8 @@ export default async function DashboardPage() {
         {/* Middle columns */}
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
 
-          {/* Open tasks — 3 cols */}
-          <div className="lg:col-span-3 bg-white border border-gray-100 rounded-xl overflow-hidden">
+          {/* Open tasks — ocupa a linha toda quando não há coluna de admin */}
+          <div className={`${isAdmin ? 'lg:col-span-3' : 'lg:col-span-5'} bg-white border border-gray-100 rounded-xl overflow-hidden`}>
             <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
               <p className="font-semibold text-gray-900 text-sm">Demandas em Aberto</p>
               <Link href="/demandas" className="text-[10px] text-gray-400 hover:text-gray-600 transition-colors flex items-center gap-1">
@@ -315,11 +318,10 @@ export default async function DashboardPage() {
             )}
           </div>
 
-          {/* Right column — 2 cols */}
-          <div className="lg:col-span-2 space-y-4">
+          {/* Right column — 2 cols. Pagamentos e agenda são só de admin. */}
+          {isAdmin && (
+            <div className="lg:col-span-2 space-y-4">
 
-            {/* Payments — somente ADMIN */}
-            {isAdmin && (
               <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
                 <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
                   <p className="font-semibold text-gray-900 text-sm">Pagamentos do Mês</p>
@@ -347,47 +349,46 @@ export default async function DashboardPage() {
                   </div>
                 )}
               </div>
-            )}
 
-            {/* Upcoming events */}
-            <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
-              <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
-                <p className="font-semibold text-gray-900 text-sm">Próximas Entregas</p>
-                <Link href="/calendario" className="text-gray-400 hover:text-gray-600 transition-colors">
-                  <ArrowUpRight className="w-3.5 h-3.5" />
-                </Link>
-              </div>
-              {d.upcomingEvents.length === 0 ? (
-                <p className="text-xs text-gray-400 text-center py-5">Nenhuma entrega próxima</p>
-              ) : (
-                <div className="divide-y divide-gray-100">
-                  {d.upcomingEvents.map((ev) => (
-                    <div key={ev.id} className="flex items-start gap-3 px-5 py-2.5">
-                      <div className="w-1 h-1 rounded-full bg-[#030A8C] mt-2 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-gray-900 truncate">{ev.title}</p>
-                        <div className="flex gap-1.5 mt-0.5">
-                          {ev.client && <p className="text-[10px] text-gray-400">{ev.client.name} ·</p>}
-                          <p className="text-[10px] text-[#030A8C]">{formatDate(ev.startDate)}</p>
+              {/* Upcoming events */}
+              <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
+                <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
+                  <p className="font-semibold text-gray-900 text-sm">Próximas Entregas</p>
+                  <Link href="/calendario" className="text-gray-400 hover:text-gray-600 transition-colors">
+                    <ArrowUpRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+                {d.upcomingEvents.length === 0 ? (
+                  <p className="text-xs text-gray-400 text-center py-5">Nenhuma entrega próxima</p>
+                ) : (
+                  <div className="divide-y divide-gray-100">
+                    {d.upcomingEvents.map((ev) => (
+                      <div key={ev.id} className="flex items-start gap-3 px-5 py-2.5">
+                        <div className="w-1 h-1 rounded-full bg-[#030A8C] mt-2 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-gray-900 truncate">{ev.title}</p>
+                          <div className="flex gap-1.5 mt-0.5">
+                            {ev.client && <p className="text-[10px] text-gray-400">{ev.client.name} ·</p>}
+                            <p className="text-[10px] text-[#030A8C]">{formatDate(ev.startDate)}</p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
-        {/* Activity feed */}
+        {/* Activity feed — expõe o que toda a equipe fez, então é só de admin */}
+        {isAdmin && (
         <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
           <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
             <p className="font-semibold text-gray-900 text-sm">Atividade Recente</p>
-            {isAdmin && (
-              <Link href="/logs" className="text-[10px] text-gray-400 hover:text-gray-600 flex items-center gap-1">
-                Ver logs <ArrowUpRight className="w-3 h-3" />
-              </Link>
-            )}
+            <Link href="/logs" className="text-[10px] text-gray-400 hover:text-gray-600 flex items-center gap-1">
+              Ver logs <ArrowUpRight className="w-3 h-3" />
+            </Link>
           </div>
           {d.recentLogs.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-6">Nenhuma atividade registrada</p>
@@ -412,6 +413,7 @@ export default async function DashboardPage() {
             </div>
           )}
         </div>
+        )}
 
       </div>
     </div>

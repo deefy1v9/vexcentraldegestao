@@ -1,24 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireUser } from '@/lib/api-auth'
+import { requireAdmin } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
 import { encryptSecret, decryptSecret } from '@/lib/crypto'
 
+// Credenciais guardam senhas de acesso dos clientes e são devolvidas em
+// texto claro — por isso todo este recurso é restrito a administradores.
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const gate = await requireUser()
+  const gate = await requireAdmin()
   if (gate instanceof NextResponse) return gate
 
   const { id } = await params
   const credentials = await prisma.clientCredential.findMany({ where: { clientId: id } })
 
-  // Descriptografa a senha antes de devolver ao cliente autenticado.
+  // Descriptografa a senha antes de devolver ao administrador.
   return NextResponse.json(
     credentials.map((c) => ({ ...c, password: decryptSecret(c.password) })),
   )
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const user = await requireUser()
+  const user = await requireAdmin()
   if (user instanceof NextResponse) return user
 
   const { id } = await params
@@ -43,7 +45,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const user = await requireUser()
+  const user = await requireAdmin()
   if (user instanceof NextResponse) return user
 
   const { id } = await params

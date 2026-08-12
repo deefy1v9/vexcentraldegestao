@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/prisma'
+import { getSessionUser } from '@/lib/api-auth'
 import Header from '@/components/layout/Header'
+import DeleteClientButton from '@/components/clientes/DeleteClientButton'
 import Link from 'next/link'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { Plus, Search, Pencil } from 'lucide-react'
@@ -10,6 +12,9 @@ export default async function ClientesPage({
   searchParams: Promise<{ search?: string }>
 }) {
   const { search } = await searchParams
+  // Colaborador consulta a carteira, mas não cadastra, edita nem exclui.
+  const viewer = await getSessionUser()
+  const isAdmin = viewer?.role === 'ADMIN'
   const clients = await prisma.client.findMany({
     where: search
       ? {
@@ -38,13 +43,15 @@ export default async function ClientesPage({
               className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#030A8C] bg-white text-gray-900 placeholder:text-gray-400"
             />
           </form>
-          <Link
-            href="/clientes/novo"
-            className="flex items-center gap-2 bg-[#030A8C] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#02077a] transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            Novo Cliente
-          </Link>
+          {isAdmin && (
+            <Link
+              href="/clientes/novo"
+              className="flex items-center gap-2 bg-[#030A8C] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#02077a] transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Novo Cliente
+            </Link>
+          )}
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -75,11 +82,13 @@ export default async function ClientesPage({
             <tbody>
               {clients.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-12 text-gray-500 text-sm">
+                  <td colSpan={7} className="text-center py-12 text-gray-500 text-sm">
                     Nenhum cliente encontrado.{' '}
-                    <Link href="/clientes/novo" className="text-[#030A8C] hover:underline">
-                      Cadastrar primeiro cliente
-                    </Link>
+                    {isAdmin && (
+                      <Link href="/clientes/novo" className="text-[#030A8C] hover:underline">
+                        Cadastrar primeiro cliente
+                      </Link>
+                    )}
                   </td>
                 </tr>
               ) : (
@@ -127,14 +136,19 @@ export default async function ClientesPage({
                         {client.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right">
-                      <Link
-                        href={`/clientes/${client.id}/editar`}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#030A8C]/10 text-[#030A8C] rounded-lg text-xs font-medium hover:bg-[#030A8C] hover:text-white transition-colors"
-                      >
-                        <Pencil className="w-3 h-3" />
-                        Editar
-                      </Link>
+                    <td className="px-4 py-3">
+                      {isAdmin && (
+                        <div className="flex items-center justify-end gap-2">
+                          <Link
+                            href={`/clientes/${client.id}/editar`}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#030A8C]/10 text-[#030A8C] rounded-lg text-xs font-medium hover:bg-[#030A8C] hover:text-white transition-colors"
+                          >
+                            <Pencil className="w-3 h-3" />
+                            Editar
+                          </Link>
+                          <DeleteClientButton clientId={client.id} clientName={client.name} />
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))

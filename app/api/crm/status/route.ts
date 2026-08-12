@@ -5,6 +5,9 @@ import { isConfigured, uazStatus } from '@/lib/uazapi'
 export async function GET() {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if ((session.user as any).role !== 'ADMIN') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   if (!await isConfigured()) {
     return NextResponse.json({ configured: false, connected: false })

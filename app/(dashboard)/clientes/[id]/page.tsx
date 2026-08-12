@@ -84,8 +84,10 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
             {/* Services */}
             <ClientServicesPanel clientId={id} initialServices={client.services} isAdmin={isAdmin} />
 
-            {/* Credentials */}
-            <ClientCredentialsPanel clientId={id} initialCredentials={client.credentials} />
+            {/* Credentials — senhas dos clientes, só administradores */}
+            {isAdmin && (
+              <ClientCredentialsPanel clientId={id} initialCredentials={client.credentials} />
+            )}
           </div>
 
           {/* Sidebar */}

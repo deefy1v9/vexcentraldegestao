@@ -17,13 +17,18 @@ import { signOut } from 'next-auth/react'
 import { useSession } from 'next-auth/react'
 import { getInitials } from '@/lib/utils'
 
+/**
+ * `adminOnly` esconde o item do colaborador — que só acompanha clientes e as
+ * próprias demandas. A checagem de verdade fica no servidor (cada página
+ * redireciona); aqui é só para não mostrar porta que não abre.
+ */
 const menuItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/clientes', label: 'Clientes', icon: Building2 },
-  { href: '/colaboradores', label: 'Colaboradores', icon: UserPlus },
+  { href: '/colaboradores', label: 'Colaboradores', icon: UserPlus, adminOnly: true },
   { href: '/demandas', label: 'Demandas', icon: Kanban },
-  { href: '/calendario', label: 'Calendário', icon: Calendar },
-  { href: '/crm', label: 'CRM', icon: MessageCircle },
+  { href: '/calendario', label: 'Calendário', icon: Calendar, adminOnly: true },
+  { href: '/crm', label: 'CRM', icon: MessageCircle, adminOnly: true },
 ]
 
 const generalItems = [
@@ -76,9 +81,11 @@ export default function Sidebar() {
               Menu
             </p>
             <div className="space-y-0.5">
-              {menuItems.map((item) => (
-                <NavItem key={item.href} {...item} />
-              ))}
+              {menuItems
+                .filter((item) => isAdmin || !item.adminOnly)
+                .map(({ adminOnly: _adminOnly, ...item }) => (
+                  <NavItem key={item.href} {...item} />
+                ))}
             </div>
           </div>
 

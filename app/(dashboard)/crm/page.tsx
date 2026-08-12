@@ -1,8 +1,14 @@
+import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
+import { getSessionUser } from '@/lib/api-auth'
 import Header from '@/components/layout/Header'
 import CrmPanel from '@/components/crm/CrmPanel'
 
 export default async function CrmPage() {
+  // Conversas com clientes: restrito a administradores.
+  const viewer = await getSessionUser()
+  if (!viewer || viewer.role !== 'ADMIN') redirect('/dashboard')
+
   const [contacts, clients] = await Promise.all([
     prisma.crmContact.findMany({
       include: {

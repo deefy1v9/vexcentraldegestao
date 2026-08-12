@@ -36,16 +36,40 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id } = await params
   const body = await req.json()
 
-  const previous = await prisma.task.findUnique({ where: { id }, select: { status: true } })
+  const previous = await prisma.task.findUnique({
+    where: { id },
+    select: { status: true, assigneeId: true },
+  })
+  if (!previous) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+  // Colaborador só mexe no andamento das demandas atribuídas a ele; todo o
+  // resto (título, prazo, cliente, responsável) é decisão de administrador.
+  const isAdmin = (session.user as any).role === 'ADMIN'
+  if (!isAdmin && previous.assigneeId !== (session.user as any).id) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  // Só grava os campos presentes no corpo. Espalhar o body inteiro apagava
+  // prazo/cliente/responsável a cada arrasto de card, que envia só o status.
+  const data: Record<string, unknown> = {}
+  const has = (k: string) => Object.prototype.hasOwnProperty.call(body, k)
+
+  if (has('status')) data.status = body.status
+  if (has('position')) data.position = body.position
+
+  if (isAdmin) {
+    if (has('title')) data.title = body.title
+    if (has('description')) data.description = body.description || null
+    if (has('priority')) data.priority = body.priority
+    if (has('tags')) data.tags = body.tags
+    if (has('dueDate')) data.dueDate = body.dueDate ? new Date(body.dueDate) : null
+    if (has('clientId')) data.clientId = body.clientId || null
+    if (has('assigneeId')) data.assigneeId = body.assigneeId || null
+  }
 
   const task = await prisma.task.update({
     where: { id },
-    data: {
-      ...body,
-      dueDate: body.dueDate ? new Date(body.dueDate) : null,
-      clientId: body.clientId || null,
-      assigneeId: body.assigneeId || null,
-    },
+    data,
     include: {
       client: { select: { id: true, name: true } },
       assignee: { select: { id: true, name: true } },
@@ -85,6 +109,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Apagar demanda é ação de administrador.
+  if ((session.user as any).role !== 'ADMIN') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   const { id } = await params
   const task = await prisma.task.delete({ where: { id } })

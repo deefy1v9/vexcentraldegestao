@@ -1,10 +1,16 @@
+import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
+import { getSessionUser } from '@/lib/api-auth'
 import Header from '@/components/layout/Header'
 import Link from 'next/link'
 import { formatCurrency } from '@/lib/utils'
 import { Plus, Mail, Phone, Pencil } from 'lucide-react'
 
 export default async function ColaboradoresPage() {
+  // Equipe, salários e contatos: restrito a administradores.
+  const viewer = await getSessionUser()
+  if (!viewer || viewer.role !== 'ADMIN') redirect('/dashboard')
+
   const users = await prisma.user.findMany({
     where: { isActive: true },
     include: {

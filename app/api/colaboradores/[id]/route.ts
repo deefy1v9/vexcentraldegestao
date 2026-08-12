@@ -7,6 +7,10 @@ import bcrypt from 'bcryptjs'
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Ficha do colaborador inclui salário e contato — só administradores.
+  if ((session.user as any).role !== 'ADMIN') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   const { id } = await params
   const user = await prisma.user.findUnique({
@@ -30,6 +34,11 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // O corpo pode conter `role` e `salary`: sem esta trava, um colaborador
+  // se promoveria a ADMIN editando o próprio cadastro.
+  if ((session.user as any).role !== 'ADMIN') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   const { id } = await params
   const body = await req.json()

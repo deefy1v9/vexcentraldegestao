@@ -317,12 +317,15 @@ export default function KanbanBoard({
                     <span className={`text-sm font-semibold ${col.color}`}>{col.label}</span>
                     <span className="text-xs text-gray-400 font-medium">{colTasks.length}</span>
                   </div>
-                  <button
-                    onClick={() => { setShowNewForm(col.key); setNewTaskAssignee(selectedUserId !== 'all' ? selectedUserId : isAdmin ? '' : currentUserId) }}
-                    className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
+                  {/* Criar demanda é ação de administrador. */}
+                  {isAdmin && (
+                    <button
+                      onClick={() => { setShowNewForm(col.key); setNewTaskAssignee(selectedUserId !== 'all' ? selectedUserId : '') }}
+                      className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
 
                 {showNewForm === col.key && (
@@ -430,13 +433,17 @@ export default function KanbanBoard({
 
                 <div className="flex-1 space-y-2 overflow-y-auto">
                   {colTasks.length === 0 && showNewForm !== col.key && (
-                    <div
-                      onClick={() => { setShowNewForm(col.key); setNewTaskAssignee(selectedUserId !== 'all' ? selectedUserId : isAdmin ? '' : currentUserId) }}
-                      className="border-2 border-dashed border-gray-200 rounded-xl p-4 text-center cursor-pointer hover:border-[#030A8C]/40 hover:bg-[#030A8C]/5 transition-all"
-                    >
-                      <Plus className="w-4 h-4 text-gray-400 mx-auto mb-1" />
-                      <p className="text-xs text-gray-400">Adicionar demanda</p>
-                    </div>
+                    isAdmin ? (
+                      <div
+                        onClick={() => { setShowNewForm(col.key); setNewTaskAssignee(selectedUserId !== 'all' ? selectedUserId : '') }}
+                        className="border-2 border-dashed border-gray-200 rounded-xl p-4 text-center cursor-pointer hover:border-[#030A8C]/40 hover:bg-[#030A8C]/5 transition-all"
+                      >
+                        <Plus className="w-4 h-4 text-gray-400 mx-auto mb-1" />
+                        <p className="text-xs text-gray-400">Adicionar demanda</p>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-300 text-center py-4">Nenhuma demanda</p>
+                    )
                   )}
 
                   {colTasks.map((task) => (
@@ -512,14 +519,18 @@ export default function KanbanBoard({
                 <span className="text-xs text-gray-400 font-mono">#{selectedTask.id.slice(-6).toUpperCase()}</span>
               </div>
               <div className="flex items-center gap-2">
+                {/* Editar os dados da demanda é ação de administrador; o
+                    colaborador muda o status arrastando o card. */}
                 {!editMode ? (
-                  <button
-                    onClick={() => startEdit(selectedTask)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#030A8C] bg-[#030A8C]/10 rounded-lg hover:bg-[#030A8C] hover:text-white transition-colors"
-                  >
-                    <Pencil className="w-3.5 h-3.5" />
-                    Editar
-                  </button>
+                  isAdmin && (
+                    <button
+                      onClick={() => startEdit(selectedTask)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#030A8C] bg-[#030A8C]/10 rounded-lg hover:bg-[#030A8C] hover:text-white transition-colors"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                      Editar
+                    </button>
+                  )
                 ) : (
                   <div className="flex items-center gap-2">
                     <button
@@ -792,14 +803,16 @@ export default function KanbanBoard({
               )}
             </div>
 
-            <div className="px-5 py-4 border-t border-gray-100">
-              <button
-                onClick={() => deleteTask(selectedTask.id)}
-                className="w-full py-2 text-sm text-red-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors font-medium"
-              >
-                Excluir demanda
-              </button>
-            </div>
+            {isAdmin && (
+              <div className="px-5 py-4 border-t border-gray-100">
+                <button
+                  onClick={() => deleteTask(selectedTask.id)}
+                  className="w-full py-2 text-sm text-red-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors font-medium"
+                >
+                  Excluir demanda
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

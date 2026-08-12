@@ -8,6 +8,20 @@ import { NextResponse } from 'next/server'
  * este arquivo é usado pelo middleware.ts, que roda no Edge Runtime.
  * O provider de credenciais (que usa Prisma/bcrypt) fica só em lib/auth.ts.
  */
+/**
+ * Rotas que só administradores acessam. O colaborador fica com o dashboard,
+ * a lista de clientes (somente leitura) e as próprias demandas.
+ */
+const ADMIN_ONLY = [
+  /^\/colaboradores/,
+  /^\/calendario/,
+  /^\/crm/,
+  /^\/financeiro/,
+  /^\/logs/,
+  /^\/clientes\/novo/,
+  /^\/clientes\/[^/]+\/editar/,
+]
+
 export const authConfig = {
   // Necessário ao rodar atrás de um proxy reverso (Traefik) fora da Vercel.
   // Sem isto o next-auth v5 lança UntrustedHost e a sessão nunca resolve.
@@ -30,7 +44,17 @@ export const authConfig = {
       }
 
       // Qualquer outra rota exige sessão válida.
-      return isLoggedIn
+      if (!isLoggedIn) return false
+
+      // Áreas exclusivas de administrador. Barrar aqui cobre também as
+      // telas que são client components (cadastro/edição de cliente), onde
+      // não dá para checar a sessão no servidor.
+      const isAdmin = (auth?.user as { role?: string } | undefined)?.role === 'ADMIN'
+      if (!isAdmin && ADMIN_ONLY.some((r) => r.test(nextUrl.pathname))) {
+        return NextResponse.redirect(new URL('/dashboard', nextUrl.origin))
+      }
+
+      return true
     },
     jwt({ token, user }) {
       if (user) {
