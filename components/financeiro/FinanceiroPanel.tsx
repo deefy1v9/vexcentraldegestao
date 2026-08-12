@@ -193,12 +193,11 @@ export default function FinanceiroPanel() {
 
   /* --------------------------------- ações --------------------------------- */
 
-  async function togglePayment(paymentId: string, currentStatus: string) {
-    const newStatus = currentStatus === 'PAGO' ? 'PENDENTE' : 'PAGO'
+  async function togglePayments(paymentIds: string[], newStatus: string) {
     const res = await fetch('/api/financeiro/pagamentos', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ paymentId, status: newStatus }),
+      body: JSON.stringify({ paymentIds, status: newStatus }),
     })
     if (res.ok) load(period)
   }
@@ -339,7 +338,7 @@ export default function FinanceiroPanel() {
                 />
               )}
               {activeTab === 'payments' && (
-                <PaymentsTab payments={payments} onToggle={togglePayment} />
+                <PaymentsTab payments={payments} onToggle={togglePayments} />
               )}
               {activeTab === 'costs' && (
                 <CostsTab entries={costEntries} period={period} onChanged={() => load(period)} onTogglePaid={toggleEntryPaid} />
@@ -472,39 +471,67 @@ function OverviewTab({
 
 /* ------------------------------- Recebimentos ------------------------------- */
 
-function PaymentsTab({ payments, onToggle }: { payments: Payment[]; onToggle: (id: string, status: string) => void }) {
+function PaymentsTab({ payments, onToggle }: { payments: Payment[]; onToggle: (ids: string[], status: string) => void }) {
+  // Uma linha por cliente: soma todas as parcelas/serviços do mês.
+  const groups = useMemo(() => {
+    const map = new Map<string, { client: Payment['client']; items: Payment[] }>()
+    for (const p of payments) {
+      const g = map.get(p.client.id)
+      if (g) g.items.push(p)
+      else map.set(p.client.id, { client: p.client, items: [p] })
+    }
+    return [...map.values()].sort((a, b) => a.client.name.localeCompare(b.client.name, 'pt-BR'))
+  }, [payments])
+
   return (
     <div className="space-y-2">
-      {payments.length === 0 ? (
+      {groups.length === 0 ? (
         <p className="text-sm text-gray-400 text-center py-6">Nenhum pagamento cadastrado neste mês</p>
       ) : (
-        payments.map((payment) => (
-          <div key={payment.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
-            <div>
-              <p className="text-sm font-semibold text-gray-900">{payment.client.name}</p>
-              <p className="text-xs text-gray-400">
-                Vence {formatDate(payment.dueDate)}
-                {payment.status === 'PAGO' && payment.paidAt ? ` · pago em ${formatDate(payment.paidAt)}` : ''}
-              </p>
+        groups.map(({ client, items }) => {
+          const total = items.reduce((s, p) => s + p.amount, 0)
+          const paid = items.filter((p) => p.status === 'PAGO')
+          const paidTotal = paid.reduce((s, p) => s + p.amount, 0)
+          const pending = items.filter((p) => p.status !== 'PAGO')
+          const allPaid = pending.length === 0
+          const overdue = pending.some((p) => isOverdue(p))
+          const earliestDue = items.reduce((min, p) => (new Date(p.dueDate) < new Date(min) ? p.dueDate : min), items[0].dueDate)
+
+          return (
+            <div key={client.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-gray-900 truncate">{client.name}</p>
+                <p className="text-xs text-gray-400">
+                  {items.length} serviço(s) · vence {formatDate(earliestDue)}
+                  {allPaid
+                    ? paid[0]?.paidAt ? ` · pago em ${formatDate(paid[0].paidAt)}` : ''
+                    : paidTotal > 0 ? ` · ${formatCurrency(paidTotal)} já pago` : ''}
+                </p>
+              </div>
+              <div className="flex items-center gap-3 shrink-0 ml-2">
+                <p className="text-sm font-bold text-gray-900">{formatCurrency(total)}</p>
+                <button
+                  onClick={() =>
+                    allPaid
+                      ? onToggle(items.map((p) => p.id), 'PENDENTE')
+                      : onToggle(pending.map((p) => p.id), 'PAGO')
+                  }
+                  title={allPaid ? 'Marcar tudo como pendente' : 'Marcar tudo como pago'}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    allPaid
+                      ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                      : overdue
+                        ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                        : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+                  }`}
+                >
+                  {allPaid ? <Check className="w-3 h-3" /> : null}
+                  {allPaid ? 'PAGO' : overdue ? 'ATRASADO' : paidTotal > 0 ? 'PARCIAL' : 'PENDENTE'}
+                </button>
+              </div>
             </div>
-            <div className="flex items-center gap-3">
-              <p className="text-sm font-bold text-gray-900">{formatCurrency(payment.amount)}</p>
-              <button
-                onClick={() => onToggle(payment.id, payment.status)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                  payment.status === 'PAGO'
-                    ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                    : isOverdue(payment)
-                      ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                      : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
-                }`}
-              >
-                {payment.status === 'PAGO' ? <Check className="w-3 h-3" /> : null}
-                {payment.status === 'PAGO' ? 'PAGO' : isOverdue(payment) ? 'ATRASADO' : 'PENDENTE'}
-              </button>
-            </div>
-          </div>
-        ))
+          )
+        })
       )}
     </div>
   )
