@@ -48,7 +48,11 @@ export default function CurrencyInput({
         value={value == null ? '' : fmt.format(value)}
         onChange={handleChange}
         placeholder={placeholder}
-        className={`${className} pl-9`}
+        className={className}
+        // paddingLeft inline: a classe .input do globals.css define padding
+        // fora de layer e venceria o utilitário pl-9, deixando o texto
+        // digitado por cima do prefixo "R$".
+        style={{ paddingLeft: '2.25rem' }}
       />
     </div>
   )
