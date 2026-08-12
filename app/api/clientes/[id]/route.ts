@@ -36,8 +36,32 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     ? new Date(new Date(body.contractStart).setMonth(new Date(body.contractStart).getMonth() + Number(body.contractMonths)))
     : body.contractEnd ? new Date(body.contractEnd) : null
 
+  type ServiceInput = {
+    id?: string | null
+    serviceName: string
+    description?: string | null
+    monthlyValue?: number | string | null
+  }
+
+  // Normaliza e valida os serviços recebidos antes de abrir a transação
+  const serviceRows: { id: string | null; serviceName: string; description: string | null; monthlyValue: number | null }[] | null =
+    Array.isArray(services)
+      ? (services as ServiceInput[])
+          .filter((s) => s.serviceName && String(s.serviceName).trim())
+          .map((s) => ({
+            id: s.id ? String(s.id) : null,
+            serviceName: String(s.serviceName).trim(),
+            description: s.description ? String(s.description) : null,
+            monthlyValue: s.monthlyValue != null && s.monthlyValue !== '' ? Number(s.monthlyValue) : null,
+          }))
+      : null
+
+  if (serviceRows?.some((s) => s.monthlyValue != null && (!Number.isFinite(s.monthlyValue) || s.monthlyValue < 0))) {
+    return NextResponse.json({ error: 'Valor de serviço deve ser maior ou igual a zero' }, { status: 400 })
+  }
+
   const client = await prisma.$transaction(async (tx) => {
-    const updated = await tx.client.update({
+    await tx.client.update({
       where: { id },
       data: {
         name: body.name,
@@ -50,34 +74,58 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         contractStart: body.contractStart ? new Date(body.contractStart) : null,
         contractEnd,
         contractMonths: body.contractMonths ? Number(body.contractMonths) : null,
-        monthlyValue: body.monthlyValue ? Number(body.monthlyValue) : null,
         paymentDay: body.paymentDay ? Number(body.paymentDay) : null,
+        // monthlyValue não é aceito do corpo: é derivado dos serviços (abaixo).
       },
     })
 
-    if (Array.isArray(services)) {
-      const currentServices = await tx.clientService.findMany({ where: { clientId: id } })
-      const currentNames = currentServices.map((s) => s.serviceName)
-      const newNames = services as string[]
+    if (serviceRows) {
+      const current = await tx.clientService.findMany({ where: { clientId: id }, select: { id: true } })
+      const keptIds = new Set(serviceRows.filter((s) => s.id).map((s) => s.id as string))
 
-      // Remove serviços que foram retirados da lista
-      const removedNames = currentNames.filter((name) => !newNames.includes(name))
-      if (removedNames.length > 0) {
-        await tx.clientService.deleteMany({
-          where: { clientId: id, serviceName: { in: removedNames } },
-        })
+      // Remove serviços retirados da lista (e suas parcelas ainda pendentes;
+      // pagamentos já quitados ficam como histórico, igual ao DELETE avulso)
+      const removedIds = current.map((s) => s.id).filter((sid) => !keptIds.has(sid))
+      if (removedIds.length > 0) {
+        await tx.clientPayment.deleteMany({ where: { serviceId: { in: removedIds }, status: 'PENDENTE' } })
+        await tx.clientService.deleteMany({ where: { id: { in: removedIds }, clientId: id } })
       }
 
-      // Adiciona serviços novos preservando os existentes (com seus dados financeiros)
-      const addedNames = newNames.filter((name) => !currentNames.includes(name))
-      if (addedNames.length > 0) {
+      // Atualiza os existentes (só os campos editáveis pelo formulário,
+      // preservando duração/parcelas/observações configuradas no perfil)
+      for (const s of serviceRows) {
+        if (s.id) {
+          await tx.clientService.updateMany({
+            where: { id: s.id, clientId: id },
+            data: { serviceName: s.serviceName, description: s.description, monthlyValue: s.monthlyValue },
+          })
+        }
+      }
+
+      // Cria os novos
+      const toCreate = serviceRows.filter((s) => !s.id)
+      if (toCreate.length > 0) {
         await tx.clientService.createMany({
-          data: addedNames.map((name: string) => ({ clientId: id, serviceName: name })),
+          data: toCreate.map((s) => ({
+            clientId: id,
+            serviceName: s.serviceName,
+            description: s.description,
+            monthlyValue: s.monthlyValue,
+            status: 'ATIVO',
+          })),
         })
       }
     }
 
-    return updated
+    // Valor mensal do cliente = soma dos serviços ativos
+    const agg = await tx.clientService.aggregate({
+      _sum: { monthlyValue: true },
+      where: { clientId: id, status: 'ATIVO' },
+    })
+    return tx.client.update({
+      where: { id },
+      data: { monthlyValue: agg._sum.monthlyValue ?? 0 },
+    })
   })
 
   await logActivity((session.user as any).id, 'atualizou cliente', 'Clientes', client.name)

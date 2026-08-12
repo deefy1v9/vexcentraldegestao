@@ -1,7 +1,9 @@
 'use client'
 import { useState } from 'react'
-import { Plus, Trash2, Briefcase, CheckCircle2, Clock, XCircle, AlertCircle } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Plus, Trash2, Pencil, Briefcase, CheckCircle2, Clock, XCircle, AlertCircle } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
+import CurrencyInput from '@/components/ui/CurrencyInput'
 
 interface Payment {
   id: string
@@ -62,14 +64,18 @@ export default function ClientServicesPanel({
   initialServices: Service[]
   isAdmin?: boolean
 }) {
+  const router = useRouter()
   const [services, setServices] = useState(initialServices)
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [feedback, setFeedback] = useState<string | null>(null)
   const [customDuration, setCustomDuration] = useState('')
   const [form, setForm] = useState({
     serviceName: '',
     customName: '',
-    monthlyValue: '',
+    description: '',
+    monthlyValue: null as number | null,
     paymentType: 'Mensal',
     contractDuration: '12',
     startDate: new Date().toISOString().split('T')[0],
@@ -77,8 +83,29 @@ export default function ClientServicesPanel({
     observations: '',
   })
 
+  // Edição inline de um serviço existente
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editSaving, setEditSaving] = useState(false)
+  const [editForm, setEditForm] = useState({
+    serviceName: '',
+    customName: '',
+    description: '',
+    monthlyValue: null as number | null,
+    observations: '',
+  })
+
   const duracao = Number(form.contractDuration) || 0
-  const valor = Number(form.monthlyValue) || 0
+  const valor = form.monthlyValue ?? 0
+
+  // Total mensal: soma dos serviços ativos — espelha o valor total do cliente
+  const totalMensal = services
+    .filter((s) => s.status === 'ATIVO')
+    .reduce((sum, s) => sum + (s.monthlyValue ?? 0), 0)
+
+  function flash(msg: string) {
+    setFeedback(msg)
+    setTimeout(() => setFeedback(null), 3000)
+  }
   const totalContractValue = valor > 0 && duracao > 0 ? valor * duracao : 0
   const boletoCount = duracao > 0 ? getBoletoCount(form.paymentType, duracao) : 0
 
@@ -86,7 +113,8 @@ export default function ClientServicesPanel({
     setForm({
       serviceName: '',
       customName: '',
-      monthlyValue: '',
+      description: '',
+      monthlyValue: null,
       paymentType: 'Mensal',
       contractDuration: '12',
       startDate: new Date().toISOString().split('T')[0],
@@ -94,11 +122,13 @@ export default function ClientServicesPanel({
       observations: '',
     })
     setCustomDuration('')
+    setError(null)
   }
 
   async function addService() {
-    if (!form.serviceName || !form.monthlyValue || !form.contractDuration) return
+    if (!form.serviceName || form.monthlyValue == null || !form.contractDuration) return
     setSaving(true)
+    setError(null)
     try {
       const res = await fetch(`/api/clientes/${clientId}/servicos`, {
         method: 'POST',
@@ -115,16 +145,68 @@ export default function ClientServicesPanel({
         setServices((prev) => [...prev, svc])
         setShowForm(false)
         resetForm()
+        flash('Serviço adicionado.')
+        router.refresh() // ressincroniza o valor total mensal do cliente
+      } else {
+        const body = await res.json().catch(() => ({}))
+        setError(body.error || 'Não foi possível salvar o serviço.')
       }
+    } catch {
+      setError('Falha de conexão. Tente de novo.')
     } finally {
       setSaving(false)
+    }
+  }
+
+  function startEdit(svc: Service) {
+    setEditingId(svc.id)
+    setEditForm({
+      serviceName: svc.serviceName,
+      customName: svc.customName || '',
+      description: svc.description || '',
+      monthlyValue: svc.monthlyValue ?? null,
+      observations: svc.observations || '',
+    })
+    setError(null)
+  }
+
+  async function saveEdit() {
+    if (!editingId || !editForm.serviceName.trim()) return
+    setEditSaving(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/clientes/${clientId}/servicos`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ serviceId: editingId, ...editForm }),
+      })
+      if (res.ok) {
+        const updated = await res.json()
+        setServices((prev) => prev.map((s) => (s.id === editingId ? { ...s, ...updated } : s)))
+        setEditingId(null)
+        flash('Serviço atualizado.')
+        router.refresh()
+      } else {
+        const body = await res.json().catch(() => ({}))
+        setError(body.error || 'Não foi possível atualizar o serviço.')
+      }
+    } catch {
+      setError('Falha de conexão. Tente de novo.')
+    } finally {
+      setEditSaving(false)
     }
   }
 
   async function deleteService(id: string) {
     if (!confirm('Remover este serviço? Os pagamentos pendentes também serão removidos.')) return
     const res = await fetch(`/api/clientes/${clientId}/servicos?serviceId=${id}`, { method: 'DELETE' })
-    if (res.ok) setServices((prev) => prev.filter((s) => s.id !== id))
+    if (res.ok) {
+      setServices((prev) => prev.filter((s) => s.id !== id))
+      flash('Serviço removido.')
+      router.refresh()
+    } else {
+      setError('Não foi possível remover o serviço.')
+    }
   }
 
   function getPaymentSummary(svc: Service) {
@@ -137,7 +219,7 @@ export default function ClientServicesPanel({
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-6">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-1">
         <h2 className="font-semibold text-gray-900 flex items-center gap-2">
           <Briefcase className="w-4 h-4 text-[#030A8C]" />
           Serviços Contratados
@@ -148,10 +230,27 @@ export default function ClientServicesPanel({
             className="flex items-center gap-1 text-sm text-[#030A8C] hover:underline font-medium"
           >
             <Plus className="w-4 h-4" />
-            Adicionar
+            Adicionar serviço
           </button>
         )}
       </div>
+
+      {/* Total mensal — soma dos serviços ativos */}
+      <p className="text-xs text-gray-500 mb-4">
+        Total mensal dos serviços:{' '}
+        <span className="font-bold text-[#030A8C]">{formatCurrency(totalMensal)}</span>
+      </p>
+
+      {feedback && (
+        <p className="text-xs font-medium text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2 mb-3">
+          {feedback}
+        </p>
+      )}
+      {error && !showForm && !editingId && (
+        <p className="text-xs font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-3">
+          {error}
+        </p>
+      )}
 
       {showForm && isAdmin && (
         <div className="bg-gray-50 rounded-lg p-5 mb-4 space-y-4 border border-gray-200">
@@ -182,15 +281,12 @@ export default function ClientServicesPanel({
             </div>
             {/* Valor mensal */}
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Valor mensal (R$) *</label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
+              <label className="text-xs font-medium text-gray-600 mb-1 block">Valor mensal *</label>
+              <CurrencyInput
                 value={form.monthlyValue}
-                onChange={(e) => setForm((p) => ({ ...p, monthlyValue: e.target.value }))}
+                onChange={(v) => setForm((p) => ({ ...p, monthlyValue: v }))}
                 className="input text-sm"
-                placeholder="0,00"
+                ariaLabel="Valor mensal do serviço"
               />
             </div>
             {/* Tipo de pagamento */}
@@ -280,6 +376,18 @@ export default function ClientServicesPanel({
             </div>
           )}
 
+          {/* Descrição */}
+          <div>
+            <label className="text-xs font-medium text-gray-600 mb-1 block">Descrição do serviço</label>
+            <textarea
+              value={form.description}
+              onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
+              className="input text-sm resize-none"
+              rows={2}
+              placeholder="Ex: Planejamento, criação, acompanhamento e otimização das campanhas."
+            />
+          </div>
+
           {/* Observações */}
           <div>
             <label className="text-xs font-medium text-gray-600 mb-1 block">Observações</label>
@@ -292,6 +400,12 @@ export default function ClientServicesPanel({
             />
           </div>
 
+          {error && (
+            <p className="text-xs font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+              {error}
+            </p>
+          )}
+
           <div className="flex gap-2 justify-end pt-1">
             <button
               onClick={() => { setShowForm(false); resetForm() }}
@@ -301,7 +415,7 @@ export default function ClientServicesPanel({
             </button>
             <button
               onClick={addService}
-              disabled={!form.serviceName || !form.monthlyValue || !form.contractDuration || saving}
+              disabled={!form.serviceName || form.monthlyValue == null || !form.contractDuration || saving}
               className="px-4 py-2 text-sm bg-[#030A8C] text-white rounded-lg hover:bg-[#02077a] transition-colors disabled:opacity-50 font-medium"
             >
               {saving
@@ -315,7 +429,7 @@ export default function ClientServicesPanel({
       )}
 
       {services.length === 0 ? (
-        <p className="text-sm text-gray-500">Nenhum serviço cadastrado</p>
+        <p className="text-sm text-gray-500 text-center py-6">Nenhum serviço contratado cadastrado.</p>
       ) : (
         <div className="space-y-3">
           {services.map((svc) => {
@@ -339,14 +453,98 @@ export default function ClientServicesPanel({
                     </span>
                   </div>
                   {isAdmin && (
-                    <button
-                      onClick={() => deleteService(svc.id)}
-                      className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors shrink-0"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => (editingId === svc.id ? setEditingId(null) : startEdit(svc))}
+                        title="Editar serviço"
+                        className="p-1 text-gray-400 hover:text-[#030A8C] hover:bg-[#030A8C]/5 rounded transition-colors"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => deleteService(svc.id)}
+                        title="Remover serviço"
+                        className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   )}
                 </div>
+
+                {/* Edição inline */}
+                {editingId === svc.id && isAdmin && (
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-3 space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-medium text-gray-600 mb-1 block">Nome do serviço *</label>
+                        <input
+                          value={editForm.serviceName}
+                          onChange={(e) => setEditForm((p) => ({ ...p, serviceName: e.target.value }))}
+                          className="input text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-gray-600 mb-1 block">Nome customizado</label>
+                        <input
+                          value={editForm.customName}
+                          onChange={(e) => setEditForm((p) => ({ ...p, customName: e.target.value }))}
+                          className="input text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-gray-600 mb-1 block">Valor mensal</label>
+                        <CurrencyInput
+                          value={editForm.monthlyValue}
+                          onChange={(v) => setEditForm((p) => ({ ...p, monthlyValue: v }))}
+                          className="input text-sm"
+                          ariaLabel="Valor mensal do serviço"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-gray-600 mb-1 block">Observações</label>
+                        <input
+                          value={editForm.observations}
+                          onChange={(e) => setEditForm((p) => ({ ...p, observations: e.target.value }))}
+                          className="input text-sm"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-gray-600 mb-1 block">Descrição</label>
+                      <textarea
+                        value={editForm.description}
+                        onChange={(e) => setEditForm((p) => ({ ...p, description: e.target.value }))}
+                        className="input text-sm resize-none"
+                        rows={2}
+                      />
+                    </div>
+                    {error && (
+                      <p className="text-xs font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+                        {error}
+                      </p>
+                    )}
+                    <div className="flex gap-2 justify-end">
+                      <button
+                        onClick={() => { setEditingId(null); setError(null) }}
+                        className="px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-200 rounded-lg transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={saveEdit}
+                        disabled={!editForm.serviceName.trim() || editSaving}
+                        className="px-3 py-1.5 text-xs bg-[#030A8C] text-white rounded-lg hover:bg-[#02077a] transition-colors disabled:opacity-50 font-medium"
+                      >
+                        {editSaving ? 'Salvando...' : 'Salvar'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {svc.description && (
+                  <p className="text-xs text-gray-600 mb-2">{svc.description}</p>
+                )}
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
                   {svc.monthlyValue != null && (

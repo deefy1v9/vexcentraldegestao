@@ -1,8 +1,10 @@
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import Header from '@/components/layout/Header'
+import DashboardIndicators from '@/components/dashboard/DashboardIndicators'
+import RevenueChart from '@/components/dashboard/RevenueChart'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { Users, Building2, DollarSign, Kanban, ArrowUpRight, TrendingUp, TrendingDown, AlertTriangle, BarChart3 } from 'lucide-react'
+import { Building2, Kanban, ArrowUpRight } from 'lucide-react'
 import Link from 'next/link'
 
 async function getDashboardData(viewer: { id: string; isAdmin: boolean }) {
@@ -24,11 +26,12 @@ async function getDashboardData(viewer: { id: string; isAdmin: boolean }) {
     upcomingEvents,
     recentLogs,
     recentTasks,
-    clientRevenueAgg,
+    serviceRevenueAgg,
     recebidaAgg,
     pendenteAgg,
     atrasadaAgg,
     activeClients,
+    clientsWithServices,
   ] = await Promise.all([
     prisma.client.count(),
     prisma.client.count({ where: { status: 'INATIVO' } }),
@@ -62,11 +65,12 @@ async function getDashboardData(viewer: { id: string; isAdmin: boolean }) {
       orderBy: { createdAt: 'desc' },
       take: 6,
     }),
-    // Faturamento: soma do valor mensal contratado dos clientes ativos —
-    // o mesmo número que aparece na coluna "Valor Mensal" da tela Clientes.
-    prisma.client.aggregate({
+    // Faturamento mensal (MRR): soma dos serviços ativos de clientes ativos.
+    // Client.monthlyValue é mantido em sincronia com esta soma, então o
+    // número bate com a coluna "Valor Mensal" da tela Clientes.
+    prisma.clientService.aggregate({
       _sum: { monthlyValue: true },
-      where: { status: 'ATIVO' },
+      where: { status: 'ATIVO', client: { status: 'ATIVO' } },
     }),
     // Receita recebida (mês corrente)
     prisma.clientPayment.aggregate({
@@ -84,15 +88,19 @@ async function getDashboardData(viewer: { id: string; isAdmin: boolean }) {
       where: { status: 'PENDENTE', dueDate: { lt: startOfToday } },
     }),
     prisma.client.count({ where: { status: 'ATIVO' } }),
+    // Ticket médio considera só clientes ativos que têm serviço ativo
+    prisma.client.count({
+      where: { status: 'ATIVO', services: { some: { status: 'ATIVO' } } },
+    }),
   ])
 
-  const mrr = clientRevenueAgg._sum.monthlyValue ?? 0
+  const mrr = serviceRevenueAgg._sum.monthlyValue ?? 0
   const arr = mrr * 12
   const recebida = recebidaAgg._sum.amount ?? 0
   const pendente = pendenteAgg._sum.amount ?? 0
   const atrasada = atrasadaAgg._sum.amount ?? 0
   const prevista = recebida + pendente + atrasada
-  const ticketMedio = activeClients > 0 ? mrr / activeClients : 0
+  const ticketMedio = clientsWithServices > 0 ? mrr / clientsWithServices : 0
   const inadimplencia = prevista > 0 ? (atrasada / prevista) * 100 : 0
 
   const pendingRevenue = monthPayments
@@ -115,6 +123,7 @@ async function getDashboardData(viewer: { id: string; isAdmin: boolean }) {
     prevista,
     ticketMedio,
     inadimplencia,
+    clientsWithServices,
     pendingRevenue,
     monthPayments: monthPayments.slice(0, 5),
     upcomingEvents,
@@ -168,118 +177,45 @@ export default async function DashboardPage() {
           </Link>
         </div>
 
-        {/* KPI cards — Admin vê todos; colaborador vê só clientes e demandas */}
-        <div className={`grid gap-3 ${isAdmin ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-1 sm:grid-cols-2'}`}>
-          <Link
-            href="/clientes"
-            className="group bg-white border border-gray-100 rounded-xl p-5 hover:border-gray-200 transition-all"
-          >
-            <div className="flex items-start justify-between mb-4">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#030A8C22' }}>
-                <Building2 className="w-4 h-4" style={{ color: '#030A8C' }} />
-              </div>
-              <ArrowUpRight className="w-3.5 h-3.5 text-gray-300 group-hover:text-gray-500 transition-colors" />
-            </div>
-            <p className="text-2xl font-bold text-gray-900 leading-none">{d.activeClients}</p>
-            <p className="text-xs text-gray-500 mt-1">Clientes Ativos</p>
-            <p className="text-[11px] text-gray-400 mt-0.5">{d.totalClients} total</p>
-          </Link>
-
-          {isAdmin && (
-            <Link
-              href="/financeiro"
-              className="group bg-white border border-gray-100 rounded-xl p-5 hover:border-gray-200 transition-all"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#10b98122' }}>
-                  <DollarSign className="w-4 h-4" style={{ color: '#10b981' }} />
-                </div>
-                <ArrowUpRight className="w-3.5 h-3.5 text-gray-300 group-hover:text-gray-500 transition-colors" />
-              </div>
-              <p className="text-2xl font-bold text-gray-900 leading-none">{formatCurrency(d.mrr)}</p>
-              <p className="text-xs text-gray-500 mt-1">Faturamento</p>
-              <p className="text-[11px] text-gray-400 mt-0.5">{formatCurrency(d.pendingRevenue)} pendente</p>
-            </Link>
-          )}
-
-          <Link
-            href="/demandas"
-            className="group bg-white border border-gray-100 rounded-xl p-5 hover:border-gray-200 transition-all"
-          >
-            <div className="flex items-start justify-between mb-4">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#f59e0b22' }}>
-                <Kanban className="w-4 h-4" style={{ color: '#f59e0b' }} />
-              </div>
-              <ArrowUpRight className="w-3.5 h-3.5 text-gray-300 group-hover:text-gray-500 transition-colors" />
-            </div>
-            <p className="text-2xl font-bold text-gray-900 leading-none">{d.inProgressTasks}</p>
-            <p className="text-xs text-gray-500 mt-1">Em Andamento</p>
-            <p className="text-[11px] text-gray-400 mt-0.5">{d.pendingTasks} a fazer</p>
-          </Link>
-
-          {isAdmin && (
-            <Link
-              href="/colaboradores"
-              className="group bg-white border border-gray-100 rounded-xl p-5 hover:border-gray-200 transition-all"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#8b5cf622' }}>
-                  <Users className="w-4 h-4" style={{ color: '#8b5cf6' }} />
-                </div>
-                <ArrowUpRight className="w-3.5 h-3.5 text-gray-300 group-hover:text-gray-500 transition-colors" />
-              </div>
-              <p className="text-2xl font-bold text-gray-900 leading-none">{d.totalUsers}</p>
-              <p className="text-xs text-gray-500 mt-1">Colaboradores</p>
-              <p className="text-[11px] text-gray-400 mt-0.5">ativos</p>
-            </Link>
-          )}
-        </div>
-
-        {/* Métricas financeiras detalhadas — somente ADMIN */}
-        {isAdmin && (
+        {/* Indicadores — admin: 4 principais + "Ver mais indicadores" + gráfico.
+            Colaborador vê apenas clientes e as próprias demandas. */}
+        {isAdmin ? (
           <>
-            {/* Receitas */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              {[
-                { label: 'Receita Prevista', value: formatCurrency(d.prevista), sub: 'mês corrente', icon: BarChart3, color: '#6366f1' },
-                { label: 'Receita Recebida', value: formatCurrency(d.recebida), sub: 'mês corrente', icon: TrendingUp, color: '#10b981' },
-                { label: 'Receita Pendente', value: formatCurrency(d.pendente), sub: 'dentro do prazo', icon: DollarSign, color: '#f59e0b' },
-                { label: 'Receita Atrasada', value: formatCurrency(d.atrasada), sub: 'vencida não paga', icon: AlertTriangle, color: '#ef4444' },
-              ].map((s) => (
-                <div key={s.label} className="bg-white border border-gray-100 rounded-xl p-5">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: s.color + '22' }}>
-                      <s.icon className="w-4 h-4" style={{ color: s.color }} />
-                    </div>
-                  </div>
-                  <p className="text-xl font-bold text-gray-900 leading-none">{s.value}</p>
-                  <p className="text-xs text-gray-500 mt-1">{s.label}</p>
-                  <p className="text-[11px] text-gray-400 mt-0.5">{s.sub}</p>
-                </div>
-              ))}
-            </div>
-
-            {/* MRR / ARR / Ticket / Inadimplência */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              {[
-                { label: 'MRR', value: formatCurrency(d.mrr), sub: 'receita recorrente mensal', icon: TrendingUp, color: '#10b981' },
-                { label: 'ARR', value: formatCurrency(d.arr), sub: 'receita recorrente anual', icon: BarChart3, color: '#6366f1' },
-                { label: 'Ticket Médio', value: formatCurrency(d.ticketMedio), sub: `${d.activeClients} clientes ativos`, icon: DollarSign, color: '#030A8C' },
-                { label: 'Inadimplência', value: `${d.inadimplencia.toFixed(1)}%`, sub: 'atrasado / previsto', icon: TrendingDown, color: d.inadimplencia > 10 ? '#ef4444' : '#6b7280' },
-              ].map((s) => (
-                <div key={s.label} className="bg-white border border-gray-100 rounded-xl p-5">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: s.color + '22' }}>
-                      <s.icon className="w-4 h-4" style={{ color: s.color }} />
-                    </div>
-                  </div>
-                  <p className="text-xl font-bold text-gray-900 leading-none">{s.value}</p>
-                  <p className="text-xs text-gray-500 mt-1">{s.label}</p>
-                  <p className="text-[11px] text-gray-400 mt-0.5">{s.sub}</p>
-                </div>
-              ))}
-            </div>
+            <DashboardIndicators d={d} />
+            <RevenueChart />
           </>
+        ) : (
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
+            <Link
+              href="/clientes"
+              className="group bg-white border border-gray-100 rounded-xl p-5 hover:border-gray-200 transition-all"
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#030A8C22' }}>
+                  <Building2 className="w-4 h-4" style={{ color: '#030A8C' }} />
+                </div>
+                <ArrowUpRight className="w-3.5 h-3.5 text-gray-300 group-hover:text-gray-500 transition-colors" />
+              </div>
+              <p className="text-2xl font-bold text-gray-900 leading-none">{d.activeClients}</p>
+              <p className="text-xs text-gray-500 mt-1">Clientes Ativos</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">{d.totalClients} total</p>
+            </Link>
+
+            <Link
+              href="/demandas"
+              className="group bg-white border border-gray-100 rounded-xl p-5 hover:border-gray-200 transition-all"
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#f59e0b22' }}>
+                  <Kanban className="w-4 h-4" style={{ color: '#f59e0b' }} />
+                </div>
+                <ArrowUpRight className="w-3.5 h-3.5 text-gray-300 group-hover:text-gray-500 transition-colors" />
+              </div>
+              <p className="text-2xl font-bold text-gray-900 leading-none">{d.inProgressTasks}</p>
+              <p className="text-xs text-gray-500 mt-1">Em Andamento</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">{d.pendingTasks} a fazer</p>
+            </Link>
+          </div>
         )}
 
         {/* Middle columns */}

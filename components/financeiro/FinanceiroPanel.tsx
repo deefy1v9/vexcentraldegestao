@@ -1,79 +1,197 @@
 'use client'
-import { useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { TrendingUp, TrendingDown, DollarSign, Users, Plus, X, Check } from 'lucide-react'
+import CurrencyInput from '@/components/ui/CurrencyInput'
+import {
+  TrendingUp, TrendingDown, DollarSign, Users, Plus, Check, X,
+  ChevronLeft, ChevronRight, Pencil, Trash2, Repeat, CalendarClock,
+} from 'lucide-react'
+
+/* ---------------------------------- tipos ---------------------------------- */
 
 interface Entry {
   id: string
-  type: string
+  type: string // CUSTO | SALARIO | RECEITA
   category: string
+  name?: string | null
   description: string
   amount: number
-  date: string | Date
-  isPaid: boolean
+  dueDate?: string | null
+  paidAt?: string | null
+  status: string // PENDENTE | PAGO
+  recurring: boolean
+  recurringCostId?: string | null
+  salaryContractId?: string | null
+  user?: { id: string; name: string; position?: string | null } | null
 }
 
 interface Payment {
   id: string
-  clientId: string
   month: number
   year: number
   amount: number
-  dueDate: string | Date
-  paidAt?: string | Date | null
+  dueDate: string
+  paidAt?: string | null
   status: string
   client: { id: string; name: string }
 }
 
-interface Salary {
+interface Collaborator {
   id: string
   name: string
   position?: string | null
   salary?: number | null
 }
 
-export default function FinanceiroPanel({
-  initialEntries,
-  initialPayments,
-  salaries,
-  serviceRevenue,
-  month,
-  year,
-}: {
-  initialEntries: Entry[]
-  initialPayments: Payment[]
-  salaries: Salary[]
-  serviceRevenue: number
-  month: number
-  year: number
-}) {
-  const [entries, setEntries] = useState(initialEntries)
-  const [payments, setPayments] = useState(initialPayments)
-  const [showNewEntry, setShowNewEntry] = useState(false)
-  const [activeTab, setActiveTab] = useState<'overview' | 'payments' | 'costs' | 'salaries'>('overview')
-  const [form, setForm] = useState({
-    type: 'CUSTO', category: '', description: '', amount: '', date: new Date().toISOString().split('T')[0], isPaid: false
-  })
+interface Movement {
+  id: string
+  kind: 'custo' | 'salario' | 'recebimento'
+  label: string
+  detail: string
+  amount: number
+  at: string
+}
 
-  const pendingRevenue = payments.filter((p) => p.status === 'PENDENTE').reduce((s, p) => s + p.amount, 0)
-  const totalSalaries = salaries.reduce((s, u) => s + (u.salary || 0), 0)
-  const otherCosts = entries.filter((e) => e.type === 'CUSTO').reduce((s, e) => s + e.amount, 0)
-  const totalCosts = totalSalaries + otherCosts
-  const netProfit = serviceRevenue - totalCosts
+interface MonthData {
+  entries: Entry[]
+  clientPayments: Payment[]
+  users: Collaborator[]
+  previstoServicos: number
+  upcoming: Entry[]
+  recent: Movement[]
+}
 
-  async function createEntry() {
-    const res = await fetch('/api/financeiro', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...form, amount: Number(form.amount) }),
-    })
-    if (res.ok) {
-      const entry = await res.json()
-      setEntries((prev) => [entry, ...prev])
-      setShowNewEntry(false)
-      setForm({ type: 'CUSTO', category: '', description: '', amount: '', date: new Date().toISOString().split('T')[0], isPaid: false })
-    }
+const MONTHS = [
+  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+]
+
+const COST_CATEGORIES = [
+  'Softwares e ferramentas', 'Anúncios', 'Fornecedores', 'Impostos',
+  'Aluguel', 'Equipamentos', 'Serviços', 'Administrativo', 'Outros',
+]
+
+/* ------------------------------- badges/status ------------------------------ */
+
+function isOverdue(e: { status: string; dueDate?: string | null }) {
+  if (e.status !== 'PENDENTE' || !e.dueDate) return false
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  return new Date(e.dueDate) < today
+}
+
+function StatusBadge({ entry }: { entry: { status: string; dueDate?: string | null } }) {
+  if (entry.status === 'PAGO') {
+    return <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">Pago</span>
   }
+  if (isOverdue(entry)) {
+    return <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700">Atrasado</span>
+  }
+  return <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">Pendente</span>
+}
+
+function TypeBadge({ recurring }: { recurring: boolean }) {
+  return recurring ? (
+    <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-[#030A8C]">
+      <Repeat className="w-2.5 h-2.5" /> Recorrente
+    </span>
+  ) : (
+    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">Único</span>
+  )
+}
+
+/* --------------------------- diálogo de escopo (2 opções) --------------------------- */
+
+function ScopeDialog({
+  title, onlyLabel, futureLabel, onPick, onClose,
+}: {
+  title: string
+  onlyLabel: string
+  futureLabel: string
+  onPick: (scope: 'only' | 'future') => void
+  onClose: () => void
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl w-full max-w-sm p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <p className="font-semibold text-gray-900 mb-4">{title}</p>
+        <div className="space-y-2">
+          <button onClick={() => onPick('only')}
+            className="w-full text-left px-4 py-3 border border-gray-200 rounded-lg text-sm text-gray-700 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors">
+            {onlyLabel}
+          </button>
+          <button onClick={() => onPick('future')}
+            className="w-full text-left px-4 py-3 border border-gray-200 rounded-lg text-sm text-gray-700 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors">
+            {futureLabel}
+          </button>
+        </div>
+        <button onClick={onClose} className="mt-3 w-full py-2 text-sm text-gray-500 hover:bg-gray-50 rounded-lg">
+          Cancelar
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/* --------------------------------- principal --------------------------------- */
+
+export default function FinanceiroPanel() {
+  const now = new Date()
+  const [period, setPeriod] = useState({ year: now.getFullYear(), month: now.getMonth() + 1 })
+  const [data, setData] = useState<MonthData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'overview' | 'payments' | 'costs' | 'salaries'>('overview')
+
+  const load = useCallback(async (p: { year: number; month: number }) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/financeiro?month=${p.month}&year=${p.year}`)
+      if (!res.ok) throw new Error()
+      setData(await res.json())
+    } catch {
+      setError('Não foi possível carregar os dados financeiros.')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { load(period) }, [period, load])
+
+  function shiftMonth(delta: number) {
+    setPeriod((p) => {
+      const d = new Date(p.year, p.month - 1 + delta, 1)
+      return { year: d.getFullYear(), month: d.getMonth() + 1 }
+    })
+  }
+
+  /* ------------------------------ derivados do mês ------------------------------ */
+
+  const entries = useMemo(() => data?.entries ?? [], [data])
+  const payments = useMemo(() => data?.clientPayments ?? [], [data])
+  const costEntries = useMemo(() => entries.filter((e) => e.type === 'CUSTO'), [entries])
+  const salaryEntries = useMemo(() => entries.filter((e) => e.type === 'SALARIO'), [entries])
+
+  const receitaRecebida = payments.filter((p) => p.status === 'PAGO').reduce((s, p) => s + p.amount, 0)
+  const receitaPendente = payments.filter((p) => p.status === 'PENDENTE').reduce((s, p) => s + p.amount, 0)
+
+  const salariosPrevistos = salaryEntries.reduce((s, e) => s + e.amount, 0)
+  const salariosPagos = salaryEntries.filter((e) => e.status === 'PAGO').reduce((s, e) => s + e.amount, 0)
+  const outrosCustosPrevistos = costEntries.reduce((s, e) => s + e.amount, 0)
+  const outrosCustosPagos = costEntries.filter((e) => e.status === 'PAGO').reduce((s, e) => s + e.amount, 0)
+
+  // Custos Totais = Salários + Outros Custos (salário contado uma única vez)
+  const custosTotais = salariosPrevistos + outrosCustosPrevistos
+  const custosPagos = salariosPagos + outrosCustosPagos
+  const custosPendentes = custosTotais - custosPagos
+
+  // Lucro Líquido Realizado = Receitas Recebidas − Custos Pagos
+  const lucroRealizado = receitaRecebida - custosPagos
+  // Resultado previsto = receita prevista − salários previstos − outros custos previstos
+  const previstoServicos = data?.previstoServicos ?? 0
+  const resultadoPrevisto = previstoServicos - salariosPrevistos - outrosCustosPrevistos
+
+  /* --------------------------------- ações --------------------------------- */
 
   async function togglePayment(paymentId: string, currentStatus: string) {
     const newStatus = currentStatus === 'PAGO' ? 'PENDENTE' : 'PAGO'
@@ -82,11 +200,17 @@ export default function FinanceiroPanel({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ paymentId, status: newStatus }),
     })
-    if (res.ok) {
-      setPayments((prev) => prev.map((p) =>
-        p.id === paymentId ? { ...p, status: newStatus, paidAt: newStatus === 'PAGO' ? new Date().toISOString() : null } : p
-      ))
-    }
+    if (res.ok) load(period)
+  }
+
+  async function toggleEntryPaid(entry: Entry) {
+    const endpoint = entry.type === 'SALARIO' ? '/api/financeiro/salarios' : '/api/financeiro/custos'
+    const res = await fetch(endpoint, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entryId: entry.id, status: entry.status === 'PAGO' ? 'PENDENTE' : 'PAGO' }),
+    })
+    if (res.ok) load(period)
   }
 
   const tabs = [
@@ -98,13 +222,64 @@ export default function FinanceiroPanel({
 
   return (
     <div className="flex-1 overflow-y-auto p-6 space-y-6">
-      {/* Summary Cards */}
+
+      {/* Navegação de mês */}
+      <div className="flex items-center justify-center gap-2">
+        <button onClick={() => shiftMonth(-1)} aria-label="Mês anterior"
+          className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors">
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        <label className="relative cursor-pointer">
+          <span className="px-4 py-2 rounded-lg border border-gray-200 bg-white text-sm font-semibold text-gray-900 inline-block min-w-[180px] text-center">
+            {MONTHS[period.month - 1]} de {period.year}
+          </span>
+          <input
+            type="month"
+            aria-label="Selecionar mês e ano"
+            value={`${period.year}-${String(period.month).padStart(2, '0')}`}
+            onChange={(e) => {
+              const [y, m] = e.target.value.split('-').map(Number)
+              if (y && m) setPeriod({ year: y, month: m })
+            }}
+            className="absolute inset-0 opacity-0 cursor-pointer"
+          />
+        </label>
+        <button onClick={() => shiftMonth(1)} aria-label="Próximo mês"
+          className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors">
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+
+      {error && (
+        <p className="text-sm font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-3 text-center">
+          {error}
+        </p>
+      )}
+
+      {/* Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Receita do Mês', value: formatCurrency(serviceRevenue), sub: `${formatCurrency(pendingRevenue)} pendente`, icon: TrendingUp, color: 'text-green-600 bg-green-50' },
-          { label: 'Custos Totais', value: formatCurrency(totalCosts), sub: `${formatCurrency(totalSalaries)} salários`, icon: TrendingDown, color: 'text-red-600 bg-red-50' },
-          { label: 'Lucro Líquido', value: formatCurrency(netProfit), sub: netProfit >= 0 ? 'positivo' : 'negativo', icon: DollarSign, color: `${netProfit >= 0 ? 'text-[#030A8C] bg-blue-50' : 'text-red-600 bg-red-50'}` },
-          { label: 'Salários', value: formatCurrency(totalSalaries), sub: `${salaries.length} colaboradores`, icon: Users, color: 'text-purple-600 bg-purple-50' },
+          {
+            label: 'Receita do Mês', value: formatCurrency(receitaRecebida),
+            sub: `${formatCurrency(receitaPendente)} pendente`,
+            icon: TrendingUp, color: 'text-green-600 bg-green-50',
+          },
+          {
+            label: 'Custos Totais', value: formatCurrency(custosTotais),
+            sub: `${formatCurrency(custosPagos)} pago · ${formatCurrency(custosPendentes)} pendente`,
+            icon: TrendingDown, color: 'text-red-600 bg-red-50',
+          },
+          {
+            label: 'Lucro Líquido', value: formatCurrency(lucroRealizado),
+            sub: lucroRealizado >= 0 ? 'resultado positivo' : 'resultado negativo',
+            icon: DollarSign,
+            color: lucroRealizado >= 0 ? 'text-[#030A8C] bg-blue-50' : 'text-red-600 bg-red-50',
+          },
+          {
+            label: 'Salários', value: formatCurrency(salariosPrevistos),
+            sub: `${salaryEntries.length} colaborador(es) · ${formatCurrency(salariosPagos)} pago · ${formatCurrency(salariosPrevistos - salariosPagos)} pendente`,
+            icon: Users, color: 'text-purple-600 bg-purple-50',
+          },
         ].map((card) => (
           <div key={card.label} className="bg-white rounded-xl border border-gray-200 p-5">
             <div className="flex items-center justify-between mb-2">
@@ -113,15 +288,21 @@ export default function FinanceiroPanel({
                 <card.icon className="w-4 h-4" />
               </div>
             </div>
-            <p className="text-xl font-bold text-gray-900">{card.value}</p>
-            <p className="text-xs text-gray-400 mt-1">{card.sub}</p>
+            {loading ? (
+              <div className="h-6 w-24 bg-gray-100 rounded animate-pulse" />
+            ) : (
+              <p className={`text-xl font-bold ${card.label === 'Lucro Líquido' && lucroRealizado < 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                {card.value}
+              </p>
+            )}
+            <p className="text-xs text-gray-400 mt-1 truncate" title={card.sub}>{loading ? '—' : card.sub}</p>
           </div>
         ))}
       </div>
 
-      {/* Tabs */}
+      {/* Abas */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="flex border-b border-gray-200">
+        <div className="flex flex-wrap border-b border-gray-200">
           {tabs.map((tab) => (
             <button
               key={tab.key}
@@ -135,168 +316,766 @@ export default function FinanceiroPanel({
               {tab.label}
             </button>
           ))}
-          <div className="flex-1" />
-          {(activeTab === 'costs') && (
-            <button onClick={() => setShowNewEntry(true)}
-              className="flex items-center gap-1 mr-3 my-2 px-3 py-1.5 bg-[#030A8C] text-white rounded-lg text-xs font-medium">
-              <Plus className="w-3.5 h-3.5" />
-              Novo Custo
-            </button>
-          )}
         </div>
 
         <div className="p-5">
-          {/* Overview Tab */}
-          {activeTab === 'overview' && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                <span className="text-sm font-medium text-gray-700">Receita de Serviços Ativos</span>
-                <span className="text-sm font-bold text-green-700">{formatCurrency(serviceRevenue)}</span>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
-                <span className="text-sm font-medium text-gray-700">Receita Pendente</span>
-                <span className="text-sm font-bold text-orange-700">{formatCurrency(pendingRevenue)}</span>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
-                <span className="text-sm font-medium text-gray-700">Salários</span>
-                <span className="text-sm font-bold text-purple-700">- {formatCurrency(totalSalaries)}</span>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
-                <span className="text-sm font-medium text-gray-700">Outros Custos</span>
-                <span className="text-sm font-bold text-red-700">- {formatCurrency(otherCosts)}</span>
-              </div>
-              <div className={`flex items-center justify-between p-4 rounded-lg border-2 ${netProfit >= 0 ? 'bg-blue-50 border-[#030A8C]' : 'bg-red-50 border-red-400'}`}>
-                <span className="text-base font-bold text-gray-900">Lucro Líquido</span>
-                <span className={`text-lg font-bold ${netProfit >= 0 ? 'text-[#030A8C]' : 'text-red-700'}`}>
-                  {formatCurrency(netProfit)}
-                </span>
-              </div>
+          {loading ? (
+            <div className="space-y-3 animate-pulse py-2">
+              {[...Array(4)].map((_, i) => <div key={i} className="h-12 bg-gray-50 rounded-lg" />)}
             </div>
-          )}
-
-          {/* Payments Tab */}
-          {activeTab === 'payments' && (
-            <div className="space-y-2">
-              {payments.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-6">Nenhum pagamento cadastrado</p>
-              ) : (
-                payments.map((payment) => (
-                  <div key={payment.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
-                    <div>
-                      <p className="text-sm font-semibold text-gray-900">{payment.client.name}</p>
-                      <p className="text-xs text-gray-400">Vence {formatDate(payment.dueDate)}</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <p className="text-sm font-bold text-gray-900">{formatCurrency(payment.amount)}</p>
-                      <button
-                        onClick={() => togglePayment(payment.id, payment.status)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                          payment.status === 'PAGO'
-                            ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                            : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
-                        }`}
-                      >
-                        {payment.status === 'PAGO' ? <Check className="w-3 h-3" /> : null}
-                        {payment.status}
-                      </button>
-                    </div>
-                  </div>
-                ))
+          ) : (
+            <>
+              {activeTab === 'overview' && (
+                <OverviewTab
+                  previstoServicos={previstoServicos}
+                  receitaRecebida={receitaRecebida}
+                  receitaPendente={receitaPendente}
+                  salariosPrevistos={salariosPrevistos}
+                  outrosCustos={outrosCustosPrevistos}
+                  resultadoPrevisto={resultadoPrevisto}
+                  lucroRealizado={lucroRealizado}
+                  upcoming={data?.upcoming ?? []}
+                  recent={data?.recent ?? []}
+                />
               )}
-            </div>
+              {activeTab === 'payments' && (
+                <PaymentsTab payments={payments} onToggle={togglePayment} />
+              )}
+              {activeTab === 'costs' && (
+                <CostsTab entries={costEntries} period={period} onChanged={() => load(period)} onTogglePaid={toggleEntryPaid} />
+              )}
+              {activeTab === 'salaries' && (
+                <SalariesTab
+                  entries={salaryEntries}
+                  users={data?.users ?? []}
+                  period={period}
+                  onChanged={() => load(period)}
+                  onTogglePaid={toggleEntryPaid}
+                />
+              )}
+            </>
           )}
+        </div>
+      </div>
+    </div>
+  )
+}
 
-          {/* Costs Tab */}
-          {activeTab === 'costs' && (
-            <div>
-              {showNewEntry && (
-                <div className="bg-gray-50 rounded-lg p-4 mb-4 space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs font-medium text-gray-600 mb-1 block">Tipo</label>
-                      <select value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))} className="input text-sm">
-                        <option value="CUSTO">Custo</option>
-                        <option value="RECEITA">Receita Extra</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium text-gray-600 mb-1 block">Categoria</label>
-                      <input value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-                        className="input text-sm" placeholder="Ex: Ferramentas, Infra..." />
-                    </div>
-                    <div className="col-span-2">
-                      <label className="text-xs font-medium text-gray-600 mb-1 block">Descrição *</label>
-                      <input value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                        className="input text-sm" placeholder="Descrição do lançamento" />
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium text-gray-600 mb-1 block">Valor (R$) *</label>
-                      <input type="number" min="0" step="0.01" value={form.amount}
-                        onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
-                        className="input text-sm" placeholder="0,00" />
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium text-gray-600 mb-1 block">Data *</label>
-                      <input type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} className="input text-sm" />
-                    </div>
+/* --------------------------------- Resumo --------------------------------- */
+
+function OverviewTab({
+  previstoServicos, receitaRecebida, receitaPendente, salariosPrevistos,
+  outrosCustos, resultadoPrevisto, lucroRealizado, upcoming, recent,
+}: {
+  previstoServicos: number
+  receitaRecebida: number
+  receitaPendente: number
+  salariosPrevistos: number
+  outrosCustos: number
+  resultadoPrevisto: number
+  lucroRealizado: number
+  upcoming: Entry[]
+  recent: Movement[]
+}) {
+  const rows = [
+    { label: 'Receita prevista (serviços ativos)', value: formatCurrency(previstoServicos), cls: 'bg-blue-50 text-[#030A8C]' },
+    { label: 'Receita já recebida', value: formatCurrency(receitaRecebida), cls: 'bg-green-50 text-green-700' },
+    { label: 'Receita pendente', value: formatCurrency(receitaPendente), cls: 'bg-orange-50 text-orange-700' },
+    { label: 'Salários', value: `- ${formatCurrency(salariosPrevistos)}`, cls: 'bg-purple-50 text-purple-700' },
+    { label: 'Outros custos', value: `- ${formatCurrency(outrosCustos)}`, cls: 'bg-red-50 text-red-700' },
+  ]
+  return (
+    <div className="space-y-5">
+      <div className="space-y-3">
+        {rows.map((r) => (
+          <div key={r.label} className={`flex items-center justify-between p-3 rounded-lg ${r.cls.split(' ')[0]}`}>
+            <span className="text-sm font-medium text-gray-700">{r.label}</span>
+            <span className={`text-sm font-bold ${r.cls.split(' ')[1]}`}>{r.value}</span>
+          </div>
+        ))}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className={`flex items-center justify-between p-4 rounded-lg border-2 ${resultadoPrevisto >= 0 ? 'bg-blue-50 border-[#030A8C]/40' : 'bg-red-50 border-red-300'}`}>
+            <span className="text-sm font-bold text-gray-900">Resultado previsto</span>
+            <span className={`text-base font-bold ${resultadoPrevisto >= 0 ? 'text-[#030A8C]' : 'text-red-700'}`}>
+              {formatCurrency(resultadoPrevisto)}
+            </span>
+          </div>
+          <div className={`flex items-center justify-between p-4 rounded-lg border-2 ${lucroRealizado >= 0 ? 'bg-blue-50 border-[#030A8C]' : 'bg-red-50 border-red-400'}`}>
+            <span className="text-sm font-bold text-gray-900">Lucro realizado</span>
+            <span className={`text-base font-bold ${lucroRealizado >= 0 ? 'text-[#030A8C]' : 'text-red-700'}`}>
+              {formatCurrency(lucroRealizado)}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Próximos vencimentos */}
+        <div className="border border-gray-100 rounded-xl overflow-hidden">
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
+            <CalendarClock className="w-4 h-4 text-[#030A8C]" />
+            <p className="font-semibold text-gray-900 text-sm">Próximos vencimentos</p>
+          </div>
+          {upcoming.length === 0 ? (
+            <p className="text-xs text-gray-400 text-center py-5">Nenhum vencimento pendente</p>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {upcoming.map((e) => (
+                <div key={e.id} className="flex items-center justify-between px-4 py-2.5">
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-gray-900 truncate">{e.name || e.description}</p>
+                    <p className="text-[11px] text-gray-400">
+                      {e.type === 'SALARIO' ? (e.user?.name ?? 'Salário') : e.category}
+                      {e.dueDate ? ` · vence ${formatDate(e.dueDate)}` : ''}
+                    </p>
                   </div>
-                  <div className="flex gap-2 justify-end">
-                    <button onClick={() => setShowNewEntry(false)}
-                      className="text-xs px-3 py-1.5 text-gray-600 hover:bg-gray-200 rounded-lg">Cancelar</button>
-                    <button onClick={createEntry} disabled={!form.description || !form.amount}
-                      className="text-xs px-3 py-1.5 bg-[#030A8C] text-white rounded-lg hover:bg-[#02077a] disabled:opacity-50">Salvar</button>
-                  </div>
+                  <span className={`text-xs font-bold shrink-0 ml-2 ${isOverdue(e) ? 'text-red-600' : 'text-gray-900'}`}>
+                    {formatCurrency(e.amount)}
+                  </span>
                 </div>
-              )}
-              {entries.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-6">Nenhum lançamento de custo</p>
-              ) : (
-                <div className="space-y-2">
-                  {entries.map((entry) => (
-                    <div key={entry.id} className="flex items-center justify-between p-3 border border-gray-100 rounded-lg">
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">{entry.description}</p>
-                        <p className="text-xs text-gray-400">{entry.category} · {formatDate(entry.date)}</p>
-                      </div>
-                      <span className={`text-sm font-bold ${entry.type === 'CUSTO' ? 'text-red-600' : 'text-green-600'}`}>
-                        {entry.type === 'CUSTO' ? '- ' : '+ '}{formatCurrency(entry.amount)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
+              ))}
             </div>
           )}
+        </div>
 
-          {/* Salaries Tab */}
-          {activeTab === 'salaries' && (
-            <div className="space-y-2">
-              {salaries.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-6">Nenhum salário cadastrado</p>
-              ) : (
-                salaries.map((user) => (
-                  <div key={user.id} className="flex items-center justify-between p-3 border border-gray-100 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-[#030A8C] rounded-full flex items-center justify-center">
-                        <span className="text-white text-xs font-bold">{user.name.charAt(0)}</span>
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-gray-900">{user.name}</p>
-                        {user.position && <p className="text-xs text-gray-400">{user.position}</p>}
-                      </div>
-                    </div>
-                    <span className="text-sm font-bold text-red-600">- {formatCurrency(user.salary || 0)}</span>
+        {/* Movimentações recentes */}
+        <div className="border border-gray-100 rounded-xl overflow-hidden">
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
+            <DollarSign className="w-4 h-4 text-[#030A8C]" />
+            <p className="font-semibold text-gray-900 text-sm">Movimentações recentes</p>
+          </div>
+          {recent.length === 0 ? (
+            <p className="text-xs text-gray-400 text-center py-5">Nenhuma movimentação registrada</p>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {recent.map((m) => (
+                <div key={m.id} className="flex items-center justify-between px-4 py-2.5">
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-gray-900 truncate">{m.label}</p>
+                    <p className="text-[11px] text-gray-400">
+                      {m.kind === 'recebimento' ? 'Recebimento' : m.kind === 'salario' ? 'Salário pago' : 'Custo pago'}
+                      {' · '}{m.detail}{m.at ? ` · ${formatDate(m.at)}` : ''}
+                    </p>
                   </div>
-                ))
-              )}
-              <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg mt-3">
-                <span className="text-sm font-bold text-gray-900">Total Salários</span>
-                <span className="text-sm font-bold text-red-700">{formatCurrency(totalSalaries)}</span>
-              </div>
+                  <span className={`text-xs font-bold shrink-0 ml-2 ${m.kind === 'recebimento' ? 'text-green-600' : 'text-red-600'}`}>
+                    {m.kind === 'recebimento' ? '+ ' : '- '}{formatCurrency(m.amount)}
+                  </span>
+                </div>
+              ))}
             </div>
           )}
         </div>
       </div>
+    </div>
+  )
+}
+
+/* ------------------------------- Recebimentos ------------------------------- */
+
+function PaymentsTab({ payments, onToggle }: { payments: Payment[]; onToggle: (id: string, status: string) => void }) {
+  return (
+    <div className="space-y-2">
+      {payments.length === 0 ? (
+        <p className="text-sm text-gray-400 text-center py-6">Nenhum pagamento cadastrado neste mês</p>
+      ) : (
+        payments.map((payment) => (
+          <div key={payment.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
+            <div>
+              <p className="text-sm font-semibold text-gray-900">{payment.client.name}</p>
+              <p className="text-xs text-gray-400">
+                Vence {formatDate(payment.dueDate)}
+                {payment.status === 'PAGO' && payment.paidAt ? ` · pago em ${formatDate(payment.paidAt)}` : ''}
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <p className="text-sm font-bold text-gray-900">{formatCurrency(payment.amount)}</p>
+              <button
+                onClick={() => onToggle(payment.id, payment.status)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  payment.status === 'PAGO'
+                    ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                    : isOverdue(payment)
+                      ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                      : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+                }`}
+              >
+                {payment.status === 'PAGO' ? <Check className="w-3 h-3" /> : null}
+                {payment.status === 'PAGO' ? 'PAGO' : isOverdue(payment) ? 'ATRASADO' : 'PENDENTE'}
+              </button>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  )
+}
+
+/* ---------------------------------- Custos ---------------------------------- */
+
+function CostsTab({
+  entries, period, onChanged, onTogglePaid,
+}: {
+  entries: Entry[]
+  period: { year: number; month: number }
+  onChanged: () => void
+  onTogglePaid: (e: Entry) => void
+}) {
+  const [showForm, setShowForm] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
+  const [statusFilter, setStatusFilter] = useState('todos')
+  const [categoryFilter, setCategoryFilter] = useState('todas')
+  const [typeFilter, setTypeFilter] = useState('todos')
+  const [editing, setEditing] = useState<Entry | null>(null)
+  const [scopeAction, setScopeAction] = useState<{ entry: Entry; action: 'edit' | 'delete' } | null>(null)
+  const [pendingEdit, setPendingEdit] = useState<Record<string, unknown> | null>(null)
+
+  const emptyForm = {
+    name: '', description: '', category: 'Softwares e ferramentas',
+    amount: null as number | null, recurrenceType: 'UNICO',
+    dueDate: `${period.year}-${String(period.month).padStart(2, '0')}-05`,
+    status: 'PENDENTE', paidAt: '',
+    frequency: 'MENSAL', startDate: `${period.year}-${String(period.month).padStart(2, '0')}-01`, endDate: '', dueDay: '5',
+  }
+  const [form, setForm] = useState(emptyForm)
+
+  const filtered = entries.filter((e) => {
+    if (statusFilter === 'pago' && e.status !== 'PAGO') return false
+    if (statusFilter === 'pendente' && (e.status !== 'PENDENTE' || isOverdue(e))) return false
+    if (statusFilter === 'atrasado' && !isOverdue(e)) return false
+    if (categoryFilter !== 'todas' && e.category !== categoryFilter) return false
+    if (typeFilter === 'unico' && e.recurring) return false
+    if (typeFilter === 'recorrente' && !e.recurring) return false
+    return true
+  })
+
+  async function submit() {
+    if (!form.name.trim() || form.amount == null) return
+    setSaving(true)
+    setFormError(null)
+    try {
+      const res = await fetch('/api/financeiro/custos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
+      if (res.ok) {
+        setShowForm(false)
+        setForm(emptyForm)
+        onChanged()
+      } else {
+        const body = await res.json().catch(() => ({}))
+        setFormError(body.error || 'Não foi possível salvar o custo.')
+      }
+    } catch {
+      setFormError('Falha de conexão. Tente de novo.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function applyEdit(entry: Entry, fields: Record<string, unknown>, scope: 'only' | 'future') {
+    const res = await fetch('/api/financeiro/custos', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entryId: entry.id, scope, ...fields }),
+    })
+    if (res.ok) { setEditing(null); onChanged() }
+  }
+
+  async function applyDelete(entry: Entry, scope: 'only' | 'future') {
+    const res = await fetch(`/api/financeiro/custos?entryId=${entry.id}&scope=${scope}`, { method: 'DELETE' })
+    if (res.ok) onChanged()
+  }
+
+  function requestEdit(entry: Entry, fields: Record<string, unknown>) {
+    if (entry.recurringCostId) {
+      setPendingEdit(fields)
+      setScopeAction({ entry, action: 'edit' })
+    } else {
+      applyEdit(entry, fields, 'only')
+    }
+  }
+
+  function requestDelete(entry: Entry) {
+    if (entry.recurringCostId) {
+      setScopeAction({ entry, action: 'delete' })
+    } else if (confirm(`Excluir o custo "${entry.name || entry.description}"?`)) {
+      applyDelete(entry, 'only')
+    }
+  }
+
+  return (
+    <div>
+      {/* Filtros + adicionar */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="input text-xs !w-auto" aria-label="Filtrar por status">
+          <option value="todos">Status: todos</option>
+          <option value="pendente">Pendente</option>
+          <option value="pago">Pago</option>
+          <option value="atrasado">Atrasado</option>
+        </select>
+        <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="input text-xs !w-auto" aria-label="Filtrar por categoria">
+          <option value="todas">Categoria: todas</option>
+          {COST_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="input text-xs !w-auto" aria-label="Filtrar por tipo">
+          <option value="todos">Tipo: todos</option>
+          <option value="unico">Único</option>
+          <option value="recorrente">Recorrente</option>
+        </select>
+        <div className="flex-1" />
+        <button onClick={() => setShowForm((v) => !v)}
+          className="flex items-center gap-1 px-3 py-1.5 bg-[#030A8C] text-white rounded-lg text-xs font-medium hover:bg-[#02077a] transition-colors">
+          <Plus className="w-3.5 h-3.5" /> Adicionar custo
+        </button>
+      </div>
+
+      {/* Formulário */}
+      {showForm && (
+        <div className="bg-gray-50 rounded-lg p-4 mb-4 space-y-3 border border-gray-200">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">Nome do custo *</label>
+              <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                className="input text-sm" placeholder="Ex: Assinatura Adobe" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">Categoria</label>
+              <select value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))} className="input text-sm">
+                {COST_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="text-xs font-medium text-gray-600 mb-1 block">Descrição</label>
+              <input value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                className="input text-sm" placeholder="Detalhes do custo" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">Valor *</label>
+              <CurrencyInput value={form.amount} onChange={(v) => setForm((f) => ({ ...f, amount: v }))} className="input text-sm" ariaLabel="Valor do custo" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">Tipo *</label>
+              <select value={form.recurrenceType} onChange={(e) => setForm((f) => ({ ...f, recurrenceType: e.target.value }))} className="input text-sm">
+                <option value="UNICO">Custo único</option>
+                <option value="RECORRENTE">Custo recorrente</option>
+              </select>
+            </div>
+
+            {form.recurrenceType === 'UNICO' ? (
+              <>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1 block">Data de vencimento *</label>
+                  <input type="date" value={form.dueDate} onChange={(e) => setForm((f) => ({ ...f, dueDate: e.target.value }))} className="input text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1 block">Status</label>
+                  <select value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))} className="input text-sm">
+                    <option value="PENDENTE">Pendente</option>
+                    <option value="PAGO">Pago</option>
+                  </select>
+                </div>
+                {form.status === 'PAGO' && (
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 mb-1 block">Data do pagamento</label>
+                    <input type="date" value={form.paidAt} onChange={(e) => setForm((f) => ({ ...f, paidAt: e.target.value }))} className="input text-sm" />
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1 block">Frequência *</label>
+                  <select value={form.frequency} onChange={(e) => setForm((f) => ({ ...f, frequency: e.target.value }))} className="input text-sm">
+                    <option value="MENSAL">Mensal</option>
+                    <option value="TRIMESTRAL">Trimestral</option>
+                    <option value="ANUAL">Anual</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1 block">Data de início *</label>
+                  <input type="date" value={form.startDate} onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))} className="input text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1 block">Data de término (opcional)</label>
+                  <input type="date" value={form.endDate} onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))} className="input text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1 block">Dia do vencimento</label>
+                  <input type="number" min="1" max="31" value={form.dueDay} onChange={(e) => setForm((f) => ({ ...f, dueDay: e.target.value }))} className="input text-sm" />
+                </div>
+              </>
+            )}
+          </div>
+          {formError && (
+            <p className="text-xs font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{formError}</p>
+          )}
+          <div className="flex gap-2 justify-end">
+            <button onClick={() => { setShowForm(false); setFormError(null) }} className="text-xs px-3 py-1.5 text-gray-600 hover:bg-gray-200 rounded-lg">Cancelar</button>
+            <button onClick={submit} disabled={!form.name.trim() || form.amount == null || saving}
+              className="text-xs px-3 py-1.5 bg-[#030A8C] text-white rounded-lg hover:bg-[#02077a] disabled:opacity-50">
+              {saving ? 'Salvando...' : 'Salvar custo'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Lista */}
+      {filtered.length === 0 ? (
+        <p className="text-sm text-gray-400 text-center py-6">
+          {entries.length === 0 ? 'Nenhum custo neste mês' : 'Nenhum custo com esses filtros'}
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {filtered.map((entry) => (
+            <div key={entry.id} className="border border-gray-100 rounded-lg">
+              <div className="flex items-center justify-between p-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-medium text-gray-900 truncate">{entry.name || entry.description}</p>
+                    <TypeBadge recurring={entry.recurring} />
+                    <StatusBadge entry={entry} />
+                  </div>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {entry.category}
+                    {entry.dueDate ? ` · vence ${formatDate(entry.dueDate)}` : ''}
+                    {entry.status === 'PAGO' && entry.paidAt ? ` · pago em ${formatDate(entry.paidAt)}` : ''}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0 ml-2">
+                  <span className="text-sm font-bold text-red-600">- {formatCurrency(entry.amount)}</span>
+                  <button onClick={() => onTogglePaid(entry)}
+                    title={entry.status === 'PAGO' ? 'Marcar como pendente' : 'Marcar como pago'}
+                    className={`p-1.5 rounded-lg transition-colors ${entry.status === 'PAGO' ? 'text-green-600 bg-green-50 hover:bg-green-100' : 'text-gray-400 hover:text-green-600 hover:bg-green-50'}`}>
+                    <Check className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={() => setEditing(editing?.id === entry.id ? null : entry)} title="Editar"
+                    className="p-1.5 text-gray-400 hover:text-[#030A8C] hover:bg-[#030A8C]/5 rounded-lg transition-colors">
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={() => requestDelete(entry)} title="Excluir"
+                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {editing?.id === entry.id && (
+                <CostEditForm
+                  entry={entry}
+                  onCancel={() => setEditing(null)}
+                  onSave={(fields) => requestEdit(entry, fields)}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Escopo de edição/exclusão de recorrente */}
+      {scopeAction && (
+        <ScopeDialog
+          title={scopeAction.action === 'delete'
+            ? `Excluir "${scopeAction.entry.name || scopeAction.entry.description}"?`
+            : `Alterar "${scopeAction.entry.name || scopeAction.entry.description}"?`}
+          onlyLabel={scopeAction.action === 'delete' ? 'Excluir somente este lançamento' : 'Alterar somente este lançamento'}
+          futureLabel={scopeAction.action === 'delete' ? 'Excluir este e os próximos lançamentos' : 'Alterar este e os próximos lançamentos'}
+          onPick={(scope) => {
+            if (scopeAction.action === 'delete') applyDelete(scopeAction.entry, scope)
+            else if (pendingEdit) applyEdit(scopeAction.entry, pendingEdit, scope)
+            setScopeAction(null)
+            setPendingEdit(null)
+          }}
+          onClose={() => { setScopeAction(null); setPendingEdit(null) }}
+        />
+      )}
+    </div>
+  )
+}
+
+function CostEditForm({ entry, onCancel, onSave }: {
+  entry: Entry
+  onCancel: () => void
+  onSave: (fields: Record<string, unknown>) => void
+}) {
+  const [f, setF] = useState({
+    name: entry.name || entry.description,
+    description: entry.description,
+    category: entry.category,
+    amount: entry.amount as number | null,
+    dueDate: entry.dueDate ? String(entry.dueDate).split('T')[0] : '',
+  })
+  return (
+    <div className="border-t border-gray-100 bg-gray-50 p-3 space-y-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <input value={f.name} onChange={(e) => setF((p) => ({ ...p, name: e.target.value }))} className="input text-sm" placeholder="Nome *" aria-label="Nome do custo" />
+        <select value={f.category} onChange={(e) => setF((p) => ({ ...p, category: e.target.value }))} className="input text-sm" aria-label="Categoria">
+          {COST_CATEGORIES.includes(f.category) ? null : <option value={f.category}>{f.category}</option>}
+          {COST_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <CurrencyInput value={f.amount} onChange={(v) => setF((p) => ({ ...p, amount: v }))} className="input text-sm" ariaLabel="Valor do custo" />
+        <input type="date" value={f.dueDate} onChange={(e) => setF((p) => ({ ...p, dueDate: e.target.value }))} className="input text-sm" aria-label="Vencimento" />
+        <input value={f.description} onChange={(e) => setF((p) => ({ ...p, description: e.target.value }))} className="input text-sm sm:col-span-2" placeholder="Descrição" aria-label="Descrição" />
+      </div>
+      <div className="flex gap-2 justify-end">
+        <button onClick={onCancel} className="text-xs px-3 py-1.5 text-gray-600 hover:bg-gray-200 rounded-lg">Cancelar</button>
+        <button
+          onClick={() => onSave({ name: f.name, description: f.description, category: f.category, amount: f.amount, dueDate: f.dueDate || undefined })}
+          disabled={!f.name.trim() || f.amount == null}
+          className="text-xs px-3 py-1.5 bg-[#030A8C] text-white rounded-lg hover:bg-[#02077a] disabled:opacity-50"
+        >
+          Salvar
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/* --------------------------------- Salários --------------------------------- */
+
+function SalariesTab({
+  entries, users, period, onChanged, onTogglePaid,
+}: {
+  entries: Entry[]
+  users: Collaborator[]
+  period: { year: number; month: number }
+  onChanged: () => void
+  onTogglePaid: (e: Entry) => void
+}) {
+  const [showForm, setShowForm] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
+  const [statusFilter, setStatusFilter] = useState('todos')
+  const [userFilter, setUserFilter] = useState('todos')
+  const [editing, setEditing] = useState<Entry | null>(null)
+  const [editAmount, setEditAmount] = useState<number | null>(null)
+  const [scopeFor, setScopeFor] = useState<Entry | null>(null)
+
+  const emptyForm = {
+    userId: '', amount: null as number | null, payDay: '5',
+    startYear: period.year, startMonth: period.month,
+    endDate: '', notes: '', status: 'PENDENTE',
+  }
+  const [form, setForm] = useState(emptyForm)
+
+  const filtered = entries.filter((e) => {
+    if (statusFilter === 'pago' && e.status !== 'PAGO') return false
+    if (statusFilter === 'pendente' && (e.status !== 'PENDENTE' || isOverdue(e))) return false
+    if (statusFilter === 'atrasado' && !isOverdue(e)) return false
+    if (userFilter !== 'todos' && e.user?.id !== userFilter) return false
+    return true
+  })
+
+  const total = entries.reduce((s, e) => s + e.amount, 0)
+
+  function pickUser(userId: string) {
+    const u = users.find((x) => x.id === userId)
+    // Reaproveita o salário do perfil do colaborador, se houver
+    setForm((f) => ({ ...f, userId, amount: f.amount ?? u?.salary ?? null }))
+  }
+
+  async function submit() {
+    if (!form.userId || form.amount == null) return
+    setSaving(true)
+    setFormError(null)
+    try {
+      const res = await fetch('/api/financeiro/salarios', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
+      if (res.ok) {
+        setShowForm(false)
+        setForm(emptyForm)
+        onChanged()
+      } else {
+        const body = await res.json().catch(() => ({}))
+        setFormError(body.error || 'Não foi possível cadastrar o salário.')
+      }
+    } catch {
+      setFormError('Falha de conexão. Tente de novo.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function applyEdit(entry: Entry, scope: 'only' | 'future') {
+    const res = await fetch('/api/financeiro/salarios', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entryId: entry.id, scope, amount: editAmount }),
+    })
+    if (res.ok) { setEditing(null); setEditAmount(null); onChanged() }
+  }
+
+  async function stopSalary(entry: Entry) {
+    if (!confirm(`Interromper os próximos salários de ${entry.user?.name ?? 'colaborador'} a partir de ${String(period.month).padStart(2, '0')}/${period.year}? O histórico é preservado.`)) return
+    const res = await fetch(`/api/financeiro/salarios?entryId=${entry.id}`, { method: 'DELETE' })
+    if (res.ok) onChanged()
+  }
+
+  return (
+    <div>
+      {/* Filtros + adicionar */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="input text-xs !w-auto" aria-label="Filtrar por status">
+          <option value="todos">Status: todos</option>
+          <option value="pendente">Pendente</option>
+          <option value="pago">Pago</option>
+          <option value="atrasado">Atrasado</option>
+        </select>
+        <select value={userFilter} onChange={(e) => setUserFilter(e.target.value)} className="input text-xs !w-auto" aria-label="Filtrar por colaborador">
+          <option value="todos">Colaborador: todos</option>
+          {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+        </select>
+        <div className="flex-1" />
+        <button onClick={() => setShowForm((v) => !v)}
+          className="flex items-center gap-1 px-3 py-1.5 bg-[#030A8C] text-white rounded-lg text-xs font-medium hover:bg-[#02077a] transition-colors">
+          <Plus className="w-3.5 h-3.5" /> Adicionar salário
+        </button>
+      </div>
+
+      {/* Formulário */}
+      {showForm && (
+        <div className="bg-gray-50 rounded-lg p-4 mb-4 space-y-3 border border-gray-200">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">Colaborador *</label>
+              <select value={form.userId} onChange={(e) => pickUser(e.target.value)} className="input text-sm">
+                <option value="">Selecione...</option>
+                {users.map((u) => (
+                  <option key={u.id} value={u.id}>{u.name}{u.position ? ` — ${u.position}` : ''}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">Valor do salário *</label>
+              <CurrencyInput value={form.amount} onChange={(v) => setForm((f) => ({ ...f, amount: v }))} className="input text-sm" ariaLabel="Valor do salário" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">Dia do pagamento</label>
+              <input type="number" min="1" max="31" value={form.payDay} onChange={(e) => setForm((f) => ({ ...f, payDay: e.target.value }))} className="input text-sm" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">Mês inicial</label>
+              <input
+                type="month"
+                value={`${form.startYear}-${String(form.startMonth).padStart(2, '0')}`}
+                onChange={(e) => {
+                  const [y, m] = e.target.value.split('-').map(Number)
+                  if (y && m) setForm((f) => ({ ...f, startYear: y, startMonth: m }))
+                }}
+                className="input text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">Data final (opcional)</label>
+              <input type="date" value={form.endDate} onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))} className="input text-sm" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">Status do mês</label>
+              <select value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))} className="input text-sm">
+                <option value="PENDENTE">Pendente</option>
+                <option value="PAGO">Pago</option>
+              </select>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="text-xs font-medium text-gray-600 mb-1 block">Observação</label>
+              <input value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} className="input text-sm" placeholder="Ex: acordo de horas, bônus incluído..." />
+            </div>
+          </div>
+          {formError && (
+            <p className="text-xs font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{formError}</p>
+          )}
+          <div className="flex gap-2 justify-end">
+            <button onClick={() => { setShowForm(false); setFormError(null) }} className="text-xs px-3 py-1.5 text-gray-600 hover:bg-gray-200 rounded-lg">Cancelar</button>
+            <button onClick={submit} disabled={!form.userId || form.amount == null || saving}
+              className="text-xs px-3 py-1.5 bg-[#030A8C] text-white rounded-lg hover:bg-[#02077a] disabled:opacity-50">
+              {saving ? 'Salvando...' : 'Salvar salário'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Lista */}
+      {filtered.length === 0 ? (
+        <p className="text-sm text-gray-400 text-center py-6">
+          {entries.length === 0 ? 'Nenhum salário cadastrado neste mês' : 'Nenhum salário com esses filtros'}
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {filtered.map((entry) => (
+            <div key={entry.id} className="border border-gray-100 rounded-lg">
+              <div className="flex items-center justify-between p-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-8 h-8 bg-[#030A8C] rounded-full flex items-center justify-center shrink-0">
+                    <span className="text-white text-xs font-bold">{(entry.user?.name ?? '?').charAt(0)}</span>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-semibold text-gray-900 truncate">{entry.user?.name ?? entry.name}</p>
+                      <TypeBadge recurring />
+                      <StatusBadge entry={entry} />
+                    </div>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {entry.user?.position ?? 'Colaborador'}
+                      {entry.dueDate ? ` · vence ${formatDate(entry.dueDate)}` : ''}
+                      {entry.status === 'PAGO' && entry.paidAt ? ` · pago em ${formatDate(entry.paidAt)}` : ''}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0 ml-2">
+                  <span className="text-sm font-bold text-red-600">- {formatCurrency(entry.amount)}</span>
+                  <button onClick={() => onTogglePaid(entry)}
+                    title={entry.status === 'PAGO' ? 'Marcar como pendente' : 'Marcar como pago'}
+                    className={`p-1.5 rounded-lg transition-colors ${entry.status === 'PAGO' ? 'text-green-600 bg-green-50 hover:bg-green-100' : 'text-gray-400 hover:text-green-600 hover:bg-green-50'}`}>
+                    <Check className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={() => { setEditing(editing?.id === entry.id ? null : entry); setEditAmount(entry.amount) }} title="Alterar salário"
+                    className="p-1.5 text-gray-400 hover:text-[#030A8C] hover:bg-[#030A8C]/5 rounded-lg transition-colors">
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={() => stopSalary(entry)} title="Interromper próximos salários"
+                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {editing?.id === entry.id && (
+                <div className="border-t border-gray-100 bg-gray-50 p-3 flex flex-wrap items-end gap-3">
+                  <div className="flex-1 min-w-[160px]">
+                    <label className="text-xs font-medium text-gray-600 mb-1 block">Novo valor</label>
+                    <CurrencyInput value={editAmount} onChange={setEditAmount} className="input text-sm" ariaLabel="Novo valor do salário" />
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => setEditing(null)} className="text-xs px-3 py-2 text-gray-600 hover:bg-gray-200 rounded-lg">Cancelar</button>
+                    <button onClick={() => setScopeFor(entry)} disabled={editAmount == null}
+                      className="text-xs px-3 py-2 bg-[#030A8C] text-white rounded-lg hover:bg-[#02077a] disabled:opacity-50">
+                      Salvar
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+          <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg mt-3">
+            <span className="text-sm font-bold text-gray-900">Total Salários do mês</span>
+            <span className="text-sm font-bold text-red-700">{formatCurrency(total)}</span>
+          </div>
+        </div>
+      )}
+
+      {scopeFor && (
+        <ScopeDialog
+          title={`Alterar o salário de ${scopeFor.user?.name ?? 'colaborador'}?`}
+          onlyLabel="Alterar somente o salário deste mês"
+          futureLabel="Alterar a partir deste mês (meses anteriores preservados)"
+          onPick={(scope) => { applyEdit(scopeFor, scope); setScopeFor(null) }}
+          onClose={() => setScopeFor(null)}
+        />
+      )}
     </div>
   )
 }

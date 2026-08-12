@@ -40,12 +40,14 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  activityLogs   ActivityLog[]
-  crmMessages    CrmMessage[]
-  assignedEvents CalendarEvent[]
-  assignedTasks  Task[]          @relation("TaskAssignee")
-  createdTasks   Task[]          @relation("TaskCreator")
-  taskComments   TaskComment[]
+  activityLogs    ActivityLog[]
+  crmMessages     CrmMessage[]
+  assignedEvents  CalendarEvent[]
+  assignedTasks   Task[]           @relation("TaskAssignee")
+  createdTasks    Task[]           @relation("TaskCreator")
+  taskComments     TaskComment[]
+  salaryContracts  SalaryContract[]
+  financialEntries FinancialEntry[]
 }
 
 model Client {
@@ -104,6 +106,7 @@ model ClientService {
   endDate            DateTime?
   status             String    @default("ATIVO")
   createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @default(now()) @updatedAt
 
   client   Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
   payments ClientPayment[]
@@ -183,17 +186,75 @@ model ActivityLog {
 }
 
 model FinancialEntry {
-  id          String   @id @default(cuid())
-  type        String
+  id          String    @id @default(cuid())
+  type        String // CUSTO | SALARIO | RECEITA
   category    String
+  name        String?
   description String
   amount      Float
   date        DateTime
-  isPaid      Boolean  @default(false)
+  // Competência do lançamento (mês/ano a que ele pertence)
+  month       Int?
+  year        Int?
+  dueDate     DateTime?
+  paidAt      DateTime?
+  // PENDENTE | PAGO | CANCELADO — CANCELADO funciona como "lápide" de uma
+  // ocorrência recorrente excluída: mantém a chave única para o período não
+  // ser re-materializado, mas sai das listagens e dos cálculos.
+  status      String    @default("PENDENTE")
+  isPaid      Boolean   @default(false)
   clientId    String?
   userId      String?
-  recurring   Boolean  @default(false)
-  createdAt   DateTime @default(now())
+  recurring   Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  // Origem recorrente (custo ou salário); no máximo uma ocorrência por período
+  recurringCostId  String?
+  salaryContractId String?
+  recurringCost  RecurringCost?  @relation(fields: [recurringCostId], references: [id], onDelete: SetNull)
+  salaryContract SalaryContract? @relation(fields: [salaryContractId], references: [id], onDelete: SetNull)
+  user           User?           @relation(fields: [userId], references: [id])
+
+  @@unique([recurringCostId, year, month])
+  @@unique([salaryContractId, year, month])
+}
+
+// Modelo (template) de custo recorrente. As ocorrências mensais são
+// materializadas em FinancialEntry — uma por período, sem duplicidade.
+model RecurringCost {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  category    String
+  amount      Float
+  frequency   String    @default("MENSAL") // MENSAL | TRIMESTRAL | ANUAL
+  startDate   DateTime
+  endDate     DateTime?
+  dueDay      Int       @default(1)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+
+  entries FinancialEntry[]
+}
+
+// Contrato de salário de um colaborador. Mudanças de valor "a partir deste
+// mês" encerram o contrato vigente e abrem um novo — os meses já
+// materializados preservam o valor da época.
+model SalaryContract {
+  id         String   @id @default(cuid())
+  userId     String
+  amount     Float
+  payDay     Int      @default(5)
+  startYear  Int
+  startMonth Int
+  endYear    Int?
+  endMonth   Int?
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  user    User             @relation(fields: [userId], references: [id])
+  entries FinancialEntry[]
 }
 
 model ClientPayment {

@@ -2,58 +2,75 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/layout/Header'
+import CurrencyInput from '@/components/ui/CurrencyInput'
+import { formatCurrency } from '@/lib/utils'
 import { Plus, Trash2, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 
-interface Service {
+interface ServiceForm {
   serviceName: string
   description: string
+  monthlyValue: number | null
 }
+
+const EMPTY_SERVICE: ServiceForm = { serviceName: '', description: '', monthlyValue: null }
 
 export default function NovoClientePage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
-  const [services, setServices] = useState<Service[]>([{ serviceName: '', description: '' }])
+  const [error, setError] = useState<string | null>(null)
+  const [services, setServices] = useState<ServiceForm[]>([{ ...EMPTY_SERVICE }])
   const [form, setForm] = useState({
     name: '', cnpj: '', email: '', phone: '', niche: '',
-    contractStart: '', contractMonths: '', monthlyValue: '',
+    contractStart: '', contractMonths: '',
     paymentDay: '', status: 'ATIVO', notes: '',
   })
+
+  // Valor total mensal: somatório automático dos serviços, somente leitura
+  const totalMensal = services.reduce((sum, s) => sum + (s.monthlyValue ?? 0), 0)
 
   function setField(field: string, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }))
   }
 
   function addService() {
-    setServices((prev) => [...prev, { serviceName: '', description: '' }])
+    setServices((prev) => [...prev, { ...EMPTY_SERVICE }])
   }
 
   function removeService(i: number) {
     setServices((prev) => prev.filter((_, idx) => idx !== i))
   }
 
-  function updateService(i: number, field: keyof Service, value: string) {
+  function updateService<K extends keyof ServiceForm>(i: number, field: K, value: ServiceForm[K]) {
     setServices((prev) => prev.map((s, idx) => (idx === i ? { ...s, [field]: value } : s)))
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    setError(null)
     setLoading(true)
-    const res = await fetch('/api/clientes', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...form,
-        contractMonths: form.contractMonths ? Number(form.contractMonths) : null,
-        monthlyValue: form.monthlyValue ? Number(form.monthlyValue) : null,
-        paymentDay: form.paymentDay ? Number(form.paymentDay) : null,
-        services: services.filter((s) => s.serviceName.trim()),
-      }),
-    })
-    if (res.ok) {
-      router.push('/clientes')
-    } else {
-      alert('Erro ao cadastrar cliente')
+    try {
+      const res = await fetch('/api/clientes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...form,
+          contractMonths: form.contractMonths ? Number(form.contractMonths) : null,
+          paymentDay: form.paymentDay ? Number(form.paymentDay) : null,
+          services: services.filter((s) => s.serviceName.trim()),
+        }),
+      })
+      if (res.ok) {
+        const created = await res.json()
+        // Cliente criado → abre direto o perfil dele
+        router.push(`/clientes/${created.id}`)
+      } else {
+        const body = await res.json().catch(() => ({}))
+        setError(body.error || 'Erro ao cadastrar cliente. Verifique os campos e tente de novo.')
+        setLoading(false)
+      }
+    } catch {
+      setError('Falha de conexão. Tente de novo.')
       setLoading(false)
     }
   }
@@ -123,14 +140,16 @@ export default function NovoClientePage() {
                     className="input" placeholder="Ex: 12" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Valor Mensal (R$)</label>
-                  <input type="number" min="0" step="0.01" value={form.monthlyValue} onChange={(e) => setField('monthlyValue', e.target.value)}
-                    className="input" placeholder="Ex: 2500.00" />
-                </div>
-                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Dia de Pagamento</label>
                   <input type="number" min="1" max="31" value={form.paymentDay} onChange={(e) => setField('paymentDay', e.target.value)}
                     className="input" placeholder="Ex: 10" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Valor total mensal</label>
+                  <div className="input bg-gray-50 text-gray-900 font-semibold cursor-default select-none">
+                    {formatCurrency(totalMensal)}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">Calculado automaticamente pela soma dos serviços.</p>
                 </div>
                 {form.contractStart && form.contractMonths && (
                   <div className="sm:col-span-2">
@@ -151,37 +170,53 @@ export default function NovoClientePage() {
 
             {/* Serviços */}
             <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-1">
                 <h2 className="font-semibold text-gray-900">Serviços Contratados</h2>
-                <button type="button" onClick={addService}
-                  className="flex items-center gap-1 text-sm text-[#030A8C] hover:underline">
-                  <Plus className="w-4 h-4" /> Adicionar
-                </button>
+                <p className="text-xs text-gray-500">
+                  Total mensal: <span className="font-bold text-[#030A8C]">{formatCurrency(totalMensal)}</span>
+                </p>
               </div>
+              <p className="text-xs text-gray-400 mb-4">
+                Cadastre cada serviço com nome, valor mensal e descrição.
+              </p>
               <div className="space-y-3">
                 {services.map((service, i) => (
-                  <div key={i} className="flex gap-3 items-start">
-                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <input
-                        value={service.serviceName}
-                        onChange={(e) => updateService(i, 'serviceName', e.target.value)}
-                        className="input" placeholder="Nome do serviço *"
-                      />
-                      <input
-                        value={service.description}
-                        onChange={(e) => updateService(i, 'description', e.target.value)}
-                        className="input" placeholder="Descrição (opcional)"
-                      />
+                  <div key={i} className="border border-gray-200 rounded-lg p-4">
+                    <div className="flex gap-3 items-start">
+                      <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <input
+                          value={service.serviceName}
+                          onChange={(e) => updateService(i, 'serviceName', e.target.value)}
+                          className="input" placeholder="Nome do serviço *"
+                          aria-label={`Nome do serviço ${i + 1}`}
+                        />
+                        <CurrencyInput
+                          value={service.monthlyValue}
+                          onChange={(v) => updateService(i, 'monthlyValue', v)}
+                          ariaLabel={`Valor mensal do serviço ${i + 1}`}
+                        />
+                        <input
+                          value={service.description}
+                          onChange={(e) => updateService(i, 'description', e.target.value)}
+                          className="input sm:col-span-2" placeholder="Descrição do serviço (opcional)"
+                          aria-label={`Descrição do serviço ${i + 1}`}
+                        />
+                      </div>
+                      {services.length > 1 && (
+                        <button type="button" onClick={() => removeService(i)}
+                          title="Remover serviço"
+                          className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
-                    {services.length > 1 && (
-                      <button type="button" onClick={() => removeService(i)}
-                        className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
                   </div>
                 ))}
               </div>
+              <button type="button" onClick={addService}
+                className="mt-3 flex items-center gap-1 text-sm text-[#030A8C] hover:underline font-medium">
+                <Plus className="w-4 h-4" /> Adicionar outro serviço
+              </button>
             </div>
 
             {/* Observações */}
@@ -193,6 +228,12 @@ export default function NovoClientePage() {
                 placeholder="Anotações internas sobre o cliente..."
               />
             </div>
+
+            {error && (
+              <p className="text-sm font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-3">
+                {error}
+              </p>
+            )}
 
             <div className="flex gap-3 pb-6">
               <Link href="/clientes"

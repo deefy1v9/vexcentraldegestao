@@ -35,8 +35,29 @@ export async function POST(req: NextRequest) {
   const body = await req.json()
   const {
     name, cnpj, email, phone, niche,
-    contractStart, contractMonths, monthlyValue, paymentDay, status, notes, services,
+    contractStart, contractMonths, paymentDay, status, notes, services,
   } = body
+
+  if (!name || !String(name).trim()) {
+    return NextResponse.json({ error: 'Nome do cliente é obrigatório' }, { status: 400 })
+  }
+
+  type ServiceInput = { serviceName: string; description?: string; monthlyValue?: number | string | null }
+  const serviceRows = ((services || []) as ServiceInput[])
+    .filter((s) => s.serviceName && String(s.serviceName).trim())
+    .map((s) => {
+      const v = s.monthlyValue != null && s.monthlyValue !== '' ? Number(s.monthlyValue) : null
+      return {
+        serviceName: String(s.serviceName).trim(),
+        description: s.description ? String(s.description) : null,
+        monthlyValue: v,
+        status: 'ATIVO',
+      }
+    })
+
+  if (serviceRows.some((s) => s.monthlyValue != null && (!Number.isFinite(s.monthlyValue) || s.monthlyValue < 0))) {
+    return NextResponse.json({ error: 'Valor de serviço deve ser maior ou igual a zero' }, { status: 400 })
+  }
 
   const contractEnd = contractStart && contractMonths
     ? new Date(new Date(contractStart).setMonth(new Date(contractStart).getMonth() + contractMonths))
@@ -44,20 +65,16 @@ export async function POST(req: NextRequest) {
 
   const client = await prisma.client.create({
     data: {
-      name, cnpj: cnpj || null, email, phone, niche,
+      name: String(name).trim(), cnpj: cnpj || null, email, phone, niche,
       contractStart: contractStart ? new Date(contractStart) : null,
       contractEnd,
       contractMonths: contractMonths ? Number(contractMonths) : null,
-      monthlyValue: monthlyValue ? Number(monthlyValue) : null,
+      // Valor mensal é derivado: soma dos serviços contratados, nunca manual.
+      monthlyValue: serviceRows.reduce((sum, s) => sum + (s.monthlyValue ?? 0), 0),
       paymentDay: paymentDay ? Number(paymentDay) : null,
       status: status || 'ATIVO',
       notes,
-      services: {
-        create: (services || []).map((s: { serviceName: string; description?: string }) => ({
-          serviceName: s.serviceName,
-          description: s.description,
-        })),
-      },
+      services: { create: serviceRows },
     },
   })
 

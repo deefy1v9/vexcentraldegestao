@@ -32,6 +32,11 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
 
   if (!client) notFound()
 
+  // Valor total mensal: calculado pela soma dos serviços ativos, nunca manual
+  const totalMensal = client.services
+    .filter((s) => s.status === 'ATIVO')
+    .reduce((sum, s) => sum + (s.monthlyValue ?? 0), 0)
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <Header title={client.name} subtitle={client.niche || 'Cliente'} />
@@ -63,7 +68,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
                   ['Início do Contrato', client.contractStart ? formatDate(client.contractStart) : '—'],
                   ['Fim do Contrato', client.contractEnd ? formatDate(client.contractEnd) : '—'],
                   ['Duração', client.contractMonths ? `${client.contractMonths} meses` : '—'],
-                  ['Valor Mensal', client.monthlyValue ? formatCurrency(client.monthlyValue) : '—'],
+                  ['Valor Total Mensal', formatCurrency(totalMensal)],
                   ['Dia de Pagamento', client.paymentDay ? `Dia ${client.paymentDay}` : '—'],
                   ['Status', client.status],
                 ].map(([label, value]) => (

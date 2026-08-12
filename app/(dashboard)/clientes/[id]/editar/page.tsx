@@ -2,8 +2,17 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Header from '@/components/layout/Header'
+import CurrencyInput from '@/components/ui/CurrencyInput'
+import { formatCurrency } from '@/lib/utils'
 import Link from 'next/link'
-import { ArrowLeft, Save, Trash2 } from 'lucide-react'
+import { ArrowLeft, Save, Trash2, Plus } from 'lucide-react'
+
+interface ServiceForm {
+  id: string | null
+  serviceName: string
+  description: string
+  monthlyValue: number | null
+}
 
 interface Client {
   id: string
@@ -19,7 +28,7 @@ interface Client {
   monthlyValue?: number | null
   paymentDay?: number | null
   notes?: string | null
-  services: { id: string; serviceName: string }[]
+  services: { id: string; serviceName: string; description?: string | null; monthlyValue?: number | null }[]
 }
 
 export default function EditClientePage() {
@@ -30,8 +39,8 @@ export default function EditClientePage() {
   const [client, setClient] = useState<Client | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [services, setServices] = useState<string[]>([])
-  const [newService, setNewService] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [services, setServices] = useState<ServiceForm[]>([])
   const [form, setForm] = useState({
     name: '',
     cnpj: '',
@@ -42,14 +51,19 @@ export default function EditClientePage() {
     contractStart: '',
     contractEnd: '',
     contractMonths: '',
-    monthlyValue: '',
     paymentDay: '',
     notes: '',
   })
 
+  // Valor total mensal: soma automática dos serviços, somente leitura
+  const totalMensal = services.reduce((sum, s) => sum + (s.monthlyValue ?? 0), 0)
+
   useEffect(() => {
     fetch(`/api/clientes/${id}`)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error()
+        return r.json()
+      })
       .then((data: Client) => {
         setClient(data)
         setForm({
@@ -62,11 +76,19 @@ export default function EditClientePage() {
           contractStart: data.contractStart ? data.contractStart.split('T')[0] : '',
           contractEnd: data.contractEnd ? data.contractEnd.split('T')[0] : '',
           contractMonths: data.contractMonths?.toString() || '',
-          monthlyValue: data.monthlyValue?.toString() || '',
           paymentDay: data.paymentDay?.toString() || '',
           notes: data.notes || '',
         })
-        setServices(data.services.map((s) => s.serviceName))
+        setServices(data.services.map((s) => ({
+          id: s.id,
+          serviceName: s.serviceName,
+          description: s.description || '',
+          monthlyValue: s.monthlyValue ?? null,
+        })))
+        setLoading(false)
+      })
+      .catch(() => {
+        setError('Não foi possível carregar o cliente.')
         setLoading(false)
       })
   }, [id])
@@ -76,32 +98,42 @@ export default function EditClientePage() {
   }
 
   function addService() {
-    const s = newService.trim()
-    if (s && !services.includes(s)) {
-      setServices((prev) => [...prev, s])
-    }
-    setNewService('')
+    setServices((prev) => [...prev, { id: null, serviceName: '', description: '', monthlyValue: null }])
+  }
+
+  function removeService(i: number) {
+    setServices((prev) => prev.filter((_, idx) => idx !== i))
+  }
+
+  function updateService<K extends keyof ServiceForm>(i: number, field: K, value: ServiceForm[K]) {
+    setServices((prev) => prev.map((s, idx) => (idx === i ? { ...s, [field]: value } : s)))
   }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
+    setError(null)
     setSaving(true)
-    const res = await fetch(`/api/clientes/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...form,
-        contractMonths: form.contractMonths ? Number(form.contractMonths) : null,
-        monthlyValue: form.monthlyValue ? Number(form.monthlyValue) : null,
-        paymentDay: form.paymentDay ? Number(form.paymentDay) : null,
-        services,
-      }),
-    })
+    try {
+      const res = await fetch(`/api/clientes/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...form,
+          contractMonths: form.contractMonths ? Number(form.contractMonths) : null,
+          paymentDay: form.paymentDay ? Number(form.paymentDay) : null,
+          services: services.filter((s) => s.serviceName.trim()),
+        }),
+      })
 
-    if (res.ok) {
-      router.push(`/clientes/${id}`)
-    } else {
-      alert('Erro ao salvar')
+      if (res.ok) {
+        router.push(`/clientes/${id}`)
+      } else {
+        const body = await res.json().catch(() => ({}))
+        setError(body.error || 'Erro ao salvar. Verifique os campos e tente de novo.')
+        setSaving(false)
+      }
+    } catch {
+      setError('Falha de conexão. Tente de novo.')
       setSaving(false)
     }
   }
@@ -188,39 +220,73 @@ export default function EditClientePage() {
                   <input type="date" value={form.contractEnd} onChange={(e) => setField('contractEnd', e.target.value)} className="input" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Valor Mensal (R$)</label>
-                  <input type="number" min="0" step="0.01" value={form.monthlyValue} onChange={(e) => setField('monthlyValue', e.target.value)} className="input" placeholder="Ex: 3000.00" />
-                </div>
-                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Dia de Pagamento</label>
                   <input type="number" min="1" max="31" value={form.paymentDay} onChange={(e) => setField('paymentDay', e.target.value)} className="input" placeholder="Ex: 10" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Valor total mensal</label>
+                  <div className="input bg-gray-50 text-gray-900 font-semibold cursor-default select-none">
+                    {formatCurrency(totalMensal)}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">Calculado automaticamente pela soma dos serviços.</p>
                 </div>
               </div>
             </div>
 
             {/* Serviços */}
             <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
-              <h2 className="font-bold text-gray-900">Serviços Contratados</h2>
-              <div className="flex flex-wrap gap-2 mb-3">
-                {services.map((s) => (
-                  <span key={s} className="flex items-center gap-1.5 bg-[#030A8C]/10 text-[#030A8C] px-3 py-1.5 rounded-lg text-sm font-medium">
-                    {s}
-                    <button type="button" onClick={() => setServices((prev) => prev.filter((x) => x !== s))} className="text-[#030A8C]/50 hover:text-red-500 transition-colors">×</button>
-                  </span>
-                ))}
+              <div className="flex items-center justify-between">
+                <h2 className="font-bold text-gray-900">Serviços Contratados</h2>
+                <p className="text-xs text-gray-500">
+                  Total mensal: <span className="font-bold text-[#030A8C]">{formatCurrency(totalMensal)}</span>
+                </p>
               </div>
-              <div className="flex gap-2">
-                <input
-                  value={newService}
-                  onChange={(e) => setNewService(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addService() } }}
-                  placeholder="Adicionar serviço..."
-                  className="input flex-1"
-                />
-                <button type="button" onClick={addService} className="px-4 py-2 bg-[#030A8C]/10 text-[#030A8C] rounded-xl text-sm font-medium hover:bg-[#030A8C] hover:text-white transition-colors">
-                  Adicionar
-                </button>
-              </div>
+              {services.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-4">Nenhum serviço contratado cadastrado.</p>
+              ) : (
+                <div className="space-y-3">
+                  {services.map((service, i) => (
+                    <div key={service.id ?? `new-${i}`} className="border border-gray-200 rounded-lg p-4">
+                      <div className="flex gap-3 items-start">
+                        <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <input
+                            value={service.serviceName}
+                            onChange={(e) => updateService(i, 'serviceName', e.target.value)}
+                            className="input" placeholder="Nome do serviço *"
+                            aria-label={`Nome do serviço ${i + 1}`}
+                          />
+                          <CurrencyInput
+                            value={service.monthlyValue}
+                            onChange={(v) => updateService(i, 'monthlyValue', v)}
+                            ariaLabel={`Valor mensal do serviço ${i + 1}`}
+                          />
+                          <input
+                            value={service.description}
+                            onChange={(e) => updateService(i, 'description', e.target.value)}
+                            className="input sm:col-span-2" placeholder="Descrição do serviço (opcional)"
+                            aria-label={`Descrição do serviço ${i + 1}`}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (service.id && !confirm(`Remover o serviço "${service.serviceName}"? A remoção é aplicada ao salvar.`)) return
+                            removeService(i)
+                          }}
+                          title="Remover serviço"
+                          className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <button type="button" onClick={addService}
+                className="flex items-center gap-1 text-sm text-[#030A8C] hover:underline font-medium">
+                <Plus className="w-4 h-4" /> Adicionar outro serviço
+              </button>
             </div>
 
             {/* Observações */}
@@ -234,6 +300,12 @@ export default function EditClientePage() {
                 placeholder="Notas internas sobre o cliente..."
               />
             </div>
+
+            {error && (
+              <p className="text-sm font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-3">
+                {error}
+              </p>
+            )}
 
             {/* Actions */}
             <div className="flex items-center gap-3">

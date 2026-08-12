@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin, requireUser } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
+import { recalcClientMonthlyValue } from '@/lib/client-value'
 
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const gate = await requireUser()
@@ -33,7 +34,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'serviceName obrigatório' }, { status: 400 })
   }
 
-  const monthlyValue = body.monthlyValue ? Number(body.monthlyValue) : null
+  const monthlyValue = body.monthlyValue != null && body.monthlyValue !== '' ? Number(body.monthlyValue) : null
+  if (monthlyValue != null && (!Number.isFinite(monthlyValue) || monthlyValue < 0)) {
+    return NextResponse.json({ error: 'Valor mensal deve ser maior ou igual a zero' }, { status: 400 })
+  }
   const contractDuration = body.contractDuration ? Number(body.contractDuration) : null
   const totalContractValue =
     monthlyValue != null && contractDuration != null
@@ -85,8 +89,54 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     await prisma.clientPayment.createMany({ data: paymentsData })
   }
 
+  // Mantém o valor mensal total do cliente em sincronia com os serviços
+  await recalcClientMonthlyValue(prisma, id)
+
   await logActivity(user.id, 'adicionou serviço', 'Clientes', service.serviceName)
   return NextResponse.json(service, { status: 201 })
+}
+
+/** Edita um serviço existente do cliente. Apenas campos presentes no corpo são gravados. */
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const user = await requireAdmin()
+  if (user instanceof NextResponse) return user
+
+  const { id } = await params
+  const body = await req.json().catch(() => ({}))
+  const serviceId = body.serviceId ? String(body.serviceId) : null
+  if (!serviceId) return NextResponse.json({ error: 'serviceId obrigatório' }, { status: 400 })
+
+  const existing = await prisma.clientService.findUnique({ where: { id: serviceId } })
+  if (!existing || existing.clientId !== id) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
+
+  const has = (k: string) => Object.prototype.hasOwnProperty.call(body, k)
+  const data: Record<string, unknown> = {}
+
+  if (has('serviceName')) {
+    if (!String(body.serviceName).trim()) {
+      return NextResponse.json({ error: 'serviceName obrigatório' }, { status: 400 })
+    }
+    data.serviceName = String(body.serviceName).trim()
+  }
+  if (has('customName')) data.customName = body.customName ? String(body.customName) : null
+  if (has('description')) data.description = body.description ? String(body.description) : null
+  if (has('observations')) data.observations = body.observations ? String(body.observations) : null
+  if (has('status')) data.status = String(body.status)
+  if (has('monthlyValue')) {
+    const v = body.monthlyValue != null && body.monthlyValue !== '' ? Number(body.monthlyValue) : null
+    if (v != null && (!Number.isFinite(v) || v < 0)) {
+      return NextResponse.json({ error: 'Valor mensal deve ser maior ou igual a zero' }, { status: 400 })
+    }
+    data.monthlyValue = v
+  }
+
+  const service = await prisma.clientService.update({ where: { id: serviceId }, data })
+  await recalcClientMonthlyValue(prisma, id)
+
+  await logActivity(user.id, 'atualizou serviço', 'Clientes', service.serviceName)
+  return NextResponse.json(service)
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -109,6 +159,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   })
 
   await prisma.clientService.delete({ where: { id: serviceId } })
+  await recalcClientMonthlyValue(prisma, id)
   await logActivity(user.id, 'removeu serviço', 'Clientes', service.serviceName)
   return NextResponse.json({ ok: true })
 }
