@@ -121,11 +121,35 @@ async function log(confirmationId: string, kind: string, detail: string, phone?:
 
 /* ------------------------------- envio D-2 ------------------------------- */
 
+type Stage = 'D2' | 'D0' | 'OVERDUE'
+const STAGE_ORDER: Record<Stage, number> = { D2: 0, D0: 1, OVERDUE: 2 }
+
+function stageMessage(stage: Stage, clientName: string, month: number, year: number, dueDate: Date, balance: number, code: string) {
+  const header =
+    stage === 'D2' ? ['Confirmação de recebimento', '', `Cliente: ${clientName}`, `Competência: ${competencia(month, year)}`, `Vencimento: ${fmtDate(dueDate)}`, `Valor: ${fmtBRL(balance)}`]
+    : stage === 'D0' ? ['Pagamento vence HOJE', '', `Cliente: ${clientName}`, `Competência: ${competencia(month, year)}`, `Vencimento: hoje, ${fmtDate(dueDate)}`, `Valor: ${fmtBRL(balance)}`]
+    : ['Pagamento em atraso', '', `Cliente: ${clientName}`, `Competência: ${competencia(month, year)}`, `Venceu em ${fmtDate(dueDate)} e ainda não foi registrado.`, `Valor pendente: ${fmtBRL(balance)}`]
+
+  return [
+    ...header,
+    '',
+    'A cliente já realizou o pagamento?',
+    '',
+    'Responda com o número:',
+    '1 - Sim, recebeu',
+    '2 - Ainda não',
+    '3 - Pagamento parcial',
+    '',
+    `Cobrança #${code}`,
+  ].join('\n')
+}
+
 /**
- * Procura cobranças (pendentes) vencendo exatamente em dois dias e envia a
- * pergunta de confirmação aos administradores. Idempotente: a chave única
- * (cliente, ano, mês) garante uma única notificação por cobrança mesmo que a
- * rotina rode de novo.
+ * Varredura diária de cobranças pendentes, em três estágios por cobrança
+ * (cliente + competência): D-2 (dois dias antes do vencimento), D0 (vence
+ * hoje) e OVERDUE (venceu sem pagamento). Cada estágio dispara no máximo uma
+ * vez — a coluna `stage` registra o último enviado e a chave única
+ * (cliente, ano, mês) impede duplicidade mesmo com reexecução.
  */
 export async function runBillingReminders(): Promise<{ sent: number; skipped: number }> {
   if (!(await isConfigured())) return { sent: 0, skipped: 0 }
@@ -133,22 +157,17 @@ export async function runBillingReminders(): Promise<{ sent: number; skipped: nu
   const admins = await authorizedAdmins()
   if (admins.length === 0) return { sent: 0, skipped: 0 }
 
-  // Dia civil D+2 em São Paulo. Os vencimentos são gravados como meia-noite
-  // UTC do dia civil pretendido, então a comparação é pela data ISO.
   const { date: today } = spNow()
-  const target = new Date(`${today}T12:00:00Z`)
-  target.setUTCDate(target.getUTCDate() + 2)
-  const targetStr = target.toISOString().slice(0, 10)
+  const dayMs = 24 * 60 * 60 * 1000
+  const todayUTC = new Date(`${today}T00:00:00Z`)
+  // Janela: vencidos há até 30 dias (não ressuscita cobrança antiga) até D+2
+  const from = new Date(todayUTC.getTime() - 30 * dayMs)
+  const to = new Date(todayUTC.getTime() + 3 * dayMs)
 
   const window = await prisma.clientPayment.findMany({
-    where: {
-      status: 'PENDENTE',
-      dueDate: {
-        gte: new Date(`${targetStr}T00:00:00Z`),
-        lt: new Date(`${targetStr}T23:59:59Z`),
-      },
-    },
+    where: { status: 'PENDENTE', dueDate: { gte: from, lt: to } },
     include: { client: { select: { id: true, name: true } } },
+    orderBy: { dueDate: 'asc' },
   })
 
   // Agrupa por cobrança (cliente + competência)
@@ -164,59 +183,67 @@ export async function runBillingReminders(): Promise<{ sent: number; skipped: nu
   let skipped = 0
 
   for (const items of groups.values()) {
-    const first = items[0]
-    // Saldo pendente da competência inteira (pode incluir parcelas com outras datas)
-    const allPending = await prisma.clientPayment.findMany({
-      where: { clientId: first.clientId, year: first.year, month: first.month, status: 'PENDENTE' },
-    })
-    const balance = allPending.reduce((s, p) => s + p.amount, 0)
+    const first = items[0] // vencimento mais próximo do grupo
+    const dueStr = first.dueDate.toISOString().slice(0, 10)
+    const diffDays = Math.round((new Date(`${dueStr}T00:00:00Z`).getTime() - todayUTC.getTime()) / dayMs)
+
+    const stage: Stage | null =
+      diffDays === 2 ? 'D2'
+      : diffDays === 0 ? 'D0'
+      : diffDays < 0 ? 'OVERDUE'
+      : null // D+1 ou D+3: nenhum estágio novo hoje
+    if (!stage) { skipped++; continue }
+
+    // Saldo pendente da competência inteira
+    const balance = items.reduce((s, p) => s + p.amount, 0)
     if (balance <= 0) { skipped++; continue }
 
-    // Web Crypto: funciona no runtime Node e no bundle da instrumentation
-    const code = globalThis.crypto.randomUUID().replace(/-/g, '').slice(0, 4).toUpperCase()
-    let confirmation
-    try {
-      confirmation = await prisma.paymentConfirmation.create({
-        data: {
-          code,
-          clientId: first.clientId,
-          year: first.year,
-          month: first.month,
-          amount: balance,
-          dueDate: first.dueDate,
-          sentTo: admins.map((a) => a.phone).join(','),
-        },
-      })
-    } catch {
-      // Chave única (cliente, ano, mês) já existe: cobrança já notificada
-      skipped++
-      continue
-    }
+    const existing = await prisma.paymentConfirmation.findUnique({
+      where: { clientId_year_month: { clientId: first.clientId, year: first.year, month: first.month } },
+    })
 
-    const text = [
-      'Confirmação de recebimento',
-      '',
-      `Cliente: ${first.client.name}`,
-      `Competência: ${competencia(first.month, first.year)}`,
-      `Vencimento: ${fmtDate(first.dueDate)}`,
-      `Valor: ${fmtBRL(balance)}`,
-      '',
-      'A cliente já realizou o pagamento?',
-      '',
-      'Responda com o número:',
-      '1 - Sim, recebeu',
-      '2 - Ainda não',
-      '3 - Pagamento parcial',
-      '',
-      `Cobrança #${code}`,
-    ].join('\n')
+    let confirmation = existing
+    if (!existing) {
+      // Web Crypto: funciona no runtime Node e no bundle da instrumentation
+      const code = globalThis.crypto.randomUUID().replace(/-/g, '').slice(0, 4).toUpperCase()
+      try {
+        confirmation = await prisma.paymentConfirmation.create({
+          data: {
+            code,
+            clientId: first.clientId,
+            year: first.year,
+            month: first.month,
+            amount: balance,
+            dueDate: first.dueDate,
+            stage,
+            sentTo: admins.map((a) => a.phone).join(','),
+          },
+        })
+      } catch {
+        skipped++ // corrida com outra execução: já existe
+        continue
+      }
+    } else {
+      // Cobrança encerrada não recebe mais lembrete
+      if (existing.status === 'CONFIRMADO') { skipped++; continue }
+      // Só avança de estágio (D2 → D0 → OVERDUE); nunca repete o mesmo
+      if (STAGE_ORDER[stage] <= STAGE_ORDER[(existing.stage as Stage) ?? 'D2']) { skipped++; continue }
+      await prisma.paymentConfirmation.update({
+        where: { id: existing.id },
+        data: { stage, amount: balance },
+      })
+    }
+    if (!confirmation) { skipped++; continue }
+
+    const text = stageMessage(stage, first.client.name, first.month, first.year, first.dueDate, balance, confirmation.code)
+    const stageLabel = stage === 'D2' ? 'D-2' : stage === 'D0' ? 'vence hoje' : 'em atraso'
 
     for (const admin of admins) {
       try {
         await uazSendText(admin.phone!, text)
-        await log(confirmation.id, 'ENVIO', `Pergunta enviada para ${admin.name}`, admin.phone!)
+        await log(confirmation.id, 'ENVIO', `Lembrete (${stageLabel}) enviado para ${admin.name}`, admin.phone!)
       } catch (err) {
-        await log(confirmation.id, 'ERRO', `Falha ao enviar para ${admin.name}: ${String(err)}`, admin.phone!)
+        await log(confirmation.id, 'ERRO', `Falha ao enviar (${stageLabel}) para ${admin.name}: ${String(err)}`, admin.phone!)
       }
     }
     sent++

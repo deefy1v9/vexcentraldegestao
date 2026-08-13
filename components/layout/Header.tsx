@@ -47,6 +47,17 @@ export default function Header({ title, subtitle }: HeaderProps) {
   const visible = notifications.filter((n) => !dismissed.has(n.id))
   const count = visible.length
 
+  // Persiste a leitura no servidor: a notificação não volta ao navegar nem
+  // ao entrar de novo. O estado local só adianta a resposta visual.
+  function markRead(ids: string[]) {
+    setDismissed((prev) => new Set([...prev, ...ids]))
+    fetch('/api/notifications', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids }),
+    }).catch(() => {})
+  }
+
   return (
     <header className="h-[72px] bg-white border-b border-gray-100 px-6 flex items-center justify-between shrink-0">
       <div>
@@ -88,7 +99,7 @@ export default function Header({ title, subtitle }: HeaderProps) {
                 <p className="font-bold text-gray-900 text-sm">Notificações</p>
                 {count > 0 && (
                   <button
-                    onClick={() => setDismissed(new Set(notifications.map((n) => n.id)))}
+                    onClick={() => markRead(visible.map((n) => n.id))}
                     className="text-xs text-gray-400 hover:text-gray-700 transition-colors"
                   >
                     Marcar todas como lidas
@@ -118,7 +129,7 @@ export default function Header({ title, subtitle }: HeaderProps) {
                         <p className="text-xs text-gray-400 mt-0.5">{n.description}</p>
                       </div>
                       <button
-                        onClick={() => setDismissed((prev) => new Set([...prev, n.id]))}
+                        onClick={() => markRead([n.id])}
                         className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-200 rounded-lg transition-all"
                       >
                         <X className="w-3 h-3 text-gray-500" />

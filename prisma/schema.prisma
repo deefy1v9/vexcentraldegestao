@@ -288,6 +288,9 @@ model PaymentConfirmation {
   dueDate         DateTime
   // AGUARDANDO | AGUARDANDO_VALOR | AGUARDANDO_CONTA | CONFIRMADO | PARCIAL
   status          String    @default("AGUARDANDO")
+  // Último estágio de lembrete enviado: D2 (2 dias antes) → D0 (vence hoje)
+  // → OVERDUE (vencido sem pagamento). Cada estágio dispara no máximo uma vez.
+  stage           String    @default("D2")
   sentAt          DateTime  @default(now())
   sentTo          String // números notificados, separados por vírgula
   // Fluxos de duas etapas (valor parcial / escolha de conta) ficam presos
@@ -363,4 +366,16 @@ model SystemSettings {
   key       String   @id
   value     String
   updatedAt DateTime @updatedAt
+}
+
+// Notificações do sininho são derivadas (pagamentos atrasados, tarefas
+// concluídas) — esta tabela guarda o que cada usuário já marcou como lido,
+// para a dispensa sobreviver a navegação e novos logins.
+model NotificationDismissal {
+  id        String   @id @default(cuid())
+  userId    String
+  notifId   String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, notifId])
 }

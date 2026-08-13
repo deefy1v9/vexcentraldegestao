@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
@@ -90,8 +90,36 @@ export async function GET() {
     }
   }
 
-  // Sort all by date desc
-  notifications.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  // Remove o que este usuário já marcou como lido (persistido no banco)
+  const dismissed = await prisma.notificationDismissal.findMany({
+    where: { userId, notifId: { in: notifications.map((n) => n.id) } },
+    select: { notifId: true },
+  })
+  const dismissedIds = new Set(dismissed.map((d) => d.notifId))
+  const visible = notifications.filter((n) => !dismissedIds.has(n.id))
 
-  return NextResponse.json(notifications)
+  // Sort all by date desc
+  visible.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+
+  return NextResponse.json(visible)
+}
+
+/** Marca notificações como lidas — a dispensa vale para sempre, por usuário. */
+export async function POST(req: NextRequest) {
+  const session = await auth()
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const userId = (session.user as any).id
+
+  const body = await req.json().catch(() => ({}))
+  const ids: string[] = Array.isArray(body.ids)
+    ? body.ids.filter((x: unknown) => typeof x === 'string').slice(0, 100)
+    : []
+  if (ids.length === 0) return NextResponse.json({ error: 'ids obrigatório' }, { status: 400 })
+
+  await prisma.notificationDismissal.createMany({
+    data: ids.map((notifId) => ({ userId, notifId })),
+    skipDuplicates: true,
+  })
+
+  return NextResponse.json({ ok: true })
 }
