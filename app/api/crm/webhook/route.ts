@@ -12,30 +12,45 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { event, data } = body
+
+    // A UAZAPI tem dois formatos de payload conforme a versão:
+    // antigo  { event: 'messages', data: { from, body, ... } }
+    // atual   { EventType: 'messages', message: { sender, text, ... } }
+    const event: string | undefined = body?.event ?? body?.EventType ?? body?.type
+    const data = body?.data ?? body?.message
 
     // Só tratamos eventos de mensagem.
-    if (event !== 'messages') return NextResponse.json({ ok: true })
+    if (event !== 'messages' || !data) {
+      if (event && event !== 'connection' && event !== 'status') {
+        // Evento desconhecido: registra um resumo para diagnóstico
+        console.log('[webhook] evento ignorado:', String(event), JSON.stringify(body).slice(0, 300))
+      }
+      return NextResponse.json({ ok: true })
+    }
 
     // Mensagens de grupo são ignoradas para evitar ruído.
-    // Remova esta linha para também capturar grupos no CRM.
-    if (data?.isGroup) return NextResponse.json({ ok: true })
+    const chatJid: string = data?.chatid ?? data?.chat ?? ''
+    if (data?.isGroup || /@g\.us$/.test(chatJid)) return NextResponse.json({ ok: true })
 
-    const fromMe: boolean = !!(data?.fromMe)
+    const fromMe: boolean = !!(data?.fromMe || data?.wasSentByApi)
 
     // Para mensagens enviadas por nós, o contato é o destinatário;
     // para mensagens recebidas, é o remetente.
     const contactJid: string = fromMe
       ? (data?.chatid ?? data?.to ?? data?.chat ?? '')
-      : (data?.from ?? '')
-    const number = contactJid
+      : (data?.from ?? data?.sender ?? data?.chatid ?? '')
+    const number = String(contactJid)
       .replace(/@s\.whatsapp\.net$/, '')
       .replace(/@g\.us$/, '')
       .replace(/\D/g, '')
-    if (!number) return NextResponse.json({ ok: true })
+    if (!number) {
+      console.log('[webhook] mensagem sem numero:', JSON.stringify(data).slice(0, 300))
+      return NextResponse.json({ ok: true })
+    }
 
-    const content: string = data?.body || data?.text || '[Mídia]'
-    const uazapiMsgId: string | undefined = data?.id
+    const rawContent = data?.body ?? data?.text ?? data?.content
+    const content: string = typeof rawContent === 'string' && rawContent.trim() ? rawContent : '[Mídia]'
+    const uazapiMsgId: string | undefined = data?.id ?? data?.messageid
 
     // Confirmação de cobrança via WhatsApp: mensagens recebidas de um
     // administrador autorizado passam primeiro pelo fluxo financeiro. Se a
