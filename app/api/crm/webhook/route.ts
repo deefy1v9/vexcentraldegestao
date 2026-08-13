@@ -48,7 +48,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true })
     }
 
-    const rawContent = data?.body ?? data?.text ?? data?.content
+    // `content` pode vir como string ou como objeto { text: ... } — e o
+    // texto também aparece em body/text/caption conforme o tipo da mensagem
+    const rawContent =
+      data?.body ?? data?.text ??
+      (typeof data?.content === 'string' ? data.content : data?.content?.text) ??
+      data?.caption ?? data?.conversation
     const content: string = typeof rawContent === 'string' && rawContent.trim() ? rawContent : '[Mídia]'
     const uazapiMsgId: string | undefined = data?.id ?? data?.messageid
 
