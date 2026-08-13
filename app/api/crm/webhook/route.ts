@@ -34,15 +34,22 @@ export async function POST(req: NextRequest) {
 
     const fromMe: boolean = !!(data?.fromMe || data?.wasSentByApi)
 
-    // Para mensagens enviadas por nós, o contato é o destinatário;
-    // para mensagens recebidas, é o remetente.
-    const contactJid: string = fromMe
-      ? (data?.chatid ?? data?.to ?? data?.chat ?? '')
-      : (data?.from ?? data?.sender ?? data?.chatid ?? '')
-    const number = String(contactJid)
-      .replace(/@s\.whatsapp\.net$/, '')
-      .replace(/@g\.us$/, '')
-      .replace(/\D/g, '')
+    // O WhatsApp pode identificar o remetente por um LID de privacidade
+    // (ex: 1762...@lid) em vez do telefone. O número real costuma aparecer
+    // em outro campo do payload — coletamos todos os candidatos.
+    const rawCandidates = fromMe
+      ? [data?.chatid, data?.to, data?.chat]
+      : [data?.senderPn, data?.sender_pn, data?.participantPn, data?.chatid, data?.from, data?.sender, data?.participant]
+    const candidates = [...new Set(
+      rawCandidates
+        .filter((x: unknown): x is string => typeof x === 'string' && x.length > 0)
+        .filter((x: string) => !/@g\.us$/.test(x))
+        .map((x: string) => x.replace(/@.*$/, '').replace(/\D/g, ''))
+        .filter((x: string) => x.length >= 8),
+    )]
+
+    // Para o CRM, prefere o que parece um telefone BR real (55 + DDD + nº)
+    const number = candidates.find((c) => /^55\d{10,11}$/.test(c)) ?? candidates[0] ?? ''
     if (!number) {
       console.log('[webhook] mensagem sem numero:', JSON.stringify(data).slice(0, 300))
       return NextResponse.json({ ok: true })
@@ -60,14 +67,20 @@ export async function POST(req: NextRequest) {
     // Confirmação de cobrança via WhatsApp: mensagens recebidas de um
     // administrador autorizado passam primeiro pelo fluxo financeiro. Se a
     // mensagem for consumida lá, não entra no CRM (é conversa interna).
+    // Todos os candidatos de número são testados — cobre remetente por LID.
     if (!fromMe) {
       try {
-        const handled = await handleBillingReply(number, content)
+        const handled = await handleBillingReply(candidates, content)
         if (handled) return NextResponse.json({ ok: true })
       } catch (err) {
         // Falha no fluxo de cobrança nunca derruba o webhook do CRM
         console.error('Billing reply error:', err)
       }
+    }
+
+    // Eco das mensagens do próprio fluxo de cobrança: não polui o CRM
+    if (fromMe && /Cobrança #[A-Z0-9]{3,8}/.test(content)) {
+      return NextResponse.json({ ok: true })
     }
 
     // Nome de exibição do contato — melhor esforço a partir do payload.

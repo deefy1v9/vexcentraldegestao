@@ -99,9 +99,9 @@ async function authorizedAdmins() {
   return admins.filter((a) => a.phone && a.phone.replace(/\D/g, '').length >= 10)
 }
 
-async function adminByPhone(number: string) {
+async function adminByPhone(numbers: string[]) {
   const admins = await authorizedAdmins()
-  return admins.find((a) => phonesMatch(a.phone!, number)) ?? null
+  return admins.find((a) => numbers.some((n) => phonesMatch(a.phone!, n))) ?? null
 }
 
 /* ------------------------------- configurações ------------------------------- */
@@ -400,12 +400,18 @@ async function notifyOthers(conf: Confirmation, clientName: string, exceptPhone:
 
 /**
  * Tenta tratar uma mensagem recebida como resposta de cobrança.
- * Retorna true se a mensagem foi consumida por este fluxo (o webhook não
- * deve encaminhá-la ao CRM); false se não tem relação com cobranças.
+ * Recebe todos os números candidatos extraídos do payload (o WhatsApp pode
+ * identificar o remetente por LID em vez do telefone). Retorna true se a
+ * mensagem foi consumida por este fluxo; false se não tem relação.
  */
-export async function handleBillingReply(number: string, rawText: string): Promise<boolean> {
-  const admin = await adminByPhone(number)
+export async function handleBillingReply(numberOrCandidates: string | string[], rawText: string): Promise<boolean> {
+  const candidates = Array.isArray(numberOrCandidates) ? numberOrCandidates : [numberOrCandidates]
+  const admin = await adminByPhone(candidates)
   if (!admin) return false // não autorizado: segue fluxo normal do CRM
+
+  // Toda resposta e todo registro usam o telefone CADASTRADO do admin — o
+  // mesmo que já recebe os envios — independente do identificador do payload
+  const number = admin.phone!
 
   const text = (rawText || '').trim()
   const lower = text.toLowerCase()
