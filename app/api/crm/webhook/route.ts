@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { isValidWebhookToken } from '@/lib/webhook-secret'
+import { handleBillingReply } from '@/lib/billing-whatsapp'
 
 export async function POST(req: NextRequest) {
   try {
@@ -35,6 +36,19 @@ export async function POST(req: NextRequest) {
 
     const content: string = data?.body || data?.text || '[Mídia]'
     const uazapiMsgId: string | undefined = data?.id
+
+    // Confirmação de cobrança via WhatsApp: mensagens recebidas de um
+    // administrador autorizado passam primeiro pelo fluxo financeiro. Se a
+    // mensagem for consumida lá, não entra no CRM (é conversa interna).
+    if (!fromMe) {
+      try {
+        const handled = await handleBillingReply(number, content)
+        if (handled) return NextResponse.json({ ok: true })
+      } catch (err) {
+        // Falha no fluxo de cobrança nunca derruba o webhook do CRM
+        console.error('Billing reply error:', err)
+      }
+    }
 
     // Nome de exibição do contato — melhor esforço a partir do payload.
     const contactName: string =

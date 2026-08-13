@@ -67,12 +67,13 @@ model Client {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  credentials    ClientCredential[]
-  services       ClientService[]
-  calendarEvents CalendarEvent[]
-  payments       ClientPayment[]
-  crmContact     CrmContact?
-  tasks          Task[]
+  credentials          ClientCredential[]
+  services             ClientService[]
+  calendarEvents       CalendarEvent[]
+  payments             ClientPayment[]
+  crmContact           CrmContact?
+  tasks                Task[]
+  paymentConfirmations PaymentConfirmation[]
 }
 
 model ClientCredential {
@@ -267,10 +268,55 @@ model ClientPayment {
   dueDate   DateTime
   paidAt    DateTime?
   status    String    @default("PENDENTE")
+  // Conta em que o valor entrou (confirmações via WhatsApp)
+  receivedAccount String?
   createdAt DateTime  @default(now())
 
   client  Client         @relation(fields: [clientId], references: [id])
   service ClientService? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+}
+
+// Ciclo de confirmação de recebimento via WhatsApp: uma cobrança por
+// competência (cliente + mês/ano), enviada D-2 aos administradores.
+model PaymentConfirmation {
+  id              String    @id @default(cuid())
+  code            String    @unique // código curto citado na conversa (#AB12)
+  clientId        String
+  year            Int
+  month           Int
+  amount          Float // saldo pendente no momento do envio
+  dueDate         DateTime
+  // AGUARDANDO | AGUARDANDO_VALOR | AGUARDANDO_CONTA | CONFIRMADO | PARCIAL
+  status          String    @default("AGUARDANDO")
+  sentAt          DateTime  @default(now())
+  sentTo          String // números notificados, separados por vírgula
+  // Fluxos de duas etapas (valor parcial / escolha de conta) ficam presos
+  // ao número que iniciou a resposta
+  actionPhone     String?
+  pendingValue    Float?
+  respondedBy     String? // userId do admin que confirmou
+  respondedByName String?
+  respondedPhone  String?
+  respondedAt     DateTime?
+  receivedAccount String?
+  createdAt       DateTime  @default(now())
+
+  client Client                     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  events PaymentConfirmationEvent[]
+
+  @@unique([clientId, year, month])
+}
+
+// Trilha de auditoria da confirmação: envios, respostas, pagamentos e falhas.
+model PaymentConfirmationEvent {
+  id             String   @id @default(cuid())
+  confirmationId String
+  kind           String // ENVIO | RESPOSTA | PAGAMENTO | AVISO | ERRO
+  phone          String?
+  detail         String
+  createdAt      DateTime @default(now())
+
+  confirmation PaymentConfirmation @relation(fields: [confirmationId], references: [id], onDelete: Cascade)
 }
 
 model CrmContact {

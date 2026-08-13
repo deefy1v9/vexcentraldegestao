@@ -1,0 +1,46 @@
+/**
+ * Agendador interno do servidor (Next.js instrumentation hook).
+ *
+ * A cada minuto compara o horário civil de America/Sao_Paulo com o horário
+ * configurado (SystemSettings BILLING_REMINDER_TIME, padrão 09:00) e dispara
+ * a rotina de confirmação de cobranças via WhatsApp. A marca de última
+ * execução fica no banco (BILLING_REMINDER_LAST_RUN), então reinícios do
+ * container não duplicam envios — e a chave única por cobrança é uma segunda
+ * barreira contra mensagens repetidas.
+ */
+export async function register() {
+  if (process.env.NEXT_RUNTIME !== 'nodejs') return
+
+  const { prisma } = await import('./lib/prisma')
+  const { runBillingReminders, spNow, getBillingSetting } = await import('./lib/billing-whatsapp')
+
+  async function tick() {
+    try {
+      const { date, time } = spNow()
+      const sendTime = (await getBillingSetting('BILLING_REMINDER_TIME')) || '09:00'
+      if (time < sendTime) return
+
+      const lastRun = await getBillingSetting('BILLING_REMINDER_LAST_RUN')
+      if (lastRun === date) return
+
+      // Marca o dia antes de enviar: numa corrida, o pior caso é pular um
+      // minuto — nunca enviar em dobro (o unique por cobrança segura o resto)
+      await prisma.$executeRaw`
+        INSERT INTO "SystemSettings" (key, value, "updatedAt")
+        VALUES ('BILLING_REMINDER_LAST_RUN', ${date}, NOW())
+        ON CONFLICT (key) DO UPDATE SET value = ${date}, "updatedAt" = NOW()
+      `
+
+      const result = await runBillingReminders()
+      if (result.sent > 0 || result.skipped > 0) {
+        console.log(`[billing] lembretes de cobrança: ${result.sent} enviados, ${result.skipped} ignorados`)
+      }
+    } catch (err) {
+      console.error('[billing] scheduler error:', err)
+    }
+  }
+
+  setInterval(tick, 60_000)
+  // primeira checagem logo após o boot (cobre restart depois do horário)
+  setTimeout(tick, 10_000)
+}

@@ -2,7 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 
-const ALLOWED_KEYS = ['UAZAPI_URL', 'UAZAPI_TOKEN']
+const ALLOWED_KEYS = [
+  'UAZAPI_URL',
+  'UAZAPI_TOKEN',
+  // Confirmação de cobrança via WhatsApp
+  'BILLING_REMINDER_TIME',       // horário do envio diário (HH:mm, padrão 09:00)
+  'DEFAULT_RECEIVING_ACCOUNT',   // conta padrão para recebimentos confirmados
+]
 
 export async function GET() {
   // Expõe o UAZAPI_TOKEN — restrito a administradores.
@@ -10,7 +16,8 @@ export async function GET() {
   if (gate instanceof NextResponse) return gate
 
   const rows = await prisma.$queryRaw<Array<{ key: string; value: string }>>`
-    SELECT key, value FROM "SystemSettings" WHERE key IN ('UAZAPI_URL', 'UAZAPI_TOKEN')
+    SELECT key, value FROM "SystemSettings"
+    WHERE key IN ('UAZAPI_URL', 'UAZAPI_TOKEN', 'BILLING_REMINDER_TIME', 'DEFAULT_RECEIVING_ACCOUNT')
   `
 
   const result: Record<string, string> = {}

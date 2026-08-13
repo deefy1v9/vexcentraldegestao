@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import CurrencyInput from '@/components/ui/CurrencyInput'
+import BillingWhatsAppSettings from '@/components/financeiro/BillingWhatsAppSettings'
 import {
   TrendingUp, TrendingDown, DollarSign, Users, Plus, Check, X,
   ChevronLeft, ChevronRight, Pencil, Trash2, Repeat, CalendarClock,
@@ -356,6 +357,9 @@ export default function FinanceiroPanel() {
           )}
         </div>
       </div>
+
+      {/* Configuração da confirmação de recebimento via WhatsApp */}
+      <BillingWhatsAppSettings />
     </div>
   )
 }
