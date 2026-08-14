@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
       }),
       prisma.clientPayment.findMany({
         where: { month, year },
-        include: { client: { select: { id: true, name: true } } },
+        include: { client: { select: { id: true, name: true, tier: true } } },
         orderBy: { dueDate: 'asc' },
       }),
       prisma.user.findMany({

@@ -99,17 +99,19 @@ export async function GET() {
         { status: 'APROVADO', schedulerId: userId },
       ],
     },
-    include: { client: { select: { name: true } } },
+    include: { client: { select: { name: true, tier: true } } },
     orderBy: { updatedAt: 'desc' },
     take: 10,
   })
+  const TIER_PT: Record<string, string> = { START: 'Start', GROWTH: 'Growth', SCALE: 'Scale' }
   for (const t of waitingTasks) {
     const isReview = t.status === 'EM_REVISAO'
+    const tierNote = t.client?.tier ? ` · Cliente ${TIER_PT[t.client.tier]}` : ''
     notifications.push({
       id: `${isReview ? 'review' : 'schedule'}-${t.id}`,
       type: 'task_completed',
       title: isReview ? `Aguardando sua revisão — ${t.title}` : `Aguardando agendamento — ${t.title}`,
-      description: t.client ? t.client.name : 'Sem cliente',
+      description: `${t.client ? t.client.name : 'Sem cliente'}${tierNote}`,
       createdAt: t.updatedAt.toISOString(),
     })
   }

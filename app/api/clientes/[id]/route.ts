@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireUser, requireAdmin } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
+import { applyAutoTier, setManualTier, Tier } from '@/lib/client-tier'
 
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const gate = await requireUser()
@@ -17,6 +18,7 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
       payments: { orderBy: { dueDate: 'desc' } },
       crmContact: { include: { conversations: true } },
       tasks: { include: { assignee: true }, orderBy: { createdAt: 'desc' }, take: 5 },
+      tierHistory: { orderBy: { createdAt: 'desc' }, take: 10 },
     },
   })
 
@@ -122,11 +124,27 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       _sum: { monthlyValue: true },
       where: { clientId: id, status: 'ATIVO' },
     })
-    return tx.client.update({
+    const total = agg._sum.monthlyValue ?? 0
+    const result = await tx.client.update({
       where: { id },
-      data: { monthlyValue: agg._sum.monthlyValue ?? 0 },
+      data: { monthlyValue: total },
     })
+    // Reavalia o grupo automático com o ticket novo (manual é preservado)
+    await applyAutoTier(tx, id, total)
+    return result
   })
+
+  // Classificação manual do grupo (Start/Growth/Scale) — só admin chega aqui.
+  // body.tier: 'START' | 'GROWTH' | 'SCALE' define manual; 'AUTO' remove a
+  // marca manual e volta ao cálculo pela faixa de ticket.
+  if (Object.prototype.hasOwnProperty.call(body, 'tier')) {
+    const t = body.tier
+    if (t === 'AUTO') {
+      await setManualTier(id, null, (session.user as any).id)
+    } else if (['START', 'GROWTH', 'SCALE'].includes(t)) {
+      await setManualTier(id, t as Tier, (session.user as any).id)
+    }
+  }
 
   await logActivity((session.user as any).id, 'atualizou cliente', 'Clientes', client.name)
   return NextResponse.json(client)

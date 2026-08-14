@@ -9,7 +9,7 @@ export default async function DemandasPage() {
   const [tasks, clients, users] = await Promise.all([
     prisma.task.findMany({
       include: {
-        client: { select: { id: true, name: true } },
+        client: { select: { id: true, name: true, tier: true } },
         assignee: { select: { id: true, name: true } },
         creator: { select: { id: true, name: true } },
         producer: { select: { id: true, name: true } },

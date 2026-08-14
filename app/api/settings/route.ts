@@ -8,6 +8,9 @@ const ALLOWED_KEYS = [
   // Confirmação de cobrança via WhatsApp
   'BILLING_REMINDER_TIME',       // horário do envio diário (HH:mm, padrão 09:00)
   'DEFAULT_RECEIVING_ACCOUNT',   // conta padrão para recebimentos confirmados
+  // Faixas da segmentação de clientes (Start ≤ X < Growth ≤ Y < Scale)
+  'TIER_START_MAX',
+  'TIER_GROWTH_MAX',
 ]
 
 export async function GET() {

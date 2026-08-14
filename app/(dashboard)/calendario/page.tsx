@@ -14,7 +14,7 @@ export default async function CalendarioPage() {
   const [events, clients, users] = await Promise.all([
     prisma.calendarEvent.findMany({
       include: {
-        client: { select: { id: true, name: true } },
+        client: { select: { id: true, name: true, tier: true } },
         assignedUser: { select: { id: true, name: true } },
       },
       orderBy: { startDate: 'asc' },

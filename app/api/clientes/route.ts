@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireUser, requireAdmin } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
+import { applyAutoTier } from '@/lib/client-tier'
 
 export async function GET(req: NextRequest) {
   const gate = await requireUser()
@@ -77,6 +78,9 @@ export async function POST(req: NextRequest) {
       services: { create: serviceRows },
     },
   })
+
+  // Classifica o grupo automático pelo ticket inicial (faixas configuradas)
+  await applyAutoTier(prisma, client.id, client.monthlyValue ?? 0)
 
   await logActivity((session.user as any).id, 'cadastrou cliente', 'Clientes', client.name)
   return NextResponse.json(client, { status: 201 })

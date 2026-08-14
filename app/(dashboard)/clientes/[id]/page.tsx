@@ -7,6 +7,14 @@ import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import ClientCredentialsPanel from '@/components/clientes/ClientCredentialsPanel'
 import ClientServicesPanel from '@/components/clientes/ClientServicesPanel'
+import TierBadge from '@/components/ui/TierBadge'
+
+const TIER_PT: Record<string, string> = { START: 'Start', GROWTH: 'Growth', SCALE: 'Scale' }
+const TIER_PRIORITY_PT: Record<string, string> = {
+  SCALE: 'Máxima — cliente de maior valor',
+  GROWTH: 'Intermediária',
+  START: 'Padrão',
+}
 
 export default async function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const [session, { id }] = await Promise.all([auth(), params])
@@ -27,15 +35,15 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
       },
       calendarEvents: { orderBy: { startDate: 'asc' }, take: 5 },
       payments: { orderBy: { dueDate: 'desc' }, take: 6 },
+      tierHistory: { orderBy: { createdAt: 'desc' }, take: 8 },
     },
   })
 
   if (!client) notFound()
 
   // Valor total mensal: calculado pela soma dos serviços ativos, nunca manual
-  const totalMensal = client.services
-    .filter((s) => s.status === 'ATIVO')
-    .reduce((sum, s) => sum + (s.monthlyValue ?? 0), 0)
+  const activeServices = client.services.filter((s) => s.status === 'ATIVO')
+  const totalMensal = activeServices.reduce((sum, s) => sum + (s.monthlyValue ?? 0), 0)
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -48,6 +56,57 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main info */}
           <div className="lg:col-span-2 space-y-4">
+            {/* Segmentação */}
+            <div className="bg-white rounded-xl border border-gray-200 p-5">
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+                <div>
+                  <p className="text-xs text-gray-500 font-medium mb-1">Grupo do cliente</p>
+                  <div className="flex items-center gap-2">
+                    <TierBadge tier={client.tier} size="sm" />
+                    {!client.tier && <span className="text-sm text-gray-400">Não classificado</span>}
+                    <span className="text-[10px] text-gray-400">
+                      {client.tier ? (client.tierManual ? 'definido manualmente' : 'classificação automática') : ''}
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 font-medium mb-1">Ticket mensal</p>
+                  <p className="text-sm font-bold text-gray-900">{formatCurrency(totalMensal)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 font-medium mb-1">Serviços ativos</p>
+                  <p className="text-sm font-bold text-gray-900">{activeServices.length}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 font-medium mb-1">Prioridade operacional</p>
+                  <p className="text-sm font-semibold text-gray-900">
+                    {client.tier ? TIER_PRIORITY_PT[client.tier] : '—'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 font-medium mb-1">Última alteração de grupo</p>
+                  <p className="text-sm text-gray-700">
+                    {client.tierChangedAt ? formatDate(client.tierChangedAt) : '—'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Histórico de grupo — só administradores */}
+              {isAdmin && client.tierHistory.length > 0 && (
+                <div className="mt-4 pt-3 border-t border-gray-100">
+                  <p className="text-xs text-gray-500 font-medium mb-2">Histórico de alterações</p>
+                  <div className="space-y-1">
+                    {client.tierHistory.map((h) => (
+                      <p key={h.id} className="text-[11px] text-gray-500">
+                        {formatDate(h.createdAt)} · {h.fromTier ? TIER_PT[h.fromTier] : 'Sem grupo'} → {h.toTier ? TIER_PT[h.toTier] : 'Sem grupo'}
+                        {' '}· ticket {formatCurrency(h.ticket)} · {h.manual ? 'manual' : 'automática'}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Info Card */}
             <div className="bg-white rounded-xl border border-gray-200 p-6">
               <div className="flex items-center justify-between mb-4">

@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client'
 import { prisma } from './prisma'
+import { applyAutoTier } from './client-tier'
 
 type Db = Prisma.TransactionClient | typeof prisma
 
@@ -9,7 +10,8 @@ type Db = Prisma.TransactionClient | typeof prisma
  * `Client.monthlyValue` é um campo derivado: nunca deve ser gravado
  * manualmente. Toda rota que cria, edita ou remove um serviço chama esta
  * função para manter a listagem de clientes e os agregados do dashboard
- * consistentes com a soma dos serviços.
+ * consistentes com a soma dos serviços. O grupo (Start/Growth/Scale)
+ * automático é reavaliado junto — sem tocar em classificação manual.
  */
 export async function recalcClientMonthlyValue(db: Db, clientId: string): Promise<number> {
   const agg = await db.clientService.aggregate({
@@ -18,5 +20,6 @@ export async function recalcClientMonthlyValue(db: Db, clientId: string): Promis
   })
   const total = agg._sum.monthlyValue ?? 0
   await db.client.update({ where: { id: clientId }, data: { monthlyValue: total } })
+  await applyAutoTier(db, clientId, total)
   return total
 }

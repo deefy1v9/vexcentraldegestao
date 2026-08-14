@@ -28,6 +28,8 @@ interface Client {
   monthlyValue?: number | null
   paymentDay?: number | null
   notes?: string | null
+  tier?: string | null
+  tierManual?: boolean
   services: { id: string; serviceName: string; description?: string | null; monthlyValue?: number | null }[]
 }
 
@@ -53,6 +55,7 @@ export default function EditClientePage() {
     contractMonths: '',
     paymentDay: '',
     notes: '',
+    tier: 'AUTO',
   })
 
   // Valor total mensal: soma automática dos serviços, somente leitura
@@ -78,6 +81,7 @@ export default function EditClientePage() {
           contractMonths: data.contractMonths?.toString() || '',
           paymentDay: data.paymentDay?.toString() || '',
           notes: data.notes || '',
+          tier: data.tierManual && data.tier ? data.tier : 'AUTO',
         })
         setServices(data.services.map((s) => ({
           id: s.id,
@@ -199,6 +203,18 @@ export default function EditClientePage() {
                     <option value="INATIVO">Inativo</option>
                     <option value="PAUSADO">Pausado</option>
                   </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Grupo do cliente</label>
+                  <select value={form.tier} onChange={(e) => setField('tier', e.target.value)} className="input">
+                    <option value="AUTO">Automático (pela faixa de ticket)</option>
+                    <option value="START">Start</option>
+                    <option value="GROWTH">Growth</option>
+                    <option value="SCALE">Scale</option>
+                  </select>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {client?.tier ? `Atual: ${client.tier === 'START' ? 'Start' : client.tier === 'GROWTH' ? 'Growth' : 'Scale'}${client.tierManual ? ' (manual)' : ' (automático)'}` : 'Ainda não classificado'}
+                  </p>
                 </div>
               </div>
             </div>

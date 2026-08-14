@@ -12,7 +12,7 @@ export default async function CrmPage() {
   const [contacts, clients] = await Promise.all([
     prisma.crmContact.findMany({
       include: {
-        client: { select: { id: true, name: true, phone: true } },
+        client: { select: { id: true, name: true, phone: true, tier: true } },
         conversations: {
           orderBy: { updatedAt: 'desc' },
           take: 1,

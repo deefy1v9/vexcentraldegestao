@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
   const events = await prisma.calendarEvent.findMany({
     where,
     include: {
-      client: { select: { id: true, name: true } },
+      client: { select: { id: true, name: true, tier: true } },
       assignedUser: { select: { id: true, name: true } },
     },
     orderBy: { startDate: 'asc' },
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
       assignedTo: body.assignedTo || null,
     },
     include: {
-      client: { select: { id: true, name: true } },
+      client: { select: { id: true, name: true, tier: true } },
       assignedUser: { select: { id: true, name: true } },
     },
   })

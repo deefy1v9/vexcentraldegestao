@@ -13,7 +13,7 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
   const task = await prisma.task.findUnique({
     where: { id },
     include: {
-      client: { select: { id: true, name: true } },
+      client: { select: { id: true, name: true, tier: true } },
       assignee: { select: { id: true, name: true } },
       creator: { select: { id: true, name: true } },
       producer: { select: { id: true, name: true } },
@@ -113,7 +113,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     where: { id },
     data,
     include: {
-      client: { select: { id: true, name: true } },
+      client: { select: { id: true, name: true, tier: true } },
       assignee: { select: { id: true, name: true } },
       creator: { select: { id: true, name: true } },
       producer: { select: { id: true, name: true } },

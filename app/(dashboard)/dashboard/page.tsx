@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import Header from '@/components/layout/Header'
 import DashboardIndicators from '@/components/dashboard/DashboardIndicators'
 import RevenueChart from '@/components/dashboard/RevenueChart'
+import PortfolioSegmentation from '@/components/dashboard/PortfolioSegmentation'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { Building2, Kanban, ArrowUpRight } from 'lucide-react'
 import Link from 'next/link'
@@ -107,7 +108,20 @@ async function getDashboardData(viewer: { id: string; isAdmin: boolean }) {
     .filter((p) => p.status === 'PENDENTE')
     .reduce((s, p) => s + p.amount, 0)
 
+  // Segmentação da carteira: clientes ativos por grupo + receita mensal
+  const tierAgg = await prisma.client.groupBy({
+    by: ['tier'],
+    where: { status: 'ATIVO' },
+    _count: { _all: true },
+    _sum: { monthlyValue: true },
+  })
+  const segments = (['SCALE', 'GROWTH', 'START'] as const).map((t) => {
+    const row = tierAgg.find((r) => r.tier === t)
+    return { tier: t, count: row?._count._all ?? 0, revenue: row?._sum.monthlyValue ?? 0 }
+  })
+
   return {
+    segments,
     totalClients,
     activeClients,
     inactiveClients,
@@ -182,6 +196,7 @@ export default async function DashboardPage() {
         {isAdmin ? (
           <>
             <DashboardIndicators d={d} />
+            <PortfolioSegmentation segments={d.segments} total={d.mrr} />
             <RevenueChart />
           </>
         ) : (

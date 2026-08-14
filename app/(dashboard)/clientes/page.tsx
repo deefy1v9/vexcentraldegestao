@@ -2,37 +2,102 @@ import { prisma } from '@/lib/prisma'
 import { getSessionUser } from '@/lib/api-auth'
 import Header from '@/components/layout/Header'
 import DeleteClientButton from '@/components/clientes/DeleteClientButton'
+import TierRangesConfig from '@/components/clientes/TierRangesConfig'
+import TierBadge from '@/components/ui/TierBadge'
 import Link from 'next/link'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { Plus, Search, Pencil, Eye } from 'lucide-react'
 
+const TIER_FILTERS = [
+  { key: '', label: 'Todos' },
+  { key: 'START', label: 'Start' },
+  { key: 'GROWTH', label: 'Growth' },
+  { key: 'SCALE', label: 'Scale' },
+]
+
+const SORTS = [
+  { key: '', label: 'Nome (A–Z)' },
+  { key: 'ticket_desc', label: 'Maior ticket' },
+  { key: 'ticket_asc', label: 'Menor ticket' },
+]
+
 export default async function ClientesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ search?: string }>
+  searchParams: Promise<{ search?: string; tier?: string; sort?: string }>
 }) {
-  const { search } = await searchParams
+  const { search, tier, sort } = await searchParams
   // Colaborador consulta a carteira, mas não cadastra, edita nem exclui.
   const viewer = await getSessionUser()
   const isAdmin = viewer?.role === 'ADMIN'
   const clients = await prisma.client.findMany({
-    where: search
-      ? {
-          OR: [
-            { name: { contains: search, mode: 'insensitive' } },
-            { cnpj: { contains: search } },
-            { niche: { contains: search, mode: 'insensitive' } },
-          ],
-        }
-      : undefined,
+    where: {
+      ...(search
+        ? {
+            OR: [
+              { name: { contains: search, mode: 'insensitive' } },
+              { cnpj: { contains: search } },
+              { niche: { contains: search, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+      ...(tier && ['START', 'GROWTH', 'SCALE'].includes(tier) ? { tier } : {}),
+    },
     include: { services: true },
-    orderBy: { name: 'asc' },
+    orderBy:
+      sort === 'ticket_desc' ? { monthlyValue: 'desc' }
+      : sort === 'ticket_asc' ? { monthlyValue: 'asc' }
+      : { name: 'asc' },
   })
+
+  const qs = (params: Record<string, string | undefined>) => {
+    const merged = { search, tier, sort, ...params }
+    const parts = Object.entries(merged)
+      .filter(([, v]) => v)
+      .map(([k, v]) => `${k}=${encodeURIComponent(v!)}`)
+    return parts.length ? `?${parts.join('&')}` : ''
+  }
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <Header title="Clientes" subtitle={`${clients.length} cliente(s) cadastrado(s)`} />
       <div className="flex-1 overflow-y-auto p-6">
+        {/* Faixas da segmentação — só administradores configuram */}
+        {isAdmin && <TierRangesConfig />}
+
+        {/* Filtro por grupo + ordenação */}
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          {TIER_FILTERS.map((f) => (
+            <Link
+              key={f.key}
+              href={`/clientes${qs({ tier: f.key || undefined })}`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                (tier ?? '') === f.key
+                  ? 'bg-[#030A8C] text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {f.label}
+            </Link>
+          ))}
+          <div className="flex-1" />
+          <div className="flex items-center gap-1">
+            {SORTS.map((s) => (
+              <Link
+                key={s.key}
+                href={`/clientes${qs({ sort: s.key || undefined })}`}
+                className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-colors ${
+                  (sort ?? '') === s.key
+                    ? 'bg-[#030A8C]/10 text-[#030A8C]'
+                    : 'text-gray-500 hover:bg-gray-100'
+                }`}
+              >
+                {s.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+
         <div className="flex items-center gap-3 mb-6">
           <form className="flex-1 relative max-w-sm">
             <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -96,9 +161,12 @@ export default async function ClientesPage({
                   <tr key={client.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3">
                       <Link href={`/clientes/${client.id}`} className="block">
-                        <p className="text-sm font-semibold text-gray-900 hover:text-[#030A8C]">
-                          {client.name}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold text-gray-900 hover:text-[#030A8C]">
+                            {client.name}
+                          </p>
+                          <TierBadge tier={client.tier} />
+                        </div>
                         {client.cnpj && (
                           <p className="text-xs text-gray-500">{client.cnpj}</p>
                         )}

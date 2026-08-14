@@ -11,7 +11,7 @@ export async function GET() {
 
   const contacts = await prisma.crmContact.findMany({
     include: {
-      client: { select: { id: true, name: true, phone: true } },
+      client: { select: { id: true, name: true, phone: true, tier: true } },
       conversations: {
         orderBy: { updatedAt: 'desc' },
         take: 1,

@@ -1,4 +1,5 @@
 'use client'
+import TierBadge from '@/components/ui/TierBadge'
 import { useState } from 'react'
 import { ChevronLeft, ChevronRight, Plus, X, Calendar } from 'lucide-react'
 
@@ -10,7 +11,7 @@ interface CalEvent {
   endDate?: string | Date | null
   type: string
   status: string
-  client?: { id: string; name: string } | null
+  client?: { id: string; name: string; tier?: string | null } | null
   assignedUser?: { id: string; name: string } | null
 }
 
@@ -290,7 +291,7 @@ export default function CalendarView({
                 {selectedEvent.client && (
                   <div>
                     <p className="text-[10px] text-gray-400 font-medium mb-1">CLIENTE</p>
-                    <p className="text-xs text-gray-700">{selectedEvent.client.name}</p>
+                    <p className="text-xs text-gray-700 flex items-center gap-1.5">{selectedEvent.client.name} <TierBadge tier={selectedEvent.client.tier} /></p>
                   </div>
                 )}
                 {selectedEvent.assignedUser && (

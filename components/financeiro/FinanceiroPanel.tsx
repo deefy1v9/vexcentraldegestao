@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import CurrencyInput from '@/components/ui/CurrencyInput'
 import BillingWhatsAppSettings from '@/components/financeiro/BillingWhatsAppSettings'
+import TierBadge from '@/components/ui/TierBadge'
 import {
   TrendingUp, TrendingDown, DollarSign, Users, Plus, Check, X,
   ChevronLeft, ChevronRight, Pencil, Trash2, Repeat, CalendarClock,
@@ -34,7 +35,7 @@ interface Payment {
   dueDate: string
   paidAt?: string | null
   status: string
-  client: { id: string; name: string }
+  client: { id: string; name: string; tier?: string | null }
 }
 
 interface Collaborator {
@@ -504,7 +505,10 @@ function PaymentsTab({ payments, onToggle }: { payments: Payment[]; onToggle: (i
           return (
             <div key={client.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-gray-900 truncate">{client.name}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold text-gray-900 truncate">{client.name}</p>
+                  <TierBadge tier={client.tier} />
+                </div>
                 <p className="text-xs text-gray-400">
                   {items.length} serviço(s) · vence {formatDate(earliestDue)}
                   {allPaid

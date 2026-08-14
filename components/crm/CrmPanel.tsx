@@ -1,4 +1,5 @@
 'use client'
+import TierBadge from '@/components/ui/TierBadge'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   Send, Plus, X, MessageCircle, Phone, Search,
@@ -29,7 +30,7 @@ interface Contact {
   id: string
   whatsappNumber: string
   name?: string | null
-  client?: { id: string; name: string; phone?: string | null } | null
+  client?: { id: string; name: string; phone?: string | null; tier?: string | null } | null
   conversations: Conversation[]
   lastMessage?: string | Date | null
 }
@@ -372,7 +373,7 @@ export default function CrmPanel({
                     <span className="text-white font-bold text-sm">{getInitial(contactName(contact))}</span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 truncate">{contactName(contact)}</p>
+                    <p className="text-sm font-semibold text-gray-900 truncate flex items-center gap-1.5">{contactName(contact)} <TierBadge tier={contact.client?.tier} /></p>
                     <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
                       <Phone className="w-3 h-3" />
                       {contact.whatsappNumber}

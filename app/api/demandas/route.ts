@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
 import { isConfigured, uazSendText } from '@/lib/uazapi'
 import { defaultAssignments, logTaskEvent, maybeImmediateReminder } from '@/lib/task-flow'
+import { tierPriority } from '@/lib/client-tier'
 
 export async function GET(req: NextRequest) {
   const session = await auth()
@@ -19,7 +20,7 @@ export async function GET(req: NextRequest) {
       ...(assigneeId ? { assigneeId } : {}),
     },
     include: {
-      client: { select: { id: true, name: true } },
+      client: { select: { id: true, name: true, tier: true } },
       assignee: { select: { id: true, name: true } },
       creator: { select: { id: true, name: true } },
       producer: { select: { id: true, name: true } },
@@ -51,12 +52,20 @@ export async function POST(req: NextRequest) {
   const reviewerId = body.reviewerId || defaults.reviewerId
   const schedulerId = body.schedulerId || defaults.schedulerId
 
+  // Sem prioridade explícita, herda do grupo do cliente:
+  // Scale → alta; Growth/Start → padrão (média)
+  let inheritedPriority: string | null = null
+  if (!priority && clientId) {
+    const c = await prisma.client.findUnique({ where: { id: clientId }, select: { tier: true } })
+    inheritedPriority = tierPriority(c?.tier)
+  }
+
   const task = await prisma.task.create({
     data: {
       title,
       description,
       status: status || 'TODO',
-      priority: priority || 'MEDIA',
+      priority: priority || inheritedPriority || 'MEDIA',
       dueDate: dueDate ? new Date(dueDate) : null,
       clientId: clientId || null,
       // Responsável atual inicia no produtor (ou no que o form indicar)
@@ -69,7 +78,7 @@ export async function POST(req: NextRequest) {
       tags: tags || [],
     },
     include: {
-      client: { select: { id: true, name: true } },
+      client: { select: { id: true, name: true, tier: true } },
       assignee: { select: { id: true, name: true, phone: true } },
       creator: { select: { id: true, name: true } },
       producer: { select: { id: true, name: true } },

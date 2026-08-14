@@ -55,7 +55,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       scheduleNote: note || null,
     },
     include: {
-      client: { select: { id: true, name: true } },
+      client: { select: { id: true, name: true, tier: true } },
       assignee: { select: { id: true, name: true } },
       producer: { select: { id: true, name: true } },
       reviewer: { select: { id: true, name: true } },

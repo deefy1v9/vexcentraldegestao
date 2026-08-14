@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
 import { isValidDriveLink, logTaskEvent, notifyWhatsApp } from '@/lib/task-flow'
+import { TIER_LABEL, Tier } from '@/lib/client-tier'
 
 /**
  * Produção concluída → envia a demanda para revisão.
@@ -29,7 +30,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const task = await prisma.task.findUnique({
     where: { id },
-    include: { reviewer: { select: { id: true, name: true } } },
+    include: {
+      reviewer: { select: { id: true, name: true } },
+      client: { select: { name: true, tier: true } },
+    },
   })
   if (!task) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   if (task.status === 'CONCLUIDO' || task.status === 'APROVADO') {
@@ -54,7 +58,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       assigneeId: task.reviewerId,
     },
     include: {
-      client: { select: { id: true, name: true } },
+      client: { select: { id: true, name: true, tier: true } },
       assignee: { select: { id: true, name: true } },
       producer: { select: { id: true, name: true } },
       reviewer: { select: { id: true, name: true } },
@@ -71,8 +75,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
   await logActivity(userId, 'enviou demanda para revisão', 'Demandas', task.title)
 
-  // Aviso curto pelo WhatsApp já conectado — só o nome da demanda
-  await notifyWhatsApp(task.reviewerId, `Nova demanda para revisão: ${task.title}.`)
+  // Aviso curto pelo WhatsApp já conectado — nome da demanda + grupo do cliente
+  const tierSuffix = task.client?.tier ? `\nCliente ${TIER_LABEL[task.client.tier as Tier]}.` : ''
+  await notifyWhatsApp(task.reviewerId, `Nova demanda para revisão: ${task.title}.${tierSuffix}`)
   await logTaskEvent(id, 'LEMBRETE', `Aviso de revisão enviado para ${task.reviewer?.name ?? 'revisor'} (WhatsApp)`)
 
   return NextResponse.json(updated)

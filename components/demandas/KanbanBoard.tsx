@@ -5,6 +5,7 @@ import {
   ImageIcon, FileText, File, Link2, Eye, CalendarCheck, Send, CheckCircle2, AlertTriangle, History,
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
+import TierBadge from '@/components/ui/TierBadge'
 
 type TaskStatus = 'BACKLOG' | 'TODO' | 'EM_ANDAMENTO' | 'EM_REVISAO' | 'APROVADO' | 'CONCLUIDO'
 type TaskPriority = 'BAIXA' | 'MEDIA' | 'ALTA' | 'URGENTE'
@@ -21,7 +22,7 @@ interface Task {
   platform?: string | null
   driveLink?: string | null
   tags: string[]
-  client?: { id: string; name: string } | null
+  client?: { id: string; name: string; tier?: string | null } | null
   assignee?: UserRef | null
   producer?: UserRef | null
   reviewer?: UserRef | null
@@ -80,6 +81,33 @@ function isLate(task: Task): boolean {
   return left != null && left < 0 && task.status !== 'CONCLUIDO'
 }
 
+/** Peso do grupo do cliente na ordenação (Scale > Growth > Start). */
+function tierWeight(tier?: string | null): number {
+  return tier === 'SCALE' ? 3 : tier === 'GROWTH' ? 2 : tier === 'START' ? 1 : 0
+}
+
+/**
+ * Ordenação dentro da coluna: 1) atrasadas, 2) vencimento mais próximo,
+ * 3) grupo do cliente (Scale > Growth > Start), 4) prioridade manual.
+ * O prazo sempre vence a segmentação — Start atrasada vem antes de Scale
+ * sem urgência.
+ */
+function compareTasks(a: Task, b: Task): number {
+  const lateA = isLate(a) ? 1 : 0
+  const lateB = isLate(b) ? 1 : 0
+  if (lateA !== lateB) return lateB - lateA
+
+  const dueA = a.dueDate ? new Date(a.dueDate as string).getTime() : Infinity
+  const dueB = b.dueDate ? new Date(b.dueDate as string).getTime() : Infinity
+  if (dueA !== dueB) return dueA - dueB
+
+  const tw = tierWeight(b.client?.tier) - tierWeight(a.client?.tier)
+  if (tw !== 0) return tw
+
+  const PRIO: Record<TaskPriority, number> = { URGENTE: 3, ALTA: 2, MEDIA: 1, BAIXA: 0 }
+  return PRIO[b.priority] - PRIO[a.priority]
+}
+
 /** Próxima ação da demanda, para o card e a lista "Minhas Demandas". */
 function nextAction(task: Task): string {
   const dl = deadlines(task.dueDate)
@@ -119,6 +147,8 @@ export default function KanbanBoard({
 }) {
   const [tasks, setTasks] = useState<Task[]>(initialTasks)
   const [selectedUserId, setSelectedUserId] = useState<string>(isAdmin ? 'all' : currentUserId)
+  const [tierFilter, setTierFilter] = useState<string>('all')
+  const [priorityTouched, setPriorityTouched] = useState(false)
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [comments, setComments] = useState<{ id: string; content: string; user: { name: string }; createdAt: string }[]>([])
   const [attachments, setAttachments] = useState<{ id: string; fileName: string; fileUrl: string; fileSize: number; fileType: string }[]>([])
@@ -182,9 +212,10 @@ export default function KanbanBoard({
     }
   }
 
-  const visibleTasks = selectedUserId === 'all'
+  const visibleTasks = (selectedUserId === 'all'
     ? tasks
     : tasks.filter((t) => t.assignee?.id === selectedUserId || (!t.assignee && selectedUserId === currentUserId))
+  ).filter((t) => tierFilter === 'all' || t.client?.tier === tierFilter)
 
   function openTask(task: Task) {
     setSelectedTask(task)
@@ -311,7 +342,9 @@ export default function KanbanBoard({
         title: newTaskTitle,
         description: newTaskDesc || null,
         status,
-        priority: newTaskPriority,
+        // Prioridade não escolhida explicitamente: o backend herda do grupo
+        // do cliente (Scale → alta)
+        priority: priorityTouched ? newTaskPriority : null,
         clientId: newTaskClient || null,
         // Sem responsável indicado, o backend usa o produtor padrão (Igor)
         assigneeId: newTaskAssignee || null,
@@ -338,6 +371,7 @@ export default function KanbanBoard({
     setNewTaskClient('')
     setNewTaskAssignee(isAdmin ? '' : currentUserId)
     setNewTaskPriority('MEDIA')
+    setPriorityTouched(false)
     setNewTaskDue('')
     setNewTaskPlatform('')
     setNewTaskFiles([])
@@ -550,13 +584,30 @@ export default function KanbanBoard({
             </button>
           )
         })}
+
+        {/* Filtro por grupo do cliente */}
+        <div className="ml-auto flex items-center gap-1">
+          {[['all', 'Todos'], ['SCALE', 'Scale'], ['GROWTH', 'Growth'], ['START', 'Start']].map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setTierFilter(key)}
+              className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-colors ${
+                tierFilter === key
+                  ? key === 'SCALE' ? 'bg-[#F74A13] text-white' : 'bg-[#030A8C] text-white'
+                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Kanban board */}
       <div className="flex-1 overflow-x-auto p-6">
         <div className="flex gap-4 h-full min-w-max">
           {COLUMNS.map((col) => {
-            const colTasks = visibleTasks.filter((t) => t.status === col.key)
+            const colTasks = visibleTasks.filter((t) => t.status === col.key).sort(compareTasks)
 
             return (
               <div
@@ -616,7 +667,7 @@ export default function KanbanBoard({
                             <button
                               key={p}
                               type="button"
-                              onClick={() => setNewTaskPriority(p)}
+                              onClick={() => { setNewTaskPriority(p); setPriorityTouched(true) }}
                               className={`flex items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${
                                 active ? `${cfg.bg} ${cfg.text} ring-1 ring-inset ring-current` : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
                               }`}
@@ -734,6 +785,7 @@ export default function KanbanBoard({
                             {task.client.name}
                           </span>
                         )}
+                        <TierBadge tier={task.client?.tier} />
                         {late && (
                           <span className="inline-flex items-center gap-0.5 text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-semibold">
                             <AlertTriangle className="w-2.5 h-2.5" /> Atrasada

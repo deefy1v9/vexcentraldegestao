@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
 import { logTaskEvent, notifyWhatsApp } from '@/lib/task-flow'
+import { TIER_LABEL, Tier } from '@/lib/client-tier'
 
 /**
  * Revisão: aprovar (→ Aprovado para Agendamento, volta ao produtor/agendador)
@@ -31,6 +32,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     include: {
       producer: { select: { id: true, name: true } },
       scheduler: { select: { id: true, name: true } },
+      client: { select: { name: true, tier: true } },
     },
   })
   if (!task) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -53,7 +55,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         reviewNote: note || null,
       },
       include: {
-        client: { select: { id: true, name: true } },
+        client: { select: { id: true, name: true, tier: true } },
         assignee: { select: { id: true, name: true } },
         producer: { select: { id: true, name: true } },
         reviewer: { select: { id: true, name: true } },
@@ -65,7 +67,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     await logTaskEvent(id, 'APROVACAO', `${userName} aprovou a demanda${note ? ` — obs.: ${note}` : ''}`, userId)
     await logActivity(userId, 'aprovou demanda', 'Demandas', task.title)
-    await notifyWhatsApp(nextAssignee, `Demanda aprovada para agendamento: ${task.title}.`)
+    const tierSuffix = task.client?.tier ? `\nCliente ${TIER_LABEL[task.client.tier as Tier]}.` : ''
+    await notifyWhatsApp(nextAssignee, `Demanda aprovada para agendamento: ${task.title}.${tierSuffix}`)
     await logTaskEvent(id, 'LEMBRETE', `Aviso de aprovação enviado para ${updated.assignee?.name ?? 'responsável'} (WhatsApp)`)
 
     return NextResponse.json(updated)
@@ -80,7 +83,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       assigneeId: nextAssignee,
     },
     include: {
-      client: { select: { id: true, name: true } },
+      client: { select: { id: true, name: true, tier: true } },
       assignee: { select: { id: true, name: true } },
       producer: { select: { id: true, name: true } },
       reviewer: { select: { id: true, name: true } },
@@ -93,7 +96,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   await prisma.taskComment.create({ data: { taskId: id, userId, content: `[Ajustes solicitados] ${note}` } }).catch(() => {})
   await logTaskEvent(id, 'AJUSTES', `${userName} solicitou ajustes: ${note}`, userId)
   await logActivity(userId, 'solicitou ajustes na demanda', 'Demandas', task.title)
-  await notifyWhatsApp(nextAssignee, `Ajustes solicitados na demanda: ${task.title}.`)
+  await notifyWhatsApp(
+    nextAssignee,
+    `Ajustes solicitados na demanda: ${task.title}.${task.client?.tier ? `\nCliente ${TIER_LABEL[task.client.tier as Tier]}.` : ''}`,
+  )
   await logTaskEvent(id, 'LEMBRETE', `Aviso de ajustes enviado para ${updated.assignee?.name ?? 'responsável'} (WhatsApp)`)
 
   return NextResponse.json(updated)

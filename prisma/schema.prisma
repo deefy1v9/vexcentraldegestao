@@ -69,6 +69,12 @@ model Client {
   paymentDay     Int?
   status         String    @default("ATIVO")
   notes          String?
+  // Segmentação da carteira: START | GROWTH | SCALE.
+  // Automática pela faixa de ticket (configurável) ou manual por admin —
+  // classificação manual nunca é sobrescrita pelo recálculo.
+  tier          String?
+  tierManual    Boolean   @default(false)
+  tierChangedAt DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
@@ -79,6 +85,21 @@ model Client {
   crmContact           CrmContact?
   tasks                Task[]
   paymentConfirmations PaymentConfirmation[]
+  tierHistory          ClientTierHistory[]
+}
+
+// Histórico de mudanças de grupo do cliente — nunca é apagado.
+model ClientTierHistory {
+  id        String   @id @default(cuid())
+  clientId  String
+  fromTier  String?
+  toTier    String?
+  ticket    Float // ticket mensal no momento da mudança
+  manual    Boolean // true = definido por admin; false = recálculo automático
+  userId    String? // quem alterou (null nas automáticas)
+  createdAt DateTime @default(now())
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 }
 
 model ClientCredential {
