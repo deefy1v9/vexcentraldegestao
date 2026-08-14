@@ -13,6 +13,7 @@ export async function register() {
 
   const { prisma } = await import('./lib/prisma')
   const { runBillingReminders, spNow, getBillingSetting } = await import('./lib/billing-whatsapp')
+  const { runTaskReminders } = await import('./lib/task-flow')
 
   async function tick() {
     try {
@@ -34,6 +35,13 @@ export async function register() {
       const result = await runBillingReminders()
       if (result.sent > 0 || result.skipped > 0) {
         console.log(`[billing] lembretes de cobrança: ${result.sent} enviados, ${result.skipped} ignorados`)
+      }
+
+      // Lembretes das demandas (produção D-2, revisão D-1) — nunca mudam
+      // status; a marcação reminder*At em cada demanda impede duplicidade
+      const tasks = await runTaskReminders()
+      if (tasks.sent > 0) {
+        console.log(`[tasks] lembretes de demandas: ${tasks.sent} enviados`)
       }
     } catch (err) {
       console.error('[billing] scheduler error:', err)

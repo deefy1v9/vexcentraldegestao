@@ -90,6 +90,30 @@ export async function GET() {
     }
   }
 
+  // Demandas aguardando ação do usuário (revisão/agendamento)
+  const waitingTasks = await prisma.task.findMany({
+    where: {
+      status: { in: ['EM_REVISAO', 'APROVADO'] },
+      OR: [
+        { status: 'EM_REVISAO', reviewerId: userId },
+        { status: 'APROVADO', schedulerId: userId },
+      ],
+    },
+    include: { client: { select: { name: true } } },
+    orderBy: { updatedAt: 'desc' },
+    take: 10,
+  })
+  for (const t of waitingTasks) {
+    const isReview = t.status === 'EM_REVISAO'
+    notifications.push({
+      id: `${isReview ? 'review' : 'schedule'}-${t.id}`,
+      type: 'task_completed',
+      title: isReview ? `Aguardando sua revisão — ${t.title}` : `Aguardando agendamento — ${t.title}`,
+      description: t.client ? t.client.name : 'Sem cliente',
+      createdAt: t.updatedAt.toISOString(),
+    })
+  }
+
   // Remove o que este usuário já marcou como lido (persistido no banco)
   const dismissed = await prisma.notificationDismissal.findMany({
     where: { userId, notifId: { in: notifications.map((n) => n.id) } },

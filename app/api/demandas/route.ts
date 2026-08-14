@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
 import { isConfigured, uazSendText } from '@/lib/uazapi'
+import { defaultAssignments, logTaskEvent, maybeImmediateReminder } from '@/lib/task-flow'
 
 export async function GET(req: NextRequest) {
   const session = await auth()
@@ -21,6 +22,9 @@ export async function GET(req: NextRequest) {
       client: { select: { id: true, name: true } },
       assignee: { select: { id: true, name: true } },
       creator: { select: { id: true, name: true } },
+      producer: { select: { id: true, name: true } },
+      reviewer: { select: { id: true, name: true } },
+      scheduler: { select: { id: true, name: true } },
       _count: { select: { comments: true } },
     },
     orderBy: [{ status: 'asc' }, { position: 'asc' }, { createdAt: 'desc' }],
@@ -38,7 +42,14 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
-  const { title, description, status, priority, dueDate, clientId, assigneeId, tags } = body
+  const { title, description, status, priority, dueDate, clientId, assigneeId, tags, platform } = body
+
+  // Responsáveis padrão da operação (produção Igor, revisão Antonio,
+  // agendamento Igor) — o formulário pode sobrepor por demanda.
+  const defaults = await defaultAssignments()
+  const producerId = body.producerId || defaults.producerId
+  const reviewerId = body.reviewerId || defaults.reviewerId
+  const schedulerId = body.schedulerId || defaults.schedulerId
 
   const task = await prisma.task.create({
     data: {
@@ -48,7 +59,12 @@ export async function POST(req: NextRequest) {
       priority: priority || 'MEDIA',
       dueDate: dueDate ? new Date(dueDate) : null,
       clientId: clientId || null,
-      assigneeId: assigneeId || null,
+      // Responsável atual inicia no produtor (ou no que o form indicar)
+      assigneeId: assigneeId || producerId || null,
+      producerId: producerId || null,
+      reviewerId: reviewerId || null,
+      schedulerId: schedulerId || null,
+      platform: platform || null,
       creatorId: (session.user as any).id,
       tags: tags || [],
     },
@@ -56,9 +72,16 @@ export async function POST(req: NextRequest) {
       client: { select: { id: true, name: true } },
       assignee: { select: { id: true, name: true, phone: true } },
       creator: { select: { id: true, name: true } },
+      producer: { select: { id: true, name: true } },
+      reviewer: { select: { id: true, name: true } },
+      scheduler: { select: { id: true, name: true } },
       _count: { select: { comments: true } },
     },
   })
+
+  await logTaskEvent(task.id, 'CRIACAO', `Demanda criada por ${(session.user as any).name}`, (session.user as any).id)
+  // Criada já dentro da janela D-2? Um único lembrete imediato ao produtor.
+  maybeImmediateReminder(task.id).catch(() => {})
 
   await logActivity((session.user as any).id, 'criou demanda', 'Demandas', task.title)
 

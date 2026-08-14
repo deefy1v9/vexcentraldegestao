@@ -1,10 +1,15 @@
 'use client'
 import { useState, useRef } from 'react'
-import { Plus, X, MessageSquare, Calendar, Pencil, Save, Paperclip, Download, Trash2, ImageIcon, FileText, File } from 'lucide-react'
+import {
+  Plus, X, MessageSquare, Calendar, Pencil, Save, Paperclip, Download, Trash2,
+  ImageIcon, FileText, File, Link2, Eye, CalendarCheck, Send, CheckCircle2, AlertTriangle, History,
+} from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 
-type TaskStatus = 'BACKLOG' | 'TODO' | 'EM_ANDAMENTO' | 'EM_REVISAO' | 'CONCLUIDO'
+type TaskStatus = 'BACKLOG' | 'TODO' | 'EM_ANDAMENTO' | 'EM_REVISAO' | 'APROVADO' | 'CONCLUIDO'
 type TaskPriority = 'BAIXA' | 'MEDIA' | 'ALTA' | 'URGENTE'
+
+interface UserRef { id: string; name: string }
 
 interface Task {
   id: string
@@ -13,23 +18,84 @@ interface Task {
   status: TaskStatus
   priority: TaskPriority
   dueDate?: Date | string | null
+  platform?: string | null
+  driveLink?: string | null
   tags: string[]
   client?: { id: string; name: string } | null
-  assignee?: { id: string; name: string } | null
-  creator: { id: string; name: string }
+  assignee?: UserRef | null
+  producer?: UserRef | null
+  reviewer?: UserRef | null
+  scheduler?: UserRef | null
+  creator: UserRef
+  scheduledFor?: Date | string | null
+  scheduledPlatform?: string | null
+  publicationLink?: string | null
   _count: { comments: number }
+}
+
+interface TaskEvent {
+  id: string
+  kind: string
+  detail: string
+  createdAt: string
+  user?: UserRef | null
 }
 
 interface Client { id: string; name: string }
 interface User { id: string; name: string }
 
 const COLUMNS: { key: TaskStatus; label: string; color: string; bg: string; dot: string }[] = [
-  { key: 'BACKLOG',      label: 'Backlog',      color: 'text-gray-500',   bg: 'bg-gray-100',    dot: 'bg-gray-400' },
-  { key: 'TODO',         label: 'A Fazer',      color: 'text-blue-600',   bg: 'bg-blue-50',     dot: 'bg-blue-500' },
-  { key: 'EM_ANDAMENTO', label: 'Em Andamento', color: 'text-yellow-600', bg: 'bg-yellow-50',   dot: 'bg-yellow-500' },
-  { key: 'EM_REVISAO',   label: 'Em Revisão',   color: 'text-purple-600', bg: 'bg-purple-50',   dot: 'bg-purple-500' },
-  { key: 'CONCLUIDO',    label: 'Concluído',    color: 'text-green-600',  bg: 'bg-green-50',    dot: 'bg-green-500' },
+  { key: 'BACKLOG',      label: 'Backlog',                  color: 'text-gray-500',   bg: 'bg-gray-100',  dot: 'bg-gray-400' },
+  { key: 'TODO',         label: 'A Fazer',                  color: 'text-blue-600',   bg: 'bg-blue-50',   dot: 'bg-blue-500' },
+  { key: 'EM_ANDAMENTO', label: 'Em Andamento',             color: 'text-orange-600', bg: 'bg-orange-50', dot: 'bg-orange-500' },
+  { key: 'EM_REVISAO',   label: 'Em Revisão',               color: 'text-purple-600', bg: 'bg-purple-50', dot: 'bg-purple-500' },
+  { key: 'APROVADO',     label: 'Aprovado p/ Agendamento',  color: 'text-teal-600',   bg: 'bg-teal-50',   dot: 'bg-teal-500' },
+  { key: 'CONCLUIDO',    label: 'Concluído',                color: 'text-green-600',  bg: 'bg-green-50',  dot: 'bg-green-500' },
 ]
+
+const PLATFORMS = ['Instagram', 'LinkedIn', 'Facebook', 'Site', 'Outra']
+
+const DAY = 24 * 60 * 60 * 1000
+
+/** Prazos derivados da data final: produção D-2, revisão D-1. */
+function deadlines(dueDate?: Date | string | null) {
+  if (!dueDate) return null
+  const due = new Date(dueDate as string)
+  return {
+    production: new Date(due.getTime() - 2 * DAY),
+    review: new Date(due.getTime() - 1 * DAY),
+    final: due,
+  }
+}
+
+function daysLeft(date?: Date | string | null): number | null {
+  if (!date) return null
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const d = new Date(date as string); d.setHours(0, 0, 0, 0)
+  return Math.round((d.getTime() - today.getTime()) / DAY)
+}
+
+function isLate(task: Task): boolean {
+  const left = daysLeft(task.dueDate)
+  return left != null && left < 0 && task.status !== 'CONCLUIDO'
+}
+
+/** Próxima ação da demanda, para o card e a lista "Minhas Demandas". */
+function nextAction(task: Task): string {
+  const dl = deadlines(task.dueDate)
+  switch (task.status) {
+    case 'BACKLOG':
+    case 'TODO':
+    case 'EM_ANDAMENTO':
+      return dl ? `Produzir até ${formatDate(dl.production)}` : 'Produzir e enviar para revisão'
+    case 'EM_REVISAO':
+      return dl ? `Revisar até ${formatDate(dl.review)}` : 'Aguardando revisão'
+    case 'APROVADO':
+      return dl ? `Agendar até ${formatDate(dl.final)}` : 'Confirmar agendamento'
+    case 'CONCLUIDO':
+      return 'Concluída'
+  }
+}
 
 const PRIORITY_CONFIG: Record<TaskPriority, { dot: string; bg: string; text: string; label: string }> = {
   BAIXA:   { dot: 'bg-green-500',  bg: 'bg-green-50',  text: 'text-green-700',  label: 'Baixa' },
@@ -79,11 +145,42 @@ export default function KanbanBoard({
     dueDate: '',
     clientId: '',
     assigneeId: '',
+    platform: '',
+    producerId: '',
+    reviewerId: '',
+    schedulerId: '',
   })
   const [saving, setSaving] = useState(false)
   const [creating, setCreating] = useState(false)
 
+  // Fluxo produção → revisão → agendamento
+  const [events, setEvents] = useState<TaskEvent[]>([])
+  const [flowError, setFlowError] = useState<string | null>(null)
+  const [flowBusy, setFlowBusy] = useState(false)
+  const [driveLinkInput, setDriveLinkInput] = useState('')
+  const [reviewNoteInput, setReviewNoteInput] = useState('')
+  const [showAdjustForm, setShowAdjustForm] = useState(false)
+  const [adjustNote, setAdjustNote] = useState('')
+  const [showScheduleForm, setShowScheduleForm] = useState(false)
+  const [scheduleForm, setScheduleForm] = useState({ date: '', time: '', platform: '', publicationLink: '', note: '' })
+  const [showHistory, setShowHistory] = useState(false)
+  const [newTaskPlatform, setNewTaskPlatform] = useState('')
+
   const dragRef = useRef<string | null>(null)
+
+  /** Aplica o retorno de uma ação de fluxo ao estado local. */
+  function applyTaskUpdate(updated: Task) {
+    setTasks((prev) => prev.map((t) => (t.id === updated.id ? { ...t, ...updated } : t)))
+    setSelectedTask((prev) => (prev && prev.id === updated.id ? { ...prev, ...updated } : prev))
+  }
+
+  async function refreshEvents(taskId: string) {
+    const res = await fetch(`/api/demandas/${taskId}`)
+    if (res.ok) {
+      const data = await res.json()
+      setEvents(data.events || [])
+    }
+  }
 
   const visibleTasks = selectedUserId === 'all'
     ? tasks
@@ -92,11 +189,23 @@ export default function KanbanBoard({
   function openTask(task: Task) {
     setSelectedTask(task)
     setEditMode(false)
+    setFlowError(null)
+    setDriveLinkInput(task.driveLink || '')
+    setReviewNoteInput('')
+    setShowAdjustForm(false)
+    setAdjustNote('')
+    setShowScheduleForm(false)
+    setScheduleForm({ date: '', time: '', platform: task.platform || '', publicationLink: '', note: '' })
+    setShowHistory(false)
+    setEvents([])
     fetch(`/api/demandas/${task.id}`)
       .then((r) => r.json())
       .then((data) => {
         setComments(data.comments || [])
         setAttachments(data.attachments || [])
+        setEvents(data.events || [])
+        if (data.driveLink) setDriveLinkInput(data.driveLink)
+        applyTaskUpdate(data)
       })
   }
 
@@ -148,6 +257,10 @@ export default function KanbanBoard({
       dueDate: task.dueDate ? new Date(task.dueDate as string).toISOString().split('T')[0] : '',
       clientId: task.client?.id || '',
       assigneeId: task.assignee?.id || '',
+      platform: task.platform || '',
+      producerId: task.producer?.id || '',
+      reviewerId: task.reviewer?.id || '',
+      schedulerId: task.scheduler?.id || '',
     })
     setEditMode(true)
   }
@@ -155,18 +268,25 @@ export default function KanbanBoard({
   async function saveTask() {
     if (!selectedTask || !editForm.title.trim()) return
     setSaving(true)
+    const payload: Record<string, unknown> = {
+      title: editForm.title,
+      description: editForm.description || null,
+      priority: editForm.priority,
+      dueDate: editForm.dueDate || null,
+      clientId: editForm.clientId || null,
+      assigneeId: editForm.assigneeId || null,
+      platform: editForm.platform || null,
+      producerId: editForm.producerId || null,
+      reviewerId: editForm.reviewerId || null,
+      schedulerId: editForm.schedulerId || null,
+    }
+    // Status só entra se mudou — mudanças de etapa passam pela validação do fluxo
+    if (editForm.status !== selectedTask.status) payload.status = editForm.status
+
     const res = await fetch(`/api/demandas/${selectedTask.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title: editForm.title,
-        description: editForm.description || null,
-        status: editForm.status,
-        priority: editForm.priority,
-        dueDate: editForm.dueDate || null,
-        clientId: editForm.clientId || null,
-        assigneeId: editForm.assigneeId || null,
-      }),
+      body: JSON.stringify(payload),
     })
 
     if (res.ok) {
@@ -174,6 +294,9 @@ export default function KanbanBoard({
       setTasks((prev) => prev.map((t) => (t.id === selectedTask.id ? { ...t, ...updated } : t)))
       setSelectedTask((prev) => prev ? { ...prev, ...updated } : prev)
       setEditMode(false)
+    } else {
+      const body = await res.json().catch(() => ({}))
+      alert(body.error || 'Não foi possível salvar.')
     }
     setSaving(false)
   }
@@ -190,8 +313,10 @@ export default function KanbanBoard({
         status,
         priority: newTaskPriority,
         clientId: newTaskClient || null,
-        assigneeId: newTaskAssignee || currentUserId,
+        // Sem responsável indicado, o backend usa o produtor padrão (Igor)
+        assigneeId: newTaskAssignee || null,
         dueDate: newTaskDue || null,
+        platform: newTaskPlatform || null,
       }),
     })
     if (res.ok) {
@@ -214,19 +339,78 @@ export default function KanbanBoard({
     setNewTaskAssignee(isAdmin ? '' : currentUserId)
     setNewTaskPriority('MEDIA')
     setNewTaskDue('')
+    setNewTaskPlatform('')
     setNewTaskFiles([])
     setShowNewForm(null)
   }
 
-  async function updateTaskStatus(taskId: string, status: TaskStatus) {
-    await fetch(`/api/demandas/${taskId}`, {
+  async function updateTaskStatus(taskId: string, status: TaskStatus, overrideReason?: string) {
+    const res = await fetch(`/api/demandas/${taskId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify(overrideReason ? { status, overrideReason } : { status }),
     })
-    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status } : t)))
-    if (selectedTask?.id === taskId) setSelectedTask((p) => p ? { ...p, status } : p)
+    if (res.ok) {
+      setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status } : t)))
+      if (selectedTask?.id === taskId) setSelectedTask((p) => p ? { ...p, status } : p)
+      return
+    }
+    // Backend recusou: fluxo exige ação própria (ou justificativa de admin)
+    const body = await res.json().catch(() => ({}))
+    if (body.needsOverride && isAdmin) {
+      const reason = prompt(`${body.error}\n\nJustificativa (fica registrada no histórico):`)
+      if (reason?.trim()) return updateTaskStatus(taskId, status, reason.trim())
+      return
+    }
+    alert(body.error || 'Movimento não permitido pelo fluxo da demanda.')
   }
+
+  /* ------------------- ações do fluxo produção/revisão/agendamento ------------------- */
+
+  async function flowAction(url: string, payload: Record<string, unknown>) {
+    if (!selectedTask) return
+    setFlowBusy(true)
+    setFlowError(null)
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setFlowError(body.error || 'Não foi possível concluir a ação.')
+        return
+      }
+      applyTaskUpdate(body)
+      refreshEvents(selectedTask.id)
+      setShowAdjustForm(false)
+      setAdjustNote('')
+      setShowScheduleForm(false)
+      setReviewNoteInput('')
+    } catch {
+      setFlowError('Falha de conexão. Tente de novo.')
+    } finally {
+      setFlowBusy(false)
+    }
+  }
+
+  const sendToReview = () => selectedTask && flowAction(
+    `/api/demandas/${selectedTask.id}/enviar-revisao`,
+    { driveLink: driveLinkInput, note: reviewNoteInput },
+  )
+  const approve = () => selectedTask && flowAction(
+    `/api/demandas/${selectedTask.id}/revisar`,
+    { action: 'aprovar', note: reviewNoteInput },
+  )
+  const requestAdjustments = () => selectedTask && flowAction(
+    `/api/demandas/${selectedTask.id}/revisar`,
+    { action: 'ajustes', note: adjustNote },
+  )
+  const confirmSchedule = () => selectedTask && flowAction(
+    `/api/demandas/${selectedTask.id}/agendar`,
+    scheduleForm,
+  )
 
   async function deleteTask(taskId: string) {
     if (!confirm('Remover esta demanda?')) return
@@ -252,8 +436,83 @@ export default function KanbanBoard({
     }
   }
 
+  /**
+   * Minhas Demandas: demandas em que o usuário tem papel na etapa atual.
+   * O prazo mostrado é o do papel dele (produção D-2, revisão D-1, entrega D).
+   */
+  const myTasks = tasks
+    .filter((t) => t.status !== 'CONCLUIDO')
+    .map((t) => {
+      const dl = deadlines(t.dueDate)
+      const inProduction = ['BACKLOG', 'TODO', 'EM_ANDAMENTO'].includes(t.status)
+      let myRole: string | null = null
+      let myDeadline: Date | null = null
+      if (inProduction && t.producer?.id === currentUserId) { myRole = 'Produzir'; myDeadline = dl?.production ?? null }
+      else if (t.status === 'EM_REVISAO' && t.reviewer?.id === currentUserId) { myRole = 'Revisar'; myDeadline = dl?.review ?? null }
+      else if (t.status === 'APROVADO' && t.scheduler?.id === currentUserId) { myRole = 'Agendar'; myDeadline = dl?.final ?? null }
+      else if (t.assignee?.id === currentUserId) { myRole = 'Atuar'; myDeadline = dl?.final ?? null }
+      return { task: t, myRole, myDeadline, waiting: t.assignee?.id === currentUserId }
+    })
+    .filter((x) => x.myRole !== null)
+    .sort((a, b) => (a.myDeadline?.getTime() ?? Infinity) - (b.myDeadline?.getTime() ?? Infinity))
+
+  const myLate = myTasks.filter((x) => isLate(x.task)).length
+  const myWaiting = myTasks.filter((x) => x.waiting).length
+
   return (
     <>
+      {/* Minhas Demandas — resumo pessoal, aberto por padrão para o colaborador */}
+      {myTasks.length > 0 && (
+        <div className="px-6 pt-4">
+          <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+              <p className="font-semibold text-gray-900 text-sm">Minhas Demandas</p>
+              <div className="flex items-center gap-2 text-[11px]">
+                {myLate > 0 && (
+                  <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-semibold">{myLate} atrasada(s)</span>
+                )}
+                <span className="bg-[#030A8C]/10 text-[#030A8C] px-2 py-0.5 rounded-full font-semibold">{myWaiting} aguardando ação</span>
+              </div>
+            </div>
+            <div className="divide-y divide-gray-50 max-h-[180px] overflow-y-auto">
+              {myTasks.map(({ task, myRole, myDeadline }) => {
+                const left = daysLeft(myDeadline)
+                const late = isLate(task)
+                return (
+                  <button
+                    key={task.id}
+                    onClick={() => openTask(task)}
+                    className="w-full flex items-center justify-between px-4 py-2 hover:bg-gray-50 transition-colors text-left"
+                  >
+                    <div className="min-w-0 flex items-center gap-2">
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${late ? 'bg-red-500' : PRIORITY_CONFIG[task.priority].dot}`} />
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-gray-900 truncate">{task.title}</p>
+                        <p className="text-[10px] text-gray-400 truncate">
+                          {task.client?.name ? `${task.client.name} · ` : ''}
+                          {COLUMNS.find((c) => c.key === task.status)?.label}
+                          {task.dueDate ? ` · final ${formatDate(task.dueDate as string)}` : ''}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0 ml-2">
+                      <p className={`text-[11px] font-semibold ${late ? 'text-red-600' : 'text-[#030A8C]'}`}>
+                        {myRole}{myDeadline ? ` até ${formatDate(myDeadline)}` : ''}
+                      </p>
+                      {left != null && (
+                        <p className={`text-[10px] ${left < 0 ? 'text-red-500 font-semibold' : 'text-gray-400'}`}>
+                          {left < 0 ? `${Math.abs(left)} dia(s) de atraso` : left === 0 ? 'vence hoje' : `${left} dia(s) restante(s)`}
+                        </p>
+                      )}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Collaborator filter bar */}
       <div className="px-6 py-3 border-b border-gray-100 flex items-center gap-2 flex-wrap">
         {isAdmin && (
@@ -378,8 +637,12 @@ export default function KanbanBoard({
                         {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                       </select>
                       <select value={newTaskAssignee} onChange={(e) => setNewTaskAssignee(e.target.value)} className="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white text-gray-700 outline-none focus:border-[#030A8C]">
-                        <option value="">Responsável</option>
+                        <option value="">Responsável (padrão: produção)</option>
                         {users.map((u) => <option key={u.id} value={u.id}>{u.name.split(' ')[0]}</option>)}
+                      </select>
+                      <select value={newTaskPlatform} onChange={(e) => setNewTaskPlatform(e.target.value)} className="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white text-gray-700 outline-none focus:border-[#030A8C]">
+                        <option value="">Plataforma</option>
+                        {PLATFORMS.map((p) => <option key={p} value={p}>{p}</option>)}
                       </select>
                     </div>
 
@@ -446,13 +709,17 @@ export default function KanbanBoard({
                     )
                   )}
 
-                  {colTasks.map((task) => (
+                  {colTasks.map((task) => {
+                    const late = isLate(task)
+                    return (
                     <div
                       key={task.id}
                       draggable
                       onDragStart={() => { dragRef.current = task.id }}
                       onClick={() => openTask(task)}
-                      className="bg-white rounded-xl border border-gray-200 p-3 cursor-pointer hover:border-[#030A8C] transition-all"
+                      className={`bg-white rounded-xl border p-3 cursor-pointer transition-all ${
+                        late ? 'border-red-300 hover:border-red-500' : 'border-gray-200 hover:border-[#030A8C]'
+                      }`}
                     >
                       <div className="flex items-start justify-between gap-2 mb-1.5">
                         <p className="text-sm font-semibold text-gray-900 leading-snug flex-1">{task.title}</p>
@@ -461,14 +728,32 @@ export default function KanbanBoard({
                         </span>
                       </div>
 
-                      {task.description && (
-                        <p className="text-xs text-gray-400 mb-2 line-clamp-2">{task.description}</p>
-                      )}
+                      <div className="flex items-center gap-1.5 flex-wrap mb-2">
+                        {task.client && (
+                          <span className="inline-block text-[10px] bg-[#030A8C]/10 text-[#030A8C] px-2 py-0.5 rounded-full font-medium">
+                            {task.client.name}
+                          </span>
+                        )}
+                        {late && (
+                          <span className="inline-flex items-center gap-0.5 text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-semibold">
+                            <AlertTriangle className="w-2.5 h-2.5" /> Atrasada
+                          </span>
+                        )}
+                        {task.status === 'EM_REVISAO' && (
+                          <span className="inline-flex items-center gap-0.5 text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-semibold">
+                            <Eye className="w-2.5 h-2.5" /> Aguardando revisão
+                          </span>
+                        )}
+                        {task.status === 'APROVADO' && (
+                          <span className="inline-flex items-center gap-0.5 text-[10px] bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full font-semibold">
+                            <CalendarCheck className="w-2.5 h-2.5" /> Aguardando agendamento
+                          </span>
+                        )}
+                      </div>
 
-                      {task.client && (
-                        <span className="inline-block text-[10px] bg-[#030A8C]/10 text-[#030A8C] px-2 py-0.5 rounded-full font-medium mb-2">
-                          {task.client.name}
-                        </span>
+                      {/* Próxima ação */}
+                      {task.status !== 'CONCLUIDO' && (
+                        <p className="text-[11px] text-gray-500 mb-2">{nextAction(task)}</p>
                       )}
 
                       <div className="flex items-center justify-between mt-1">
@@ -481,6 +766,7 @@ export default function KanbanBoard({
                               <span className="text-[11px] text-gray-400">{task.assignee.name.split(' ')[0]}</span>
                             </div>
                           )}
+                          {task.driveLink && <Link2 className="w-3 h-3 text-[#030A8C]" />}
                           {(task._count?.comments ?? 0) > 0 && (
                             <div className="flex items-center gap-0.5 text-[11px] text-gray-400">
                               <MessageSquare className="w-3 h-3" />
@@ -489,14 +775,15 @@ export default function KanbanBoard({
                           )}
                         </div>
                         {task.dueDate && (
-                          <div className="flex items-center gap-1 text-[11px] text-gray-400">
+                          <div className={`flex items-center gap-1 text-[11px] ${late ? 'text-red-600 font-semibold' : 'text-gray-400'}`}>
                             <Calendar className="w-3 h-3" />
                             {formatDate(task.dueDate as string)}
                           </div>
                         )}
                       </div>
                     </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             )
@@ -592,15 +879,269 @@ export default function KanbanBoard({
                       <p className="text-sm font-semibold text-gray-900">{selectedTask.client?.name || '—'}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-400 mb-1 font-medium">Prazo</p>
-                      <p className="text-sm font-semibold text-gray-900">
-                        {selectedTask.dueDate ? formatDate(selectedTask.dueDate as string) : '—'}
-                      </p>
+                      <p className="text-xs text-gray-400 mb-1 font-medium">Plataforma</p>
+                      <p className="text-sm font-semibold text-gray-900">{selectedTask.platform || '—'}</p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-400 mb-1 font-medium">Criado por</p>
                       <p className="text-sm font-semibold text-gray-900">{selectedTask.creator.name}</p>
                     </div>
+                  </div>
+
+                  {/* Papéis e prazos derivados da data final */}
+                  {(() => {
+                    const dl = deadlines(selectedTask.dueDate)
+                    return (
+                      <div className="bg-gray-50 border border-gray-100 rounded-xl p-3 grid grid-cols-3 gap-2 text-center">
+                        <div>
+                          <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wide">Produção</p>
+                          <p className="text-xs font-bold text-gray-900 mt-0.5">{dl ? formatDate(dl.production) : '—'}</p>
+                          <p className="text-[10px] text-gray-500">{selectedTask.producer?.name.split(' ')[0] || '—'}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wide">Revisão</p>
+                          <p className="text-xs font-bold text-gray-900 mt-0.5">{dl ? formatDate(dl.review) : '—'}</p>
+                          <p className="text-[10px] text-gray-500">{selectedTask.reviewer?.name.split(' ')[0] || '—'}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wide">Data final</p>
+                          <p className="text-xs font-bold text-[#030A8C] mt-0.5">{dl ? formatDate(dl.final) : '—'}</p>
+                          <p className="text-[10px] text-gray-500">{selectedTask.scheduler?.name.split(' ')[0] || '—'}</p>
+                        </div>
+                      </div>
+                    )
+                  })()}
+
+                  {/* Link do Drive já enviado */}
+                  {selectedTask.driveLink && (
+                    <a
+                      href={selectedTask.driveLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 bg-[#030A8C]/5 border border-[#030A8C]/20 rounded-xl px-3 py-2.5 text-sm text-[#030A8C] font-medium hover:bg-[#030A8C]/10 transition-colors"
+                    >
+                      <Link2 className="w-4 h-4 shrink-0" />
+                      <span className="truncate">Abrir material no Google Drive</span>
+                    </a>
+                  )}
+
+                  {flowError && (
+                    <p className="text-xs font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+                      {flowError}
+                    </p>
+                  )}
+
+                  {/* PRODUÇÃO: enviar para revisão (produtor/responsável/admin) */}
+                  {['BACKLOG', 'TODO', 'EM_ANDAMENTO'].includes(selectedTask.status) &&
+                    (isAdmin || selectedTask.producer?.id === currentUserId || selectedTask.assignee?.id === currentUserId) && (
+                    <div className="border border-gray-200 rounded-xl p-4 space-y-3">
+                      <p className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                        <Send className="w-4 h-4 text-[#030A8C]" /> Entregar produção
+                      </p>
+                      <div>
+                        <label className="text-xs font-medium text-gray-600 mb-1 block">Link do Google Drive *</label>
+                        <input
+                          value={driveLinkInput}
+                          onChange={(e) => setDriveLinkInput(e.target.value)}
+                          placeholder="https://drive.google.com/..."
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 outline-none focus:border-[#030A8C]"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-gray-600 mb-1 block">Observação para o revisor (opcional)</label>
+                        <input
+                          value={reviewNoteInput}
+                          onChange={(e) => setReviewNoteInput(e.target.value)}
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 outline-none focus:border-[#030A8C]"
+                        />
+                      </div>
+                      <button
+                        onClick={sendToReview}
+                        disabled={flowBusy || !driveLinkInput.trim()}
+                        className="w-full py-2 bg-[#030A8C] text-white rounded-lg text-sm font-semibold hover:bg-[#02077a] disabled:opacity-50 transition-colors"
+                      >
+                        {flowBusy ? 'Enviando...' : 'Enviar para revisão'}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* REVISÃO: aprovar ou solicitar ajustes (revisor/admin) */}
+                  {selectedTask.status === 'EM_REVISAO' &&
+                    (isAdmin || selectedTask.reviewer?.id === currentUserId) && (
+                    <div className="border border-purple-200 bg-purple-50/40 rounded-xl p-4 space-y-3">
+                      <p className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                        <Eye className="w-4 h-4 text-purple-600" /> Revisão
+                      </p>
+                      {!showAdjustForm ? (
+                        <>
+                          <div>
+                            <label className="text-xs font-medium text-gray-600 mb-1 block">Observação da aprovação (opcional)</label>
+                            <input
+                              value={reviewNoteInput}
+                              onChange={(e) => setReviewNoteInput(e.target.value)}
+                              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 outline-none focus:border-[#030A8C]"
+                            />
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={approve}
+                              disabled={flowBusy}
+                              className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-teal-600 text-white rounded-lg text-sm font-semibold hover:bg-teal-700 disabled:opacity-50 transition-colors"
+                            >
+                              <CheckCircle2 className="w-4 h-4" /> Aprovar
+                            </button>
+                            <button
+                              onClick={() => setShowAdjustForm(true)}
+                              disabled={flowBusy}
+                              className="flex-1 py-2 border border-orange-300 text-orange-700 bg-orange-50 rounded-lg text-sm font-semibold hover:bg-orange-100 disabled:opacity-50 transition-colors"
+                            >
+                              Solicitar ajustes
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div>
+                            <label className="text-xs font-medium text-gray-600 mb-1 block">O que precisa ser corrigido? *</label>
+                            <textarea
+                              autoFocus
+                              value={adjustNote}
+                              onChange={(e) => setAdjustNote(e.target.value)}
+                              rows={3}
+                              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 outline-none focus:border-[#030A8C] resize-none"
+                            />
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => { setShowAdjustForm(false); setAdjustNote('') }}
+                              className="px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+                            >
+                              Cancelar
+                            </button>
+                            <button
+                              onClick={requestAdjustments}
+                              disabled={flowBusy || !adjustNote.trim()}
+                              className="flex-1 py-2 bg-orange-600 text-white rounded-lg text-sm font-semibold hover:bg-orange-700 disabled:opacity-50 transition-colors"
+                            >
+                              {flowBusy ? 'Enviando...' : 'Devolver para ajustes'}
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  {/* AGENDAMENTO: confirmar (agendador/admin) */}
+                  {selectedTask.status === 'APROVADO' &&
+                    (isAdmin || selectedTask.scheduler?.id === currentUserId || selectedTask.assignee?.id === currentUserId) && (
+                    <div className="border border-teal-200 bg-teal-50/40 rounded-xl p-4 space-y-3">
+                      <p className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                        <CalendarCheck className="w-4 h-4 text-teal-600" /> Agendamento
+                      </p>
+                      {!showScheduleForm ? (
+                        <button
+                          onClick={() => setShowScheduleForm(true)}
+                          className="w-full py-2 bg-teal-600 text-white rounded-lg text-sm font-semibold hover:bg-teal-700 transition-colors"
+                        >
+                          Confirmar agendamento
+                        </button>
+                      ) : (
+                        <>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="text-xs font-medium text-gray-600 mb-1 block">Data *</label>
+                              <input type="date" value={scheduleForm.date}
+                                onChange={(e) => setScheduleForm((p) => ({ ...p, date: e.target.value }))}
+                                className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-sm bg-white text-gray-900 outline-none focus:border-[#030A8C]" />
+                            </div>
+                            <div>
+                              <label className="text-xs font-medium text-gray-600 mb-1 block">Horário *</label>
+                              <input type="time" value={scheduleForm.time}
+                                onChange={(e) => setScheduleForm((p) => ({ ...p, time: e.target.value }))}
+                                className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-sm bg-white text-gray-900 outline-none focus:border-[#030A8C]" />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="text-xs font-medium text-gray-600 mb-1 block">Plataforma *</label>
+                            <select value={scheduleForm.platform}
+                              onChange={(e) => setScheduleForm((p) => ({ ...p, platform: e.target.value }))}
+                              className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-sm bg-white text-gray-900 outline-none focus:border-[#030A8C]">
+                              <option value="">Selecione...</option>
+                              {PLATFORMS.map((p) => <option key={p} value={p}>{p}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-xs font-medium text-gray-600 mb-1 block">Link da publicação (opcional)</label>
+                            <input value={scheduleForm.publicationLink}
+                              onChange={(e) => setScheduleForm((p) => ({ ...p, publicationLink: e.target.value }))}
+                              className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-sm bg-white text-gray-900 outline-none focus:border-[#030A8C]" />
+                          </div>
+                          <div>
+                            <label className="text-xs font-medium text-gray-600 mb-1 block">Observação (opcional)</label>
+                            <input value={scheduleForm.note}
+                              onChange={(e) => setScheduleForm((p) => ({ ...p, note: e.target.value }))}
+                              className="w-full border border-gray-200 rounded-lg px-2.5 py-2 text-sm bg-white text-gray-900 outline-none focus:border-[#030A8C]" />
+                          </div>
+                          <div className="flex gap-2">
+                            <button onClick={() => setShowScheduleForm(false)}
+                              className="px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">
+                              Cancelar
+                            </button>
+                            <button
+                              onClick={confirmSchedule}
+                              disabled={flowBusy || !scheduleForm.date || !scheduleForm.time || !scheduleForm.platform}
+                              className="flex-1 py-2 bg-teal-600 text-white rounded-lg text-sm font-semibold hover:bg-teal-700 disabled:opacity-50 transition-colors"
+                            >
+                              {flowBusy ? 'Confirmando...' : 'Concluir demanda'}
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Agendamento registrado */}
+                  {selectedTask.status === 'CONCLUIDO' && selectedTask.scheduledFor && (
+                    <div className="border border-green-200 bg-green-50/50 rounded-xl p-3 text-sm">
+                      <p className="font-semibold text-green-800 flex items-center gap-1.5">
+                        <CalendarCheck className="w-4 h-4" /> Agendado para{' '}
+                        {new Date(selectedTask.scheduledFor).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        {selectedTask.scheduledPlatform ? ` · ${selectedTask.scheduledPlatform}` : ''}
+                      </p>
+                      {selectedTask.publicationLink && (
+                        <a href={selectedTask.publicationLink} target="_blank" rel="noopener noreferrer" className="text-xs text-green-700 underline break-all">
+                          {selectedTask.publicationLink}
+                        </a>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Histórico */}
+                  <div>
+                    <button
+                      onClick={() => setShowHistory((v) => !v)}
+                      className="flex items-center gap-1.5 text-sm font-bold text-gray-900 hover:text-[#030A8C] transition-colors"
+                    >
+                      <History className="w-4 h-4" />
+                      Histórico {events.length > 0 && <span className="text-gray-400 font-normal">({events.length})</span>}
+                    </button>
+                    {showHistory && (
+                      <div className="mt-3 space-y-0 border-l-2 border-gray-100 ml-2">
+                        {events.length === 0 ? (
+                          <p className="text-xs text-gray-400 pl-4 py-2">Nenhum registro ainda</p>
+                        ) : (
+                          events.map((ev) => (
+                            <div key={ev.id} className="relative pl-4 pb-3">
+                              <span className="absolute -left-[5px] top-1.5 w-2 h-2 rounded-full bg-[#030A8C]" />
+                              <p className="text-xs text-gray-700">{ev.detail}</p>
+                              <p className="text-[10px] text-gray-400">
+                                {new Date(ev.createdAt).toLocaleString('pt-BR')}
+                              </p>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
                   </div>
                 </>
               ) : (
@@ -678,14 +1219,63 @@ export default function KanbanBoard({
                       </select>
                     </div>
 
-                    <div className="col-span-2">
-                      <label className="block text-xs font-medium text-gray-500 mb-1">Prazo</label>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Data final</label>
                       <input
                         type="date"
                         value={editForm.dueDate}
                         onChange={(e) => setEditForm((p) => ({ ...p, dueDate: e.target.value }))}
                         className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white text-gray-900 outline-none focus:border-[#030A8C]"
                       />
+                      <p className="text-[10px] text-gray-400 mt-1">Produção D-2 · Revisão D-1</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Plataforma</label>
+                      <select
+                        value={editForm.platform}
+                        onChange={(e) => setEditForm((p) => ({ ...p, platform: e.target.value }))}
+                        className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white text-gray-900 outline-none focus:border-[#030A8C]"
+                      >
+                        <option value="">Sem plataforma</option>
+                        {PLATFORMS.map((p) => <option key={p} value={p}>{p}</option>)}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Produção</label>
+                      <select
+                        value={editForm.producerId}
+                        onChange={(e) => setEditForm((p) => ({ ...p, producerId: e.target.value }))}
+                        className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white text-gray-900 outline-none focus:border-[#030A8C]"
+                      >
+                        <option value="">—</option>
+                        {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Revisão</label>
+                      <select
+                        value={editForm.reviewerId}
+                        onChange={(e) => setEditForm((p) => ({ ...p, reviewerId: e.target.value }))}
+                        className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white text-gray-900 outline-none focus:border-[#030A8C]"
+                      >
+                        <option value="">—</option>
+                        {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Agendamento</label>
+                      <select
+                        value={editForm.schedulerId}
+                        onChange={(e) => setEditForm((p) => ({ ...p, schedulerId: e.target.value }))}
+                        className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white text-gray-900 outline-none focus:border-[#030A8C]"
+                      >
+                        <option value="">—</option>
+                        {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+                      </select>
                     </div>
                   </div>
                 </div>

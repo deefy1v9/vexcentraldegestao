@@ -17,6 +17,7 @@ enum TaskStatus {
   TODO
   EM_ANDAMENTO
   EM_REVISAO
+  APROVADO // Aprovado para Agendamento — falta o agendamento para concluir
   CONCLUIDO
 }
 
@@ -45,7 +46,11 @@ model User {
   assignedEvents  CalendarEvent[]
   assignedTasks   Task[]           @relation("TaskAssignee")
   createdTasks    Task[]           @relation("TaskCreator")
+  producedTasks   Task[]           @relation("TaskProducer")
+  reviewedTasks   Task[]           @relation("TaskReviewer")
+  scheduledTasks  Task[]           @relation("TaskScheduler")
   taskComments     TaskComment[]
+  taskEvents       TaskEvent[]
   salaryContracts  SalaryContract[]
   financialEntries FinancialEntry[]
 }
@@ -135,20 +140,70 @@ model Task {
   description String?
   status      TaskStatus   @default(TODO)
   priority    TaskPriority @default(MEDIA)
-  dueDate     DateTime?
+  dueDate     DateTime? // data final (agendamento/publicação/entrega)
   clientId    String?
-  assigneeId  String?
+  assigneeId  String? // responsável ATUAL (muda conforme a etapa)
   creatorId   String
   position    Int          @default(0)
   tags        String[]
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  platform    String? // Instagram, LinkedIn, Facebook, site...
 
-  client   Client?       @relation(fields: [clientId], references: [id])
-  assignee User?         @relation("TaskAssignee", fields: [assigneeId], references: [id])
-  creator  User          @relation("TaskCreator", fields: [creatorId], references: [id])
+  // Papéis fixos do fluxo de produção. Prazos derivados da data final:
+  // produção = D-2, revisão = D-1, agendamento/entrega = D.
+  producerId  String?
+  reviewerId  String?
+  schedulerId String?
+
+  // Produção → revisão
+  driveLink       String?
+  driveLinkSentAt DateTime?
+  driveLinkSentBy String?
+
+  // Revisão
+  reviewedById String?
+  reviewedAt   DateTime?
+  reviewNote   String?
+
+  // Agendamento (conclui a demanda)
+  scheduledById     String?
+  scheduledAt       DateTime? // quando foi confirmado
+  scheduledFor      DateTime? // data/hora do agendamento em si
+  scheduledPlatform String?
+  publicationLink   String?
+  scheduleNote      String?
+
+  // Lembretes automáticos (uma vez cada; nunca mudam o status)
+  reminderProductionAt DateTime?
+  reminderReviewAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client    Client? @relation(fields: [clientId], references: [id])
+  assignee  User?   @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  creator   User    @relation("TaskCreator", fields: [creatorId], references: [id])
+  producer  User?   @relation("TaskProducer", fields: [producerId], references: [id])
+  reviewer  User?   @relation("TaskReviewer", fields: [reviewerId], references: [id])
+  scheduler User?   @relation("TaskScheduler", fields: [schedulerId], references: [id])
   comments    TaskComment[]
   attachments TaskAttachment[]
+  events      TaskEvent[]
+}
+
+// Linha do tempo da demanda: cada ação relevante vira um registro imutável.
+// Nada é apagado quando a demanda volta para ajustes.
+model TaskEvent {
+  id        String   @id @default(cuid())
+  taskId    String
+  userId    String?
+  // CRIACAO | STATUS | RESPONSAVEL | LINK_DRIVE | ENVIO_REVISAO | APROVACAO |
+  // AJUSTES | AGENDAMENTO | LEMBRETE | JUSTIFICATIVA | AVISO
+  kind      String
+  detail    String
+  createdAt DateTime @default(now())
+
+  task Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id])
 }
 
 model TaskComment {
