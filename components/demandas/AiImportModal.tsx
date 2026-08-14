@@ -44,6 +44,7 @@ export default function AiImportModal({
   onCreated: () => void
 }) {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
+  const [mode, setMode] = useState<'texto' | 'pdf' | 'csv'>('texto')
   const [text, setText] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [defaultResponsible, setDefaultResponsible] = useState('')
@@ -206,30 +207,83 @@ export default function AiImportModal({
             </p>
           )}
 
-          {/* Etapa 1: enviar conteúdo */}
+          {/* Etapa 1: escolher o formato e enviar o conteúdo */}
           {step === 1 && (
             <div className="space-y-4 max-w-2xl mx-auto">
               <p className="text-sm text-gray-500">
-                Cole o calendário de publicações, planejamento ou briefing — ou envie um arquivo
-                (PDF, DOCX, XLSX, CSV, PNG, JPG). A IA separa as atividades, identifica o cliente
-                e sugere o responsável. Nada é criado sem a sua confirmação.
+                Escolha como enviar o calendário. A IA separa as atividades, identifica o cliente
+                e sugere o responsável — nada é criado sem a sua confirmação.
               </p>
-              <div>
-                <label className="text-xs font-medium text-gray-600 mb-1 block">
-                  {file
-                    ? 'Instruções para a IA (opcional) — ex: "o primeiro post já foi feito, não precisa"'
-                    : 'Conteúdo do calendário (ou envie um arquivo abaixo)'}
-                </label>
-                <textarea
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                  rows={file ? 3 : 8}
-                  placeholder={file
-                    ? 'Instruções adicionais sobre o arquivo enviado...'
-                    : 'Ex:\n18/08 - Post carrossel dicas de costura - Nobre\n20/08 - Reels bastidores - CX Lab...'}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 bg-white outline-none focus:border-[#030A8C] resize-none"
-                />
+
+              {/* Seletor do formato */}
+              <div className="grid grid-cols-3 gap-2">
+                {([['texto', 'Colar texto'], ['pdf', 'Enviar PDF'], ['csv', 'Enviar CSV']] as const).map(([key, label]) => (
+                  <button
+                    key={key}
+                    onClick={() => {
+                      setMode(key)
+                      setFile(null)
+                      if (fileRef.current) fileRef.current.value = ''
+                    }}
+                    className={`py-2.5 rounded-xl text-sm font-semibold border transition-colors ${
+                      mode === key
+                        ? 'bg-[#030A8C] text-white border-[#030A8C]'
+                        : 'bg-white text-gray-600 border-gray-200 hover:border-[#030A8C] hover:text-[#030A8C]'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
+
+              {/* Conteúdo conforme o formato */}
+              {mode === 'texto' ? (
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1 block">Conteúdo do calendário</label>
+                  <textarea
+                    value={text}
+                    onChange={(e) => setText(e.target.value)}
+                    rows={8}
+                    placeholder={'Ex:\n18/08 - Post carrossel dicas de costura - Nobre\n20/08 - Reels bastidores - CX Lab...'}
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 bg-white outline-none focus:border-[#030A8C] resize-none"
+                  />
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <button
+                    onClick={() => fileRef.current?.click()}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-6 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-600 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors"
+                  >
+                    <Upload className="w-4 h-4" />
+                    {file ? file.name : mode === 'pdf' ? 'Clique para escolher o PDF' : 'Clique para escolher o CSV'}
+                  </button>
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    className="hidden"
+                    accept={mode === 'pdf' ? '.pdf' : '.csv'}
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) setFile(f) }}
+                  />
+                  {file && (
+                    <button onClick={() => { setFile(null); if (fileRef.current) fileRef.current.value = '' }} className="text-xs text-gray-400 hover:text-red-500">
+                      remover arquivo
+                    </button>
+                  )}
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 mb-1 block">
+                      Instruções para a IA (opcional) — ex: &quot;o primeiro post já foi feito, não precisa&quot;
+                    </label>
+                    <textarea
+                      value={text}
+                      onChange={(e) => setText(e.target.value)}
+                      rows={2}
+                      placeholder="Instruções adicionais sobre o arquivo..."
+                      className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 bg-white outline-none focus:border-[#030A8C] resize-none"
+                    />
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="text-xs font-medium text-gray-600 mb-1 block">
                   Responsável padrão (opcional) — aplica a todas as demandas; dá pra trocar uma a uma na revisão
@@ -243,30 +297,11 @@ export default function AiImportModal({
                   {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
                 </select>
               </div>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => fileRef.current?.click()}
-                  className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors"
-                >
-                  <Upload className="w-4 h-4" />
-                  {file ? file.name : 'Enviar arquivo'}
-                </button>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  className="hidden"
-                  accept=".pdf,.docx,.xlsx,.csv,.txt,.png,.jpg,.jpeg"
-                  onChange={(e) => { const f = e.target.files?.[0]; if (f) setFile(f) }}
-                />
-                {file && (
-                  <button onClick={() => { setFile(null); if (fileRef.current) fileRef.current.value = '' }} className="text-xs text-gray-400 hover:text-red-500">
-                    remover
-                  </button>
-                )}
-                <div className="flex-1" />
+
+              <div className="flex justify-end">
                 <button
                   onClick={analyze}
-                  disabled={!file && text.trim().length < 10}
+                  disabled={mode === 'texto' ? text.trim().length < 10 : !file}
                   className="px-5 py-2 bg-[#030A8C] text-white rounded-lg text-sm font-semibold hover:bg-[#02077a] disabled:opacity-50 transition-colors"
                 >
                   Analisar com IA

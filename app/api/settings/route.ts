@@ -13,8 +13,8 @@ const ALLOWED_KEYS = [
   'TIER_START_MAX',
   'TIER_GROWTH_MAX',
   // Importação com IA (a chave nunca é devolvida no GET)
-  'GEMINI_API_KEY',
-  'GEMINI_MODEL',
+  'OPENAI_API_KEY',
+  'OPENAI_MODEL',
   // Responsáveis padrão da operação (IDs de usuário)
   'DEFAULT_REVIEWER_ID',
   'DEFAULT_SCHEDULER_ID',

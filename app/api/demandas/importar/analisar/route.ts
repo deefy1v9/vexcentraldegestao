@@ -4,7 +4,7 @@ import { requireAdmin } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
 import {
-  extractFile, analyzeWithGemini, deriveDates, getGeminiConfig,
+  extractFile, analyzeWithAI, deriveDates, getAiConfig,
   GeminiRateLimitError, ExtractedInput, ImportItem,
 } from '@/lib/ai-import'
 import { defaultAssignments } from '@/lib/task-flow'
@@ -76,14 +76,14 @@ export async function POST(req: NextRequest) {
     orderBy: { createdAt: 'desc' },
   })
 
-  const { model } = await getGeminiConfig()
+  const { model } = await getAiConfig()
   const imp = await prisma.aiImport.create({
     data: { createdById: admin.id, fileName, fileHash: input.fileHash, model },
   })
   lastAnalysisAt = Date.now()
 
   try {
-    const result = await analyzeWithGemini(input, adminNote)
+    const result = await analyzeWithAI(input, adminNote)
     const defaults = await defaultAssignments()
 
     // Responsável padrão escolhido pelo admin vale para todos os itens
