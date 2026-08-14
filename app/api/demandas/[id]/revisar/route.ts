@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
-import { logTaskEvent, notifyWhatsApp } from '@/lib/task-flow'
+import { logTaskEvent, notifyWhatsApp, taskShortId } from '@/lib/task-flow'
 import { TIER_LABEL, Tier } from '@/lib/client-tier'
 
 /**
@@ -68,7 +68,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     await logTaskEvent(id, 'APROVACAO', `${userName} aprovou a demanda${note ? ` — obs.: ${note}` : ''}`, userId)
     await logActivity(userId, 'aprovou demanda', 'Demandas', task.title)
     const tierSuffix = task.client?.tier ? `\nCliente ${TIER_LABEL[task.client.tier as Tier]}.` : ''
-    await notifyWhatsApp(nextAssignee, `Demanda aprovada para agendamento: ${task.title}.${tierSuffix}`)
+    await notifyWhatsApp(
+      nextAssignee,
+      `✅ Demanda aprovada para agendamento ${taskShortId(task.id)}: ${task.title}.${note ? `\n• Obs.: ${note}` : ''}${tierSuffix}`,
+    )
     await logTaskEvent(id, 'LEMBRETE', `Aviso de aprovação enviado para ${updated.assignee?.name ?? 'responsável'} (WhatsApp)`)
 
     return NextResponse.json(updated)
@@ -98,7 +101,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   await logActivity(userId, 'solicitou ajustes na demanda', 'Demandas', task.title)
   await notifyWhatsApp(
     nextAssignee,
-    `Ajustes solicitados na demanda: ${task.title}.${task.client?.tier ? `\nCliente ${TIER_LABEL[task.client.tier as Tier]}.` : ''}`,
+    `🔁 Ajustes solicitados na demanda ${taskShortId(task.id)}: ${task.title}.\n• O que corrigir: ${note}${task.client?.tier ? `\nCliente ${TIER_LABEL[task.client.tier as Tier]}.` : ''}`,
   )
   await logTaskEvent(id, 'LEMBRETE', `Aviso de ajustes enviado para ${updated.assignee?.name ?? 'responsável'} (WhatsApp)`)
 

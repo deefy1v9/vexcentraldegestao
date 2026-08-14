@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
-import { isValidDriveLink, logTaskEvent, notifyWhatsApp } from '@/lib/task-flow'
+import { isValidDriveLink, logTaskEvent, notifyWhatsApp, taskShortId } from '@/lib/task-flow'
 import { TIER_LABEL, Tier } from '@/lib/client-tier'
 
 /**
@@ -75,9 +75,25 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
   await logActivity(userId, 'enviou demanda para revisão', 'Demandas', task.title)
 
-  // Aviso curto pelo WhatsApp já conectado — nome da demanda + grupo do cliente
-  const tierSuffix = task.client?.tier ? `\nCliente ${TIER_LABEL[task.client.tier as Tier]}.` : ''
-  await notifyWhatsApp(task.reviewerId, `Nova demanda para revisão: ${task.title}.${tierSuffix}`)
+  // Aviso pelo WhatsApp já conectado, com as mesmas informações da mensagem
+  // de atribuição: ID, cliente, prazo de revisão (D-1), link e quem enviou
+  const reviewDue = task.dueDate
+    ? new Date(new Date(task.dueDate).getTime() - 24 * 60 * 60 * 1000).toLocaleDateString('pt-BR')
+    : null
+  const reviewMsg = [
+    `📝 *Nova demanda para revisão* ${taskShortId(task.id)}`,
+    ``,
+    `*${task.title}*`,
+    ``,
+    task.client ? `• Cliente: ${task.client.name}` : null,
+    reviewDue ? `• Revisar até: ${reviewDue}` : null,
+    task.dueDate ? `• Data final: ${new Date(task.dueDate).toLocaleDateString('pt-BR')}` : null,
+    `• Link: ${driveLink}`,
+    `• Enviada por: ${senderName}`,
+    note ? `• Obs.: ${note}` : null,
+    task.client?.tier ? `\nCliente ${TIER_LABEL[task.client.tier as Tier]}.` : null,
+  ].filter(Boolean).join('\n')
+  await notifyWhatsApp(task.reviewerId, reviewMsg)
   await logTaskEvent(id, 'LEMBRETE', `Aviso de revisão enviado para ${task.reviewer?.name ?? 'revisor'} (WhatsApp)`)
 
   return NextResponse.json(updated)

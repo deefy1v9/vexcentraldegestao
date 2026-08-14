@@ -333,7 +333,8 @@ export default function KanbanBoard({
   }
 
   async function createTask(status: TaskStatus) {
-    if (!newTaskTitle.trim() || creating) return
+    // Data final obrigatória: o processo de 3 dias deriva dela
+    if (!newTaskTitle.trim() || !newTaskDue || creating) return
     setCreating(true)
     const res = await fetch('/api/demandas', {
       method: 'POST',
@@ -682,7 +683,10 @@ export default function KanbanBoard({
 
                     {/* Date, client, assignee */}
                     <div className="space-y-1.5 mb-3">
-                      <input type="date" value={newTaskDue} onChange={(e) => setNewTaskDue(e.target.value)} className="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white text-gray-700 outline-none focus:border-[#030A8C]" />
+                      <div>
+                        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Data final *</p>
+                        <input type="date" required value={newTaskDue} onChange={(e) => setNewTaskDue(e.target.value)} className="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white text-gray-700 outline-none focus:border-[#030A8C]" />
+                      </div>
                       <select value={newTaskClient} onChange={(e) => setNewTaskClient(e.target.value)} className="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white text-gray-700 outline-none focus:border-[#030A8C]">
                         <option value="">Sem cliente</option>
                         {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -738,7 +742,7 @@ export default function KanbanBoard({
                       <button onClick={resetForm} className="px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-100 rounded-lg transition-colors">
                         Cancelar
                       </button>
-                      <button onClick={() => createTask(col.key)} disabled={!newTaskTitle.trim() || creating} className="px-4 py-1.5 bg-[#030A8C] text-white text-xs font-semibold rounded-lg hover:bg-[#02077a] disabled:opacity-40 transition-colors">
+                      <button onClick={() => createTask(col.key)} disabled={!newTaskTitle.trim() || !newTaskDue || creating} title={!newTaskDue ? 'Informe a data final — produção e revisão são calculadas a partir dela' : undefined} className="px-4 py-1.5 bg-[#030A8C] text-white text-xs font-semibold rounded-lg hover:bg-[#02077a] disabled:opacity-40 transition-colors">
                         {creating ? 'Criando...' : 'Criar'}
                       </button>
                     </div>
@@ -773,7 +777,10 @@ export default function KanbanBoard({
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2 mb-1.5">
-                        <p className="text-sm font-semibold text-gray-900 leading-snug flex-1">{task.title}</p>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-gray-900 leading-snug">{task.title}</p>
+                          <p className="text-[9px] text-gray-300 font-mono">#{task.id.slice(-6).toUpperCase()}</p>
+                        </div>
                         <span className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-md ${PRIORITY_CONFIG[task.priority].bg} ${PRIORITY_CONFIG[task.priority].text}`}>
                           {PRIORITY_CONFIG[task.priority].label}
                         </span>

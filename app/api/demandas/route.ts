@@ -3,7 +3,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
 import { isConfigured, uazSendText } from '@/lib/uazapi'
-import { defaultAssignments, logTaskEvent, maybeImmediateReminder } from '@/lib/task-flow'
+import { defaultAssignments, logTaskEvent, maybeImmediateReminder, taskShortId } from '@/lib/task-flow'
 import { tierPriority } from '@/lib/client-tier'
 
 export async function GET(req: NextRequest) {
@@ -44,6 +44,15 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json()
   const { title, description, status, priority, dueDate, clientId, assigneeId, tags, platform } = body
+
+  if (!title || !String(title).trim()) {
+    return NextResponse.json({ error: 'Informe o nome da demanda.' }, { status: 400 })
+  }
+  // Data final obrigatória: o processo de 3 dias (produção D-2, revisão D-1,
+  // entrega D) deriva tudo dela — ninguém precisa informar mais nada.
+  if (!dueDate) {
+    return NextResponse.json({ error: 'Informe a data final da demanda — os prazos de produção e revisão são calculados a partir dela.' }, { status: 400 })
+  }
 
   // Responsáveis padrão da operação (produção Igor, revisão Antonio,
   // agendamento Igor) — o formulário pode sobrepor por demanda.
@@ -103,7 +112,7 @@ export async function POST(req: NextRequest) {
         BAIXA: 'Baixa', MEDIA: 'Média', ALTA: 'Alta', URGENTE: '🔴 URGENTE',
       }
       const lines = [
-        `📋 *Nova demanda atribuída a você*`,
+        `📋 *Nova demanda atribuída a você* ${taskShortId(task.id)}`,
         ``,
         `*${task.title}*`,
         task.description ? task.description : null,
