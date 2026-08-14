@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
+import { reclassifyAllClients } from '@/lib/client-tier'
 
 const ALLOWED_KEYS = [
   'UAZAPI_URL',
@@ -20,7 +21,8 @@ export async function GET() {
 
   const rows = await prisma.$queryRaw<Array<{ key: string; value: string }>>`
     SELECT key, value FROM "SystemSettings"
-    WHERE key IN ('UAZAPI_URL', 'UAZAPI_TOKEN', 'BILLING_REMINDER_TIME', 'DEFAULT_RECEIVING_ACCOUNT')
+    WHERE key IN ('UAZAPI_URL', 'UAZAPI_TOKEN', 'BILLING_REMINDER_TIME', 'DEFAULT_RECEIVING_ACCOUNT',
+                  'TIER_START_MAX', 'TIER_GROWTH_MAX')
   `
 
   const result: Record<string, string> = {}
@@ -42,5 +44,13 @@ export async function PUT(req: NextRequest) {
     `
   }
 
-  return NextResponse.json({ ok: true })
+  // Faixas alteradas: reclassifica na hora os clientes existentes sem marca
+  // manual (os próximos já entram classificados na criação)
+  let reclassified = 0
+  if (body.TIER_START_MAX !== undefined || body.TIER_GROWTH_MAX !== undefined) {
+    const result = await reclassifyAllClients()
+    reclassified = result.updated
+  }
+
+  return NextResponse.json({ ok: true, reclassified })
 }

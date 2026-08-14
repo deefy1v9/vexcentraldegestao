@@ -98,6 +98,38 @@ export async function setManualTier(clientId: string, tier: Tier | null, userId:
   })
 }
 
+/**
+ * Reclassifica TODOS os clientes sem marca manual pelas faixas atuais.
+ * Usada ao salvar as faixas: os clientes existentes entram nos grupos na
+ * hora; os próximos são classificados na criação e a cada mudança de
+ * serviços. Toda mudança vai para o histórico.
+ */
+export async function reclassifyAllClients(): Promise<{ updated: number }> {
+  const ranges = await getTierRanges(prisma)
+  if (!ranges) return { updated: 0 }
+
+  const clients = await prisma.client.findMany({
+    where: { tierManual: false },
+    select: { id: true, tier: true, monthlyValue: true },
+  })
+
+  let updated = 0
+  for (const c of clients) {
+    const ticket = c.monthlyValue ?? 0
+    const next = recommendTier(ticket, ranges)
+    if (c.tier === next) continue
+    await prisma.client.update({
+      where: { id: c.id },
+      data: { tier: next, tierChangedAt: new Date() },
+    })
+    await prisma.clientTierHistory.create({
+      data: { clientId: c.id, fromTier: c.tier, toTier: next, ticket, manual: false },
+    })
+    updated++
+  }
+  return { updated }
+}
+
 /** Prioridade de demanda herdada do grupo: Scale alta, Growth média, Start padrão. */
 export function tierPriority(tier: string | null | undefined): 'ALTA' | 'MEDIA' {
   return tier === 'SCALE' ? 'ALTA' : 'MEDIA'
