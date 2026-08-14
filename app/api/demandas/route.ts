@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
         BAIXA: 'Baixa', MEDIA: 'Média', ALTA: 'Alta', URGENTE: '🔴 URGENTE',
       }
       const lines = [
-        `📋 *Nova demanda atribuída a você* ${taskShortId(task.id)}`,
+        `📋 *Nova demanda atribuída a você* ${taskShortId(task.number)}`,
         ``,
         `*${task.title}*`,
         task.description ? task.description : null,

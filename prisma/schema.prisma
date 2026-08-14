@@ -157,6 +157,8 @@ model CalendarEvent {
 
 model Task {
   id          String       @id @default(cuid())
+  // Número sequencial exibido como #1, #2... — identificação humana da demanda
+  number      Int          @unique @default(autoincrement())
   title       String
   description String?
   status      TaskStatus   @default(TODO)

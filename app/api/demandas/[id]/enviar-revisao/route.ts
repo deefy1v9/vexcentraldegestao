@@ -81,7 +81,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     ? new Date(new Date(task.dueDate).getTime() - 24 * 60 * 60 * 1000).toLocaleDateString('pt-BR')
     : null
   const reviewMsg = [
-    `📝 *Nova demanda para revisão* ${taskShortId(task.id)}`,
+    `📝 *Nova demanda para revisão* ${taskShortId(task.number)}`,
     ``,
     `*${task.title}*`,
     ``,

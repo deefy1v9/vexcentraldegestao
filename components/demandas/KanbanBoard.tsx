@@ -14,6 +14,7 @@ interface UserRef { id: string; name: string }
 
 interface Task {
   id: string
+  number: number
   title: string
   description?: string | null
   status: TaskStatus
@@ -779,7 +780,7 @@ export default function KanbanBoard({
                       <div className="flex items-start justify-between gap-2 mb-1.5">
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-gray-900 leading-snug">{task.title}</p>
-                          <p className="text-[9px] text-gray-300 font-mono">#{task.id.slice(-6).toUpperCase()}</p>
+                          <p className="text-[9px] text-gray-300 font-mono">#{task.number}</p>
                         </div>
                         <span className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-md ${PRIORITY_CONFIG[task.priority].bg} ${PRIORITY_CONFIG[task.priority].text}`}>
                           {PRIORITY_CONFIG[task.priority].label}
@@ -862,7 +863,7 @@ export default function KanbanBoard({
                   <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 ${PRIORITY_CONFIG[selectedTask.priority].dot}`} />
                   {PRIORITY_CONFIG[selectedTask.priority].label}
                 </span>
-                <span className="text-xs text-gray-400 font-mono">#{selectedTask.id.slice(-6).toUpperCase()}</span>
+                <span className="text-xs text-gray-400 font-mono">#{selectedTask.number}</span>
               </div>
               <div className="flex items-center gap-2">
                 {/* Editar os dados da demanda é ação de administrador; o

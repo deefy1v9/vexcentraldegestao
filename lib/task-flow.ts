@@ -17,11 +17,11 @@ export type TaskStatusValue = 'BACKLOG' | 'TODO' | 'EM_ANDAMENTO' | 'EM_REVISAO'
 const DAY = 24 * 60 * 60 * 1000
 
 /**
- * ID curto da demanda para identificação em mensagens e na interface —
- * o mesmo #XXXXXX exibido no painel de detalhes.
+ * ID da demanda para identificação em mensagens e na interface —
+ * o número sequencial (#1, #2...) exibido no card e no painel.
  */
-export function taskShortId(id: string): string {
-  return `#${id.slice(-6).toUpperCase()}`
+export function taskShortId(number: number): string {
+  return `#${number}`
 }
 
 /** Prazos derivados da data final (D-2 produção, D-1 revisão). */
@@ -173,7 +173,7 @@ export async function runTaskReminders(): Promise<{ sent: number }> {
         !REMINDER_SKIP_PRODUCTION.includes(task.status as TaskStatusValue)) {
       const target = task.producer ?? task.assignee
       if (target) {
-        await notifyWhatsApp(target.id, `Lembrete: a demanda ${task.title} (${taskShortId(task.id)}) precisa ser entregue para revisão.`)
+        await notifyWhatsApp(target.id, `Lembrete: a demanda ${task.title} (${taskShortId(task.number)}) precisa ser entregue para revisão.`)
         await prisma.task.update({ where: { id: task.id }, data: { reminderProductionAt: new Date() } })
         await logTaskEvent(task.id, 'LEMBRETE', `Lembrete de produção enviado para ${target.name} (WhatsApp)`)
         sent++
@@ -185,7 +185,7 @@ export async function runTaskReminders(): Promise<{ sent: number }> {
       if (task.status === 'EM_REVISAO') {
         const target = task.reviewer ?? task.assignee
         if (target) {
-          await notifyWhatsApp(target.id, `Lembrete: a demanda ${task.title} (${taskShortId(task.id)}) precisa ser revisada.`)
+          await notifyWhatsApp(target.id, `Lembrete: a demanda ${task.title} (${taskShortId(task.number)}) precisa ser revisada.`)
           await prisma.task.update({ where: { id: task.id }, data: { reminderReviewAt: new Date() } })
           await logTaskEvent(task.id, 'LEMBRETE', `Lembrete de revisão enviado para ${target.name} (WhatsApp)`)
           sent++
@@ -222,7 +222,7 @@ export async function maybeImmediateReminder(taskId: string) {
 
   const target = task.producer ?? task.assignee
   if (!target) return
-  await notifyWhatsApp(target.id, `Lembrete: a demanda ${task.title} (${taskShortId(task.id)}) precisa ser entregue para revisão.`)
+  await notifyWhatsApp(target.id, `Lembrete: a demanda ${task.title} (${taskShortId(task.number)}) precisa ser entregue para revisão.`)
   await prisma.task.update({ where: { id: task.id }, data: { reminderProductionAt: new Date() } })
   await logTaskEvent(task.id, 'LEMBRETE', `Lembrete imediato de produção enviado para ${target.name} (WhatsApp)`)
 }

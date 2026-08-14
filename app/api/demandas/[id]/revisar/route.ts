@@ -70,7 +70,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const tierSuffix = task.client?.tier ? `\nCliente ${TIER_LABEL[task.client.tier as Tier]}.` : ''
     await notifyWhatsApp(
       nextAssignee,
-      `✅ Demanda aprovada para agendamento ${taskShortId(task.id)}: ${task.title}.${note ? `\n• Obs.: ${note}` : ''}${tierSuffix}`,
+      `✅ Demanda aprovada para agendamento ${taskShortId(task.number)}: ${task.title}.${note ? `\n• Obs.: ${note}` : ''}${tierSuffix}`,
     )
     await logTaskEvent(id, 'LEMBRETE', `Aviso de aprovação enviado para ${updated.assignee?.name ?? 'responsável'} (WhatsApp)`)
 
@@ -101,7 +101,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   await logActivity(userId, 'solicitou ajustes na demanda', 'Demandas', task.title)
   await notifyWhatsApp(
     nextAssignee,
-    `🔁 Ajustes solicitados na demanda ${taskShortId(task.id)}: ${task.title}.\n• O que corrigir: ${note}${task.client?.tier ? `\nCliente ${TIER_LABEL[task.client.tier as Tier]}.` : ''}`,
+    `🔁 Ajustes solicitados na demanda ${taskShortId(task.number)}: ${task.title}.\n• O que corrigir: ${note}${task.client?.tier ? `\nCliente ${TIER_LABEL[task.client.tier as Tier]}.` : ''}`,
   )
   await logTaskEvent(id, 'LEMBRETE', `Aviso de ajustes enviado para ${updated.assignee?.name ?? 'responsável'} (WhatsApp)`)
 
