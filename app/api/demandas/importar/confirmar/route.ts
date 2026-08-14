@@ -133,17 +133,14 @@ export async function POST(req: NextRequest) {
     if (list) list.push(task)
     else byAssignee.set(task.assignee.id, [task])
   }
-  const fmt = (d: Date | null) => (d ? new Date(d).toLocaleDateString('pt-BR') : 's/ data')
+  // Aviso enxuto: só a contagem — a lista completa fica no sistema
   for (const [assigneeId, list] of byAssignee) {
-    const lines = list.slice(0, 20).map((t) => {
-      // Prazo de produção (D-2) — o processo segue: produzir, revisar, agendar
-      const prod = t.dueDate ? new Date(new Date(t.dueDate).getTime() - 2 * 86400_000) : null
-      return `${taskShortId(t.number)} ${t.title}${t.client ? ` — ${t.client.name}` : ''} • produzir até ${fmt(prod)} • publicar ${fmt(t.dueDate)}`
-    })
-    const extra = list.length > 20 ? `\n… e mais ${list.length - 20} demanda(s).` : ''
+    const first = list[0]?.dueDate
+      ? new Date(new Date(list[0].dueDate!).getTime() - 2 * 86400_000).toLocaleDateString('pt-BR')
+      : null
     await notifyWhatsApp(
       assigneeId,
-      `📋 ${list.length} nova(s) demanda(s) atribuída(s) a você:\n\n${lines.join('\n')}${extra}\n\nFluxo: produzir → revisar (1 dia antes) → agendar (data final). Detalhes no sistema.`,
+      `📋 ${list.length} nova(s) demanda(s) atribuída(s) a você.${first ? ` Primeira produção até ${first}.` : ''} Confira os detalhes e prazos no sistema.`,
     )
   }
 

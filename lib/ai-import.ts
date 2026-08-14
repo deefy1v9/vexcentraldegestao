@@ -136,6 +136,7 @@ REGRAS INEGOCIÁVEIS:
 - client_id: use SOMENTE um id da lista de clientes abaixo quando tiver certeza da correspondência pelo nome. Na dúvida, use null e adicione o aviso "Cliente não identificado". NUNCA invente um id.
 - responsible_id: sugira SOMENTE um id da lista de colaboradores, escolhendo por: nome citado no documento, tipo de conteúdo × especialidades, função e carga atual (openTasks menor = mais disponível). Distribua o trabalho; não concentre tudo numa pessoa sem motivo. Na dúvida, use null e adicione o aviso "Revisão necessária".
 - Datas no fuso ${TZ_NOTE}, formato YYYY-MM-DD (ou YYYY-MM-DDTHH:mm quando houver horário). Sem data identificável: null.
+- HOJE é ${new Date().toLocaleDateString('en-CA', { timeZone: TZ_NOTE })}. Se o documento não informar o ANO, use a próxima ocorrência da data a partir de hoje (nunca um ano passado). Calendários de publicação são sempre futuros ou do mês corrente.
 - content_type: post, carrossel, reels, story, artigo, video, landing_page ou outro.
 - manual_priority: urgent só quando o documento pedir urgência explícita; high para entregas críticas; caso contrário medium.
 - confidence: 0 a 1, sua certeza geral no item.
