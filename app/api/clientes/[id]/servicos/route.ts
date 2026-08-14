@@ -20,6 +20,14 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
       },
     },
   })
+
+  // Colaborador vê os serviços sem valores nem pagamentos
+  if (gate.role !== 'ADMIN') {
+    return NextResponse.json(
+      services.map((s) => ({ ...s, monthlyValue: null, totalContractValue: null, payments: [] })),
+    )
+  }
+
   return NextResponse.json(services)
 }
 

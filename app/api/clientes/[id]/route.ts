@@ -23,6 +23,21 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
   })
 
   if (!client) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+  // Colaborador: só dados cadastrais, serviços (sem valores) e classificação.
+  // Nada de valores, pagamentos, credenciais ou histórico de ticket.
+  if (gate.role !== 'ADMIN') {
+    return NextResponse.json({
+      ...client,
+      monthlyValue: null,
+      credentials: [],
+      payments: [],
+      tierHistory: [],
+      crmContact: null,
+      services: client.services.map((s) => ({ ...s, monthlyValue: null, totalContractValue: null })),
+    })
+  }
+
   return NextResponse.json(client)
 }
 

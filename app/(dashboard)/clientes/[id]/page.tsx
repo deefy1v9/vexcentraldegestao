@@ -69,10 +69,12 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
                     </span>
                   </div>
                 </div>
-                <div>
-                  <p className="text-xs text-gray-500 font-medium mb-1">Ticket mensal</p>
-                  <p className="text-sm font-bold text-gray-900">{formatCurrency(totalMensal)}</p>
-                </div>
+                {isAdmin && (
+                  <div>
+                    <p className="text-xs text-gray-500 font-medium mb-1">Ticket mensal</p>
+                    <p className="text-sm font-bold text-gray-900">{formatCurrency(totalMensal)}</p>
+                  </div>
+                )}
                 <div>
                   <p className="text-xs text-gray-500 font-medium mb-1">Serviços ativos</p>
                   <p className="text-sm font-bold text-gray-900">{activeServices.length}</p>
@@ -127,7 +129,8 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
                   ['Início do Contrato', client.contractStart ? formatDate(client.contractStart) : '—'],
                   ['Fim do Contrato', client.contractEnd ? formatDate(client.contractEnd) : '—'],
                   ['Duração', client.contractMonths ? `${client.contractMonths} meses` : '—'],
-                  ['Valor Total Mensal', formatCurrency(totalMensal)],
+                  // Valores financeiros são exclusivos de administradores
+                  ...(isAdmin ? [['Valor Total Mensal', formatCurrency(totalMensal)] as [string, string]] : []),
                   ['Dia de Pagamento', client.paymentDay ? `Dia ${client.paymentDay}` : '—'],
                   ['Status', client.status],
                 ].map(([label, value]) => (
@@ -145,8 +148,21 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
               )}
             </div>
 
-            {/* Services */}
-            <ClientServicesPanel clientId={id} initialServices={client.services} isAdmin={isAdmin} />
+            {/* Services — colaborador vê os serviços sem nenhum valor financeiro */}
+            <ClientServicesPanel
+              clientId={id}
+              initialServices={
+                isAdmin
+                  ? client.services
+                  : client.services.map((s) => ({
+                      ...s,
+                      monthlyValue: null,
+                      totalContractValue: null,
+                      payments: [],
+                    }))
+              }
+              isAdmin={isAdmin}
+            />
 
             {/* Credentials — senhas dos clientes, só administradores */}
             {isAdmin && (
@@ -176,7 +192,8 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
               )}
             </div>
 
-            {/* Payments */}
+            {/* Payments — financeiro é exclusivo de administradores */}
+            {isAdmin && (
             <div className="bg-white rounded-xl border border-gray-200 p-5">
               <h2 className="font-semibold text-gray-900 mb-3 text-sm">Histórico de Pagamentos</h2>
               {client.payments.length === 0 ? (
@@ -201,6 +218,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
                 </div>
               )}
             </div>
+            )}
           </div>
         </div>
       </div>

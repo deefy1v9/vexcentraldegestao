@@ -235,11 +235,15 @@ export default function ClientServicesPanel({
         )}
       </div>
 
-      {/* Total mensal — soma dos serviços ativos */}
-      <p className="text-xs text-gray-500 mb-4">
-        Total mensal dos serviços:{' '}
-        <span className="font-bold text-[#030A8C]">{formatCurrency(totalMensal)}</span>
-      </p>
+      {/* Total mensal — valores são exclusivos de administradores */}
+      {isAdmin ? (
+        <p className="text-xs text-gray-500 mb-4">
+          Total mensal dos serviços:{' '}
+          <span className="font-bold text-[#030A8C]">{formatCurrency(totalMensal)}</span>
+        </p>
+      ) : (
+        <div className="mb-4" />
+      )}
 
       {feedback && (
         <p className="text-xs font-medium text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2 mb-3">
@@ -547,7 +551,7 @@ export default function ClientServicesPanel({
                 )}
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
-                  {svc.monthlyValue != null && (
+                  {isAdmin && svc.monthlyValue != null && (
                     <div>
                       <span className="text-gray-400">Valor mensal: </span>
                       <span className="font-semibold text-gray-900">{formatCurrency(svc.monthlyValue)}</span>
@@ -565,7 +569,7 @@ export default function ClientServicesPanel({
                       <span className="font-medium text-gray-700">{svc.paymentType}</span>
                     </div>
                   )}
-                  {svc.totalContractValue != null && (
+                  {isAdmin && svc.totalContractValue != null && (
                     <div>
                       <span className="text-gray-400">Total: </span>
                       <span className="font-semibold text-[#030A8C]">{formatCurrency(svc.totalContractValue)}</span>
@@ -585,8 +589,8 @@ export default function ClientServicesPanel({
                   )}
                 </div>
 
-                {/* Resumo de pagamentos */}
-                {summary && summary.total > 0 && (
+                {/* Resumo de pagamentos — só administradores */}
+                {isAdmin && summary && summary.total > 0 && (
                   <div className="mt-2 pt-2 border-t border-gray-100 flex items-center gap-3 text-xs">
                     <span className="text-green-600 font-medium">
                       {formatCurrency(summary.pago)} recebido

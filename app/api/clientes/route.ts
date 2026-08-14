@@ -25,6 +25,17 @@ export async function GET(req: NextRequest) {
     orderBy: { name: 'asc' },
   })
 
+  // Colaborador vê dados e serviços, nunca valores financeiros
+  if (gate.role !== 'ADMIN') {
+    return NextResponse.json(
+      clients.map((c) => ({
+        ...c,
+        monthlyValue: null,
+        services: c.services.map((s) => ({ ...s, monthlyValue: null, totalContractValue: null })),
+      })),
+    )
+  }
+
   return NextResponse.json(clients)
 }
 

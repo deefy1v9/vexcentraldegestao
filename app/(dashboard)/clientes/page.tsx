@@ -132,9 +132,11 @@ export default async function ClientesPage({
                 <th className="text-left text-xs font-semibold text-gray-500 px-4 py-3 uppercase tracking-wide hidden lg:table-cell">
                   Serviços
                 </th>
-                <th className="text-left text-xs font-semibold text-gray-500 px-4 py-3 uppercase tracking-wide hidden lg:table-cell">
-                  Valor Mensal
-                </th>
+                {isAdmin && (
+                  <th className="text-left text-xs font-semibold text-gray-500 px-4 py-3 uppercase tracking-wide hidden lg:table-cell">
+                    Valor Mensal
+                  </th>
+                )}
                 <th className="text-left text-xs font-semibold text-gray-500 px-4 py-3 uppercase tracking-wide hidden xl:table-cell">
                   Fim do Contrato
                 </th>
@@ -187,9 +189,11 @@ export default async function ClientesPage({
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-3 hidden lg:table-cell text-sm text-gray-700">
-                      {client.monthlyValue ? formatCurrency(client.monthlyValue) : '—'}
-                    </td>
+                    {isAdmin && (
+                      <td className="px-4 py-3 hidden lg:table-cell text-sm text-gray-700">
+                        {client.monthlyValue ? formatCurrency(client.monthlyValue) : '—'}
+                      </td>
+                    )}
                     <td className="px-4 py-3 hidden xl:table-cell text-sm text-gray-500">
                       {client.contractEnd ? formatDate(client.contractEnd) : '—'}
                     </td>
