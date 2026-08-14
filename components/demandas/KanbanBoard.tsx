@@ -915,13 +915,25 @@ export default function KanbanBoard({
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <div>
                       <p className="text-xs text-gray-400 mb-1 font-medium">Status</p>
-                      <select
-                        value={selectedTask.status}
-                        onChange={(e) => updateTaskStatus(selectedTask.id, e.target.value as TaskStatus)}
-                        className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white text-gray-900"
-                      >
-                        {COLUMNS.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
-                      </select>
+                      {/* Colaborador só mexe no status da demanda atribuída a ele
+                          e enquanto ela está na fase de produção; em revisão ou
+                          além, apenas visualiza — as ações são do revisor/admin */}
+                      {(isAdmin || (selectedTask.assignee?.id === currentUserId &&
+                        ['BACKLOG', 'TODO', 'EM_ANDAMENTO'].includes(selectedTask.status))) ? (
+                        <select
+                          value={selectedTask.status}
+                          onChange={(e) => updateTaskStatus(selectedTask.id, e.target.value as TaskStatus)}
+                          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white text-gray-900"
+                        >
+                          {COLUMNS.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
+                        </select>
+                      ) : (
+                        <span className={`inline-block text-xs font-semibold px-2.5 py-1 rounded-lg ${
+                          COLUMNS.find((c) => c.key === selectedTask.status)?.bg ?? 'bg-gray-100'
+                        } ${COLUMNS.find((c) => c.key === selectedTask.status)?.color ?? 'text-gray-600'}`}>
+                          {COLUMNS.find((c) => c.key === selectedTask.status)?.label ?? selectedTask.status}
+                        </span>
+                      )}
                     </div>
                     <div>
                       <p className="text-xs text-gray-400 mb-1 font-medium">Prioridade</p>
