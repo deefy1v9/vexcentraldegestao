@@ -3,7 +3,7 @@ import { requireAdmin } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
 import { normalizeTitle, PRIORITY_MAP } from '@/lib/ai-import'
-import { logTaskEvent, notifyWhatsApp, taskShortId, maybeImmediateReminder } from '@/lib/task-flow'
+import { logTaskEvent, notifyWhatsApp, taskShortId } from '@/lib/task-flow'
 
 /**
  * Confirmação da importação: cria em lote (transação) as demandas que o
@@ -112,24 +112,39 @@ export async function POST(req: NextRequest) {
     })
   })
 
-  // Pós-transação: histórico, notificação curta e lembrete imediato
+  // Pós-transação: histórico por demanda + UMA mensagem de WhatsApp por
+  // responsável, com a lista completa (nunca uma mensagem por demanda)
   const tasks = await prisma.task.findMany({
     where: { id: { in: created } },
     include: {
       client: { select: { name: true, tier: true } },
       assignee: { select: { id: true, name: true } },
     },
+    orderBy: { dueDate: 'asc' },
   })
   for (const task of tasks) {
     await logTaskEvent(task.id, 'CRIACAO', `Criada via importação com IA por ${admin.name}`, admin.id)
-    if (task.assignee) {
-      const prazo = task.dueDate ? ` • Prazo: ${new Date(task.dueDate).toLocaleDateString('pt-BR')}` : ''
-      await notifyWhatsApp(
-        task.assignee.id,
-        `📋 Nova demanda atribuída a você ${taskShortId(task.number)}: ${task.title}.${task.client ? ` • Cliente: ${task.client.name}` : ''}${prazo}`,
-      )
-    }
-    maybeImmediateReminder(task.id).catch(() => {})
+  }
+
+  const byAssignee = new Map<string, typeof tasks>()
+  for (const task of tasks) {
+    if (!task.assignee) continue
+    const list = byAssignee.get(task.assignee.id)
+    if (list) list.push(task)
+    else byAssignee.set(task.assignee.id, [task])
+  }
+  const fmt = (d: Date | null) => (d ? new Date(d).toLocaleDateString('pt-BR') : 's/ data')
+  for (const [assigneeId, list] of byAssignee) {
+    const lines = list.slice(0, 20).map((t) => {
+      // Prazo de produção (D-2) — o processo segue: produzir, revisar, agendar
+      const prod = t.dueDate ? new Date(new Date(t.dueDate).getTime() - 2 * 86400_000) : null
+      return `${taskShortId(t.number)} ${t.title}${t.client ? ` — ${t.client.name}` : ''} • produzir até ${fmt(prod)} • publicar ${fmt(t.dueDate)}`
+    })
+    const extra = list.length > 20 ? `\n… e mais ${list.length - 20} demanda(s).` : ''
+    await notifyWhatsApp(
+      assigneeId,
+      `📋 ${list.length} nova(s) demanda(s) atribuída(s) a você:\n\n${lines.join('\n')}${extra}\n\nFluxo: produzir → revisar (1 dia antes) → agendar (data final). Detalhes no sistema.`,
+    )
   }
 
   await logActivity(admin.id, `confirmou importação com IA (${created.length} demandas)`, 'Demandas', imp.fileName ?? 'texto')

@@ -36,9 +36,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Já existe uma análise em andamento. Aguarde ela terminar.' }, { status: 409 })
   }
 
-  // Entrada: multipart (arquivo) ou JSON ({ text })
+  // Entrada: multipart (arquivo + instruções opcionais) ou JSON ({ text, note })
   let input: ExtractedInput
   let fileName: string | null = null
+  let adminNote = ''
+  let defaultResponsibleId = ''
   try {
     const contentType = req.headers.get('content-type') || ''
     if (contentType.includes('multipart/form-data')) {
@@ -46,11 +48,15 @@ export async function POST(req: NextRequest) {
       const file = form.get('file') as File | null
       if (!file) return NextResponse.json({ error: 'Envie um arquivo.' }, { status: 400 })
       fileName = file.name
+      adminNote = String(form.get('note') ?? '')
+      defaultResponsibleId = String(form.get('defaultResponsibleId') ?? '')
       const buf = Buffer.from(await file.arrayBuffer())
       input = await extractFile(buf, file.name, file.type)
     } else {
       const body = await req.json().catch(() => ({}))
       const text = String(body.text ?? '').trim()
+      adminNote = String(body.note ?? '')
+      defaultResponsibleId = String(body.defaultResponsibleId ?? '')
       if (text.length < 10) {
         return NextResponse.json({ error: 'Cole o conteúdo do calendário ou envie um arquivo.' }, { status: 400 })
       }
@@ -77,15 +83,25 @@ export async function POST(req: NextRequest) {
   lastAnalysisAt = Date.now()
 
   try {
-    const result = await analyzeWithGemini(input)
+    const result = await analyzeWithGemini(input, adminNote)
     const defaults = await defaultAssignments()
+
+    // Responsável padrão escolhido pelo admin vale para todos os itens
+    // (continua editável item a item na revisão)
+    const forced = defaultResponsibleId
+      ? await prisma.user.findFirst({ where: { id: defaultResponsibleId, isActive: true }, select: { id: true } })
+      : null
 
     const items: ImportItem[] = result.items.map((item) => ({
       ...item,
       ...deriveDates(item.publication_at),
+      responsible_id: forced?.id ?? item.responsible_id,
       reviewer_id: defaults.reviewerId,
       scheduler_id: defaults.schedulerId,
-      warnings: previous ? [...item.warnings, 'Possível duplicidade'] : item.warnings,
+      warnings: [
+        ...(forced ? item.warnings.filter((w) => w !== 'Revisão necessária') : item.warnings),
+        ...(previous ? ['Possível duplicidade'] : []),
+      ],
     }))
 
     await prisma.$transaction([

@@ -46,6 +46,7 @@ export default function AiImportModal({
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
   const [text, setText] = useState('')
   const [file, setFile] = useState<File | null>(null)
+  const [defaultResponsible, setDefaultResponsible] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
   const [error, setError] = useState<string | null>(null)
   const [importId, setImportId] = useState('')
@@ -61,12 +62,15 @@ export default function AiImportModal({
       if (file) {
         const fd = new FormData()
         fd.append('file', file)
+        // Com arquivo, o texto digitado vira instruções para a IA
+        if (text.trim()) fd.append('note', text.trim())
+        if (defaultResponsible) fd.append('defaultResponsibleId', defaultResponsible)
         res = await fetch('/api/demandas/importar/analisar', { method: 'POST', body: fd })
       } else {
         res = await fetch('/api/demandas/importar/analisar', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text }),
+          body: JSON.stringify({ text, defaultResponsibleId: defaultResponsible || undefined }),
         })
       }
       const body = await res.json().catch(() => ({}))
@@ -210,13 +214,35 @@ export default function AiImportModal({
                 (PDF, DOCX, XLSX, CSV, PNG, JPG). A IA separa as atividades, identifica o cliente
                 e sugere o responsável. Nada é criado sem a sua confirmação.
               </p>
-              <textarea
-                value={text}
-                onChange={(e) => { setText(e.target.value); if (e.target.value) setFile(null) }}
-                rows={8}
-                placeholder={'Ex:\n18/08 - Post carrossel dicas de costura - Nobre\n20/08 - Reels bastidores - CX Lab...'}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 bg-white outline-none focus:border-[#030A8C] resize-none"
-              />
+              <div>
+                <label className="text-xs font-medium text-gray-600 mb-1 block">
+                  {file
+                    ? 'Instruções para a IA (opcional) — ex: "o primeiro post já foi feito, não precisa"'
+                    : 'Conteúdo do calendário (ou envie um arquivo abaixo)'}
+                </label>
+                <textarea
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  rows={file ? 3 : 8}
+                  placeholder={file
+                    ? 'Instruções adicionais sobre o arquivo enviado...'
+                    : 'Ex:\n18/08 - Post carrossel dicas de costura - Nobre\n20/08 - Reels bastidores - CX Lab...'}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 bg-white outline-none focus:border-[#030A8C] resize-none"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-600 mb-1 block">
+                  Responsável padrão (opcional) — aplica a todas as demandas; dá pra trocar uma a uma na revisão
+                </label>
+                <select
+                  value={defaultResponsible}
+                  onChange={(e) => setDefaultResponsible(e.target.value)}
+                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white text-gray-900"
+                >
+                  <option value="">Deixar a IA sugerir</option>
+                  {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+                </select>
+              </div>
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => fileRef.current?.click()}
@@ -230,7 +256,7 @@ export default function AiImportModal({
                   type="file"
                   className="hidden"
                   accept=".pdf,.docx,.xlsx,.csv,.txt,.png,.jpg,.jpeg"
-                  onChange={(e) => { const f = e.target.files?.[0]; if (f) { setFile(f); setText('') } }}
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) setFile(f) }}
                 />
                 {file && (
                   <button onClick={() => { setFile(null); if (fileRef.current) fileRef.current.value = '' }} className="text-xs text-gray-400 hover:text-red-500">
