@@ -48,6 +48,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     where: { id },
     select: { status: true, assigneeId: true, driveLink: true, title: true },
   })
+  const assigneeChanged = Object.prototype.hasOwnProperty.call(body, 'assigneeId') &&
+    (body.assigneeId || null) !== (previous?.assigneeId ?? null)
   if (!previous) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   // Colaborador só mexe no andamento das demandas atribuídas a ele; todo o
@@ -122,6 +124,16 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       _count: { select: { comments: true } },
     },
   })
+
+  // Troca de responsável fica registrada na linha do tempo da demanda
+  if (isAdmin && assigneeChanged) {
+    await logTaskEvent(
+      id,
+      'RESPONSAVEL',
+      `${(session.user as any).name} alterou o responsável para ${task.assignee?.name ?? 'ninguém'}`,
+      (session.user as any).id,
+    )
+  }
 
   await logActivity((session.user as any).id, 'atualizou demanda', 'Demandas', task.title)
 

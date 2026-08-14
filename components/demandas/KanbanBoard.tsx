@@ -931,7 +931,28 @@ export default function KanbanBoard({
                     </div>
                     <div>
                       <p className="text-xs text-gray-400 mb-1 font-medium">Responsável</p>
-                      <p className="text-sm font-semibold text-gray-900">{selectedTask.assignee?.name || '—'}</p>
+                      {isAdmin ? (
+                        <select
+                          value={selectedTask.assignee?.id || ''}
+                          onChange={async (e) => {
+                            const res = await fetch(`/api/demandas/${selectedTask.id}`, {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ assigneeId: e.target.value || null }),
+                            })
+                            if (res.ok) {
+                              applyTaskUpdate(await res.json())
+                              refreshEvents(selectedTask.id)
+                            }
+                          }}
+                          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white text-gray-900"
+                        >
+                          <option value="">Sem responsável</option>
+                          {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+                        </select>
+                      ) : (
+                        <p className="text-sm font-semibold text-gray-900">{selectedTask.assignee?.name || '—'}</p>
+                      )}
                     </div>
                     <div>
                       <p className="text-xs text-gray-400 mb-1 font-medium">Cliente</p>
