@@ -12,6 +12,12 @@ const ALLOWED_KEYS = [
   // Faixas da segmentação de clientes (Start ≤ X < Growth ≤ Y < Scale)
   'TIER_START_MAX',
   'TIER_GROWTH_MAX',
+  // Importação com IA (a chave nunca é devolvida no GET)
+  'GEMINI_API_KEY',
+  'GEMINI_MODEL',
+  // Responsáveis padrão da operação (IDs de usuário)
+  'DEFAULT_REVIEWER_ID',
+  'DEFAULT_SCHEDULER_ID',
 ]
 
 export async function GET() {

@@ -112,23 +112,36 @@ export function validateDragTransition(
 }
 
 /**
- * Responsáveis padrão da operação: produção Igor, revisão Antonio,
- * agendamento Igor. Resolvidos pelo nome entre os usuários ativos — um
- * administrador pode trocar em cada demanda.
+ * Responsáveis padrão da operação. A fonte da verdade são os IDs salvos em
+ * SystemSettings (DEFAULT_REVIEWER_ID / DEFAULT_SCHEDULER_ID) — nunca
+ * comparação por nome. O fallback por nome existe só para a primeira
+ * execução, antes de os IDs serem configurados.
  */
 export async function defaultAssignments() {
-  const users = await prisma.user.findMany({
-    where: { isActive: true },
-    select: { id: true, name: true, role: true },
-  })
+  const [users, rows] = await Promise.all([
+    prisma.user.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true, role: true },
+    }),
+    prisma.$queryRaw<Array<{ key: string; value: string }>>`
+      SELECT key, value FROM "SystemSettings"
+      WHERE key IN ('DEFAULT_REVIEWER_ID', 'DEFAULT_SCHEDULER_ID')
+    `,
+  ])
+  const settings = Object.fromEntries(rows.map((r) => [r.key, r.value]))
+  const byId = (id?: string) => (id && users.find((u) => u.id === id)) || null
   const byName = (needle: string) =>
     users.find((u) => u.name.toLowerCase().includes(needle)) ?? null
-  const producer = byName('igor')
-  const reviewer = byName('antonio') ?? users.find((u) => u.role === 'ADMIN') ?? null
+
+  const reviewer = byId(settings.DEFAULT_REVIEWER_ID) ?? byName('antonio') ??
+    users.find((u) => u.role === 'ADMIN') ?? null
+  const scheduler = byId(settings.DEFAULT_SCHEDULER_ID) ?? byName('igor')
+  const producer = scheduler ?? byName('igor')
+
   return {
     producerId: producer?.id ?? null,
     reviewerId: reviewer?.id ?? null,
-    schedulerId: producer?.id ?? null,
+    schedulerId: scheduler?.id ?? null,
   }
 }
 

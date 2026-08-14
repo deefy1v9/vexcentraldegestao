@@ -35,7 +35,10 @@ model User {
   password  String
   role      UserRole @default(COLABORADOR)
   phone     String?
-  position  String?
+  position  String? // função (Designer, Social Media...)
+  // Especialidades usadas pela IA para sugerir o responsável
+  // (ex: Design, Reels, Copywriting, Vídeo, Tráfego pago...)
+  specialties String[] @default([])
   salary    Float?
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
@@ -53,6 +56,7 @@ model User {
   taskEvents       TaskEvent[]
   salaryContracts  SalaryContract[]
   financialEntries FinancialEntry[]
+  aiImports        AiImport[]
 }
 
 model Client {
@@ -170,6 +174,9 @@ model Task {
   position    Int          @default(0)
   tags        String[]
   platform    String? // Instagram, LinkedIn, Facebook, site...
+  contentType String? // post, carrossel, reels, story, artigo, vídeo...
+  // Origem em importação com IA (auditoria/deduplicação)
+  importId    String?
 
   // Papéis fixos do fluxo de produção. Prazos derivados da data final:
   // produção = D-2, revisão = D-1, agendamento/entrega = D.
@@ -444,6 +451,40 @@ model SystemSettings {
   key       String   @id
   value     String
   updatedAt DateTime @updatedAt
+}
+
+// Importação de calendário/briefing analisada pela IA (Gemini).
+// A IA nunca cria demanda sozinha: os itens ficam em revisão até um
+// administrador confirmar. Serve também de auditoria e deduplicação.
+model AiImport {
+  id           String   @id @default(cuid())
+  createdById  String
+  fileName     String?
+  fileHash     String? // sha256 do conteúdo — detecta reimportação
+  model        String
+  // ANALISANDO | REVISAO | CONFIRMADO | ERRO
+  status       String   @default("ANALISANDO")
+  itemsFound   Int      @default(0)
+  itemsCreated Int      @default(0)
+  itemsIgnored Int      @default(0)
+  error        String?
+  createdAt    DateTime @default(now())
+
+  createdBy User           @relation(fields: [createdById], references: [id])
+  items     AiImportItem[]
+}
+
+model AiImportItem {
+  id            String   @id @default(cuid())
+  importId      String
+  sourceItem    String? // linha/página/referência original no documento
+  payload       Json // sugestão completa extraída/editada
+  // PENDENTE | CRIADO | IGNORADO
+  status        String   @default("PENDENTE")
+  createdTaskId String? // idempotência: item já virou demanda
+  createdAt     DateTime @default(now())
+
+  import AiImport @relation(fields: [importId], references: [id], onDelete: Cascade)
 }
 
 // Notificações do sininho são derivadas (pagamentos atrasados, tarefas

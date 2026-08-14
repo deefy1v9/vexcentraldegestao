@@ -2,10 +2,11 @@
 import { useState, useRef } from 'react'
 import {
   Plus, X, MessageSquare, Calendar, Pencil, Save, Paperclip, Download, Trash2,
-  ImageIcon, FileText, File, Link2, Eye, CalendarCheck, Send, CheckCircle2, AlertTriangle, History,
+  ImageIcon, FileText, File, Link2, Eye, CalendarCheck, Send, CheckCircle2, AlertTriangle, History, Sparkles,
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import TierBadge from '@/components/ui/TierBadge'
+import AiImportModal from '@/components/demandas/AiImportModal'
 
 type TaskStatus = 'BACKLOG' | 'TODO' | 'EM_ANDAMENTO' | 'EM_REVISAO' | 'APROVADO' | 'CONCLUIDO'
 type TaskPriority = 'BAIXA' | 'MEDIA' | 'ALTA' | 'URGENTE'
@@ -15,6 +16,7 @@ interface UserRef { id: string; name: string }
 interface Task {
   id: string
   number: number
+  createdAt?: Date | string
   title: string
   description?: string | null
   status: TaskStatus
@@ -88,25 +90,49 @@ function tierWeight(tier?: string | null): number {
 }
 
 /**
- * Ordenação dentro da coluna: 1) atrasadas, 2) vencimento mais próximo,
- * 3) grupo do cliente (Scale > Growth > Start), 4) prioridade manual.
- * O prazo sempre vence a segmentação — Start atrasada vem antes de Scale
- * sem urgência.
+ * Prazo da etapa ATUAL da demanda: produção usa D-2, revisão D-1 e
+ * agendamento a data final — é este prazo que filtros e ordenação olham.
+ */
+function stageDeadline(task: Task): Date | null {
+  const dl = deadlines(task.dueDate)
+  if (!dl) return null
+  if (['BACKLOG', 'TODO', 'EM_ANDAMENTO'].includes(task.status)) return dl.production
+  if (task.status === 'EM_REVISAO') return dl.review
+  return dl.final
+}
+
+/**
+ * Ordenação determinística de importância (nunca depende da IA):
+ * 1) atrasadas · 2) prazo da etapa hoje · 3) prazo em 48h · 4) urgente ·
+ * 5) alta · 6) Scale · 7) Growth · 8) Start · 9) prazo mais próximo ·
+ * 10) criação mais antiga. Uma Start atrasada nunca fica atrás de uma
+ * Scale sem urgência.
  */
 function compareTasks(a: Task, b: Task): number {
-  const lateA = isLate(a) ? 1 : 0
-  const lateB = isLate(b) ? 1 : 0
-  if (lateA !== lateB) return lateB - lateA
+  const bucket = (t: Task): number => {
+    const left = daysLeft(stageDeadline(t))
+    if (isLate(t) || (left != null && left < 0)) return 0 // atrasada
+    if (left === 0) return 1 // prazo hoje
+    if (left != null && left <= 2) return 2 // próximas 48h
+    if (t.priority === 'URGENTE') return 3
+    if (t.priority === 'ALTA') return 4
+    const tw = tierWeight(t.client?.tier)
+    if (tw === 3) return 5 // Scale
+    if (tw === 2) return 6 // Growth
+    if (tw === 1) return 7 // Start
+    return 8
+  }
+  const ba = bucket(a)
+  const bb = bucket(b)
+  if (ba !== bb) return ba - bb
 
-  const dueA = a.dueDate ? new Date(a.dueDate as string).getTime() : Infinity
-  const dueB = b.dueDate ? new Date(b.dueDate as string).getTime() : Infinity
+  const dueA = stageDeadline(a)?.getTime() ?? Infinity
+  const dueB = stageDeadline(b)?.getTime() ?? Infinity
   if (dueA !== dueB) return dueA - dueB
 
-  const tw = tierWeight(b.client?.tier) - tierWeight(a.client?.tier)
-  if (tw !== 0) return tw
-
-  const PRIO: Record<TaskPriority, number> = { URGENTE: 3, ALTA: 2, MEDIA: 1, BAIXA: 0 }
-  return PRIO[b.priority] - PRIO[a.priority]
+  const ca = a.createdAt ? new Date(a.createdAt as string).getTime() : 0
+  const cb = b.createdAt ? new Date(b.createdAt as string).getTime() : 0
+  return ca - cb
 }
 
 /** Próxima ação da demanda, para o card e a lista "Minhas Demandas". */
@@ -149,7 +175,14 @@ export default function KanbanBoard({
   const [tasks, setTasks] = useState<Task[]>(initialTasks)
   const [selectedUserId, setSelectedUserId] = useState<string>(isAdmin ? 'all' : currentUserId)
   const [tierFilter, setTierFilter] = useState<string>('all')
+  const [periodFilter, setPeriodFilter] = useState<'all' | 'today' | 'week' | 'month'>('all')
   const [priorityTouched, setPriorityTouched] = useState(false)
+  const [showAiImport, setShowAiImport] = useState(false)
+
+  async function reloadTasks() {
+    const res = await fetch('/api/demandas')
+    if (res.ok) setTasks(await res.json())
+  }
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [comments, setComments] = useState<{ id: string; content: string; user: { name: string }; createdAt: string }[]>([])
   const [attachments, setAttachments] = useState<{ id: string; fileName: string; fileUrl: string; fileSize: number; fileType: string }[]>([])
@@ -213,10 +246,23 @@ export default function KanbanBoard({
     }
   }
 
+  // Filtro por período olha o prazo da ETAPA atual (produção D-2, revisão
+  // D-1, agendamento D); atrasadas sempre aparecem em qualquer período
+  function inPeriod(t: Task): boolean {
+    if (periodFilter === 'all' || t.status === 'CONCLUIDO') return true
+    const left = daysLeft(stageDeadline(t))
+    if (left == null) return false
+    if (left < 0) return true // atrasada nunca some do filtro
+    if (periodFilter === 'today') return left === 0
+    if (periodFilter === 'week') return left <= 7
+    return left <= 31
+  }
+
   const visibleTasks = (selectedUserId === 'all'
     ? tasks
     : tasks.filter((t) => t.assignee?.id === selectedUserId || (!t.assignee && selectedUserId === currentUserId))
   ).filter((t) => tierFilter === 'all' || t.client?.tier === tierFilter)
+   .filter(inPeriod)
 
   function openTask(task: Task) {
     setSelectedTask(task)
@@ -587,6 +633,21 @@ export default function KanbanBoard({
           )
         })}
 
+        {/* Filtros rápidos por período (prazo da etapa atual) */}
+        <div className="flex items-center gap-1 border-l border-gray-200 pl-2 ml-1">
+          {([['all', 'Sempre'], ['today', 'Hoje'], ['week', 'Semana'], ['month', 'Mês']] as const).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setPeriodFilter(key)}
+              className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-colors ${
+                periodFilter === key ? 'bg-[#030A8C] text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         {/* Filtro por grupo do cliente */}
         <div className="ml-auto flex items-center gap-1">
           {[['all', 'Todos'], ['SCALE', 'Scale'], ['GROWTH', 'Growth'], ['START', 'Start']].map(([key, label]) => (
@@ -602,8 +663,29 @@ export default function KanbanBoard({
               {label}
             </button>
           ))}
+
+          {/* Importação com IA — exclusivo de administradores */}
+          {isAdmin && (
+            <button
+              onClick={() => setShowAiImport(true)}
+              className="flex items-center gap-1.5 ml-2 px-3 py-1.5 bg-[#030A8C] text-white rounded-lg text-[11px] font-semibold hover:bg-[#02077a] transition-colors"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              Importar calendário com IA
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Modal de importação com IA */}
+      {showAiImport && isAdmin && (
+        <AiImportModal
+          clients={clients}
+          users={users}
+          onClose={() => setShowAiImport(false)}
+          onCreated={reloadTasks}
+        />
+      )}
 
       {/* Kanban board */}
       <div className="flex-1 overflow-x-auto p-6">
