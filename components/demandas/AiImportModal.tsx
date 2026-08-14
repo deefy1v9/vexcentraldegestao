@@ -280,7 +280,9 @@ export default function AiImportModal({
             <div className="py-16 text-center">
               <div className="w-10 h-10 border-2 border-[#030A8C] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
               <p className="text-sm font-semibold text-gray-900">Analisando o calendário e organizando as demandas…</p>
-              <p className="text-xs text-gray-400 mt-1">Isso pode levar até um minuto.</p>
+              <p className="text-xs text-gray-400 mt-1">
+                Normalmente leva menos de um minuto. Se o modelo estiver sobrecarregado, tentamos de novo sozinhos — aguarde nesta tela.
+              </p>
               <div className="max-w-md mx-auto mt-6 space-y-2 animate-pulse">
                 {[...Array(3)].map((_, i) => <div key={i} className="h-9 bg-gray-100 rounded-lg" />)}
               </div>

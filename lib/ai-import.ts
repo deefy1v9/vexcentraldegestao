@@ -225,21 +225,27 @@ export async function analyzeWithGemini(input: ExtractedInput, adminNote?: strin
     required: ['items'],
   }
 
-  // Retry só para erros temporários (503/sobrecarga): 3 tentativas com espera
+  // Retry só para erros temporários: sobrecarga (503) e timeout da chamada.
+  // Sob alta demanda o modelo enfileira — cada tentativa tem 100s próprios.
+  // thinkingLevel baixo corta o "raciocínio" longo do modelo, a maior fonte
+  // de lentidão; se a API não aceitar o parâmetro, repete sem ele.
   let raw = ''
   let lastErr = ''
+  let useThinking = true
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
+      const config: Record<string, unknown> = {
+        systemInstruction: buildPrompt(clientList, userList),
+        temperature: 0.1,
+        responseMimeType: 'application/json',
+        responseSchema: responseSchema as never,
+        abortSignal: AbortSignal.timeout(100_000),
+      }
+      if (useThinking) config.thinkingConfig = { thinkingLevel: 'low' }
       const result = await ai.models.generateContent({
         model,
         contents: [{ role: 'user', parts: parts as never }],
-        config: {
-          systemInstruction: buildPrompt(clientList, userList),
-          temperature: 0.1,
-          responseMimeType: 'application/json',
-          responseSchema: responseSchema as never,
-          abortSignal: AbortSignal.timeout(90_000),
-        },
+        config: config as never,
       })
       raw = result.text ?? ''
       lastErr = ''
@@ -247,9 +253,16 @@ export async function analyzeWithGemini(input: ExtractedInput, adminNote?: strin
     } catch (err) {
       const msg = String(err)
       if (/429|RESOURCE_EXHAUSTED|quota/i.test(msg)) throw new GeminiRateLimitError()
-      if (/503|UNAVAILABLE|overloaded|high demand/i.test(msg)) {
+      if (useThinking && /thinking|INVALID_ARGUMENT|not supported/i.test(msg)) {
+        // Parâmetro de raciocínio não aceito: tenta de novo sem ele,
+        // sem gastar uma tentativa
+        useThinking = false
+        attempt--
+        continue
+      }
+      if (/503|UNAVAILABLE|overloaded|high demand|abort|timeout|timed out/i.test(msg)) {
         lastErr = 'overloaded'
-        if (attempt < 2) await new Promise((r) => setTimeout(r, (attempt + 1) * 5000))
+        if (attempt < 2) await new Promise((r) => setTimeout(r, (attempt + 1) * 4000))
         continue
       }
       throw new Error(`Falha na análise com IA: ${msg.slice(0, 200)}`)

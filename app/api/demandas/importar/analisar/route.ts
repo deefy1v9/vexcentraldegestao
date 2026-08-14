@@ -9,7 +9,7 @@ import {
 } from '@/lib/ai-import'
 import { defaultAssignments } from '@/lib/task-flow'
 
-export const maxDuration = 120
+export const maxDuration = 360
 
 // Rate limit em memória: no máximo 1 análise a cada 20s por processo
 let lastAnalysisAt = 0
