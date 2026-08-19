@@ -54,13 +54,64 @@ interface Movement {
   at: string
 }
 
+interface NfseRow {
+  id: string
+  status: string
+  numero?: string | null
+  pdfUrl?: string | null
+  xmlUrl?: string | null
+  lastError?: string | null
+  municipalMessage?: string | null
+}
+
+interface AsaasChargeRow {
+  id: string
+  clientId: string
+  year: number
+  month: number
+  status: string
+  value: string
+  netValue?: string | null
+  fee?: string | null
+  billingType: string
+  dueDate: string
+  invoiceUrl?: string | null
+  bankSlipUrl?: string | null
+  identificationField?: string | null
+  lastError?: string | null
+  asaasId?: string | null
+  nfse?: NfseRow | null
+  client: { id: string; name: string }
+}
+
 interface MonthData {
   entries: Entry[]
   clientPayments: Payment[]
   users: Collaborator[]
+  asaasCharges: AsaasChargeRow[]
   previstoServicos: number
   upcoming: Entry[]
   recent: Movement[]
+}
+
+const ASAAS_STATUS_PT: Record<string, { label: string; cls: string }> = {
+  PENDING: { label: 'Aguardando pagamento', cls: 'bg-orange-100 text-orange-700' },
+  CONFIRMED: { label: 'Confirmado', cls: 'bg-blue-100 text-blue-700' },
+  RECEIVED: { label: 'Recebido', cls: 'bg-green-100 text-green-700' },
+  OVERDUE: { label: 'Vencido', cls: 'bg-red-100 text-red-700' },
+  REFUNDED: { label: 'Estornado', cls: 'bg-purple-100 text-purple-700' },
+  PARTIALLY_REFUNDED: { label: 'Estorno parcial', cls: 'bg-purple-100 text-purple-700' },
+  CANCELLED: { label: 'Cancelado', cls: 'bg-gray-100 text-gray-600' },
+  DELETED: { label: 'Cancelado', cls: 'bg-gray-100 text-gray-600' },
+  ERROR: { label: 'Erro na cobrança', cls: 'bg-red-100 text-red-700' },
+}
+
+const NFSE_STATUS_PT: Record<string, { label: string; cls: string }> = {
+  PROCESSANDO: { label: 'Processando NFS-e', cls: 'bg-blue-50 text-[#030A8C]' },
+  AUTORIZADO: { label: 'NFS-e autorizada', cls: 'bg-green-100 text-green-700' },
+  ERRO_AUTORIZACAO: { label: 'Erro na NFS-e', cls: 'bg-red-100 text-red-700' },
+  CANCELADO: { label: 'NFS-e cancelada', cls: 'bg-gray-100 text-gray-600' },
+  ERRO_CANCELAMENTO: { label: 'Erro no cancelamento', cls: 'bg-red-100 text-red-700' },
 }
 
 const MONTHS = [
@@ -224,6 +275,16 @@ export default function FinanceiroPanel() {
   return (
     <div className="flex-1 overflow-y-auto p-6 space-y-6">
 
+      {/* Atalhos administrativos */}
+      <div className="flex items-center justify-end gap-2 -mb-3">
+        <a href="/financeiro/fiscal" className="text-[11px] font-semibold text-gray-500 hover:text-[#030A8C] px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors">
+          Configuração fiscal
+        </a>
+        <a href="/financeiro/integracoes" className="text-[11px] font-semibold text-gray-500 hover:text-[#030A8C] px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors">
+          Diagnóstico
+        </a>
+      </div>
+
       {/* Navegação de mês */}
       <div className="flex items-center justify-center gap-2">
         <button onClick={() => shiftMonth(-1)} aria-label="Mês anterior"
@@ -340,7 +401,13 @@ export default function FinanceiroPanel() {
                 />
               )}
               {activeTab === 'payments' && (
-                <PaymentsTab payments={payments} onToggle={togglePayments} />
+                <PaymentsTab
+                  payments={payments}
+                  charges={data?.asaasCharges ?? []}
+                  period={period}
+                  onToggle={togglePayments}
+                  onChanged={() => load(period)}
+                />
               )}
               {activeTab === 'costs' && (
                 <CostsTab entries={costEntries} period={period} onChanged={() => load(period)} onTogglePaid={toggleEntryPaid} />
@@ -476,7 +543,18 @@ function OverviewTab({
 
 /* ------------------------------- Recebimentos ------------------------------- */
 
-function PaymentsTab({ payments, onToggle }: { payments: Payment[]; onToggle: (ids: string[], status: string) => void }) {
+function PaymentsTab({
+  payments, charges, period, onToggle, onChanged,
+}: {
+  payments: Payment[]
+  charges: AsaasChargeRow[]
+  period: { year: number; month: number }
+  onToggle: (ids: string[], status: string) => void
+  onChanged: () => void
+}) {
+  const [busyCharge, setBusyCharge] = useState<string | null>(null)
+  const [chargeMsg, setChargeMsg] = useState<string | null>(null)
+
   // Uma linha por cliente: soma todas as parcelas/serviços do mês.
   const groups = useMemo(() => {
     const map = new Map<string, { client: Payment['client']; items: Payment[] }>()
@@ -485,11 +563,67 @@ function PaymentsTab({ payments, onToggle }: { payments: Payment[]; onToggle: (i
       if (g) g.items.push(p)
       else map.set(p.client.id, { client: p.client, items: [p] })
     }
+    // Clientes que só têm cobrança Asaas (sem parcela local) também aparecem
+    for (const c of charges) {
+      if (!map.has(c.clientId)) map.set(c.clientId, { client: { id: c.clientId, name: c.client.name }, items: [] })
+    }
     return [...map.values()].sort((a, b) => a.client.name.localeCompare(b.client.name, 'pt-BR'))
-  }, [payments])
+  }, [payments, charges])
+
+  const chargeByClient = useMemo(() => {
+    const m = new Map<string, AsaasChargeRow>()
+    for (const c of charges) m.set(c.clientId, c)
+    return m
+  }, [charges])
+
+  async function chargeAction(fn: () => Promise<Response>, chargeKey: string, okMsg?: string) {
+    setBusyCharge(chargeKey)
+    setChargeMsg(null)
+    try {
+      const res = await fn()
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) setChargeMsg(body.error || 'Falha na operação.')
+      else if (okMsg) setChargeMsg(okMsg)
+      onChanged()
+    } catch {
+      setChargeMsg('Falha de conexão.')
+    } finally {
+      setBusyCharge(null)
+    }
+  }
+
+  const generate = (clientId: string) => chargeAction(
+    () => fetch('/api/asaas/cobrancas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clientId, year: period.year, month: period.month }),
+    }),
+    `gen-${clientId}`,
+    'Cobrança gerada no Asaas.',
+  )
+  const syncCharge = (chargeId: string) => chargeAction(
+    () => fetch('/api/asaas/cobrancas', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chargeId }),
+    }),
+    `sync-${chargeId}`,
+  )
+  const nfseAction = (chargeId: string, action: string, okMsg?: string) => chargeAction(
+    () => fetch(`/api/nfse/${chargeId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action }),
+    }),
+    `${action}-${chargeId}`,
+    okMsg,
+  )
 
   return (
     <div className="space-y-2">
+      {chargeMsg && (
+        <p className="text-xs font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">{chargeMsg}</p>
+      )}
       {groups.length === 0 ? (
         <p className="text-sm text-gray-400 text-center py-6">Nenhum pagamento cadastrado neste mês</p>
       ) : (
@@ -498,44 +632,136 @@ function PaymentsTab({ payments, onToggle }: { payments: Payment[]; onToggle: (i
           const paid = items.filter((p) => p.status === 'PAGO')
           const paidTotal = paid.reduce((s, p) => s + p.amount, 0)
           const pending = items.filter((p) => p.status !== 'PAGO')
-          const allPaid = pending.length === 0
+          const allPaid = items.length > 0 && pending.length === 0
           const overdue = pending.some((p) => isOverdue(p))
-          const earliestDue = items.reduce((min, p) => (new Date(p.dueDate) < new Date(min) ? p.dueDate : min), items[0].dueDate)
+          const earliestDue = items.length > 0
+            ? items.reduce((min, p) => (new Date(p.dueDate) < new Date(min) ? p.dueDate : min), items[0].dueDate)
+            : null
+          const charge = chargeByClient.get(client.id)
+          const st = charge ? (ASAAS_STATUS_PT[charge.status] ?? { label: charge.status, cls: 'bg-gray-100 text-gray-600' }) : null
+          const nf = charge?.nfse ? (NFSE_STATUS_PT[charge.nfse.status] ?? { label: charge.nfse.status, cls: 'bg-gray-100 text-gray-600' }) : null
+          const busy = busyCharge != null && busyCharge.endsWith(charge?.id ?? client.id)
 
           return (
-            <div key={client.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-semibold text-gray-900 truncate">{client.name}</p>
-                  <TierBadge tier={client.tier} />
+            <div key={client.id} className="border border-gray-200 rounded-lg hover:bg-gray-50">
+              <div className="flex items-center justify-between p-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold text-gray-900 truncate">{client.name}</p>
+                    <TierBadge tier={client.tier} />
+                    {charge && (
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#030A8C]/10 text-[#030A8C]">Asaas</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-400">
+                    {items.length > 0 ? `${items.length} serviço(s)` : 'cobrança Asaas'}
+                    {earliestDue ? ` · vence ${formatDate(earliestDue)}` : charge ? ` · vence ${formatDate(charge.dueDate)}` : ''}
+                    {allPaid
+                      ? paid[0]?.paidAt ? ` · pago em ${formatDate(paid[0].paidAt)}` : ''
+                      : paidTotal > 0 ? ` · ${formatCurrency(paidTotal)} já pago` : ''}
+                    {charge?.netValue != null ? ` · líquido ${formatCurrency(Number(charge.netValue))}` : ''}
+                    {charge?.fee != null ? ` · tarifa ${formatCurrency(Number(charge.fee))}` : ''}
+                  </p>
                 </div>
-                <p className="text-xs text-gray-400">
-                  {items.length} serviço(s) · vence {formatDate(earliestDue)}
-                  {allPaid
-                    ? paid[0]?.paidAt ? ` · pago em ${formatDate(paid[0].paidAt)}` : ''
-                    : paidTotal > 0 ? ` · ${formatCurrency(paidTotal)} já pago` : ''}
-                </p>
+                <div className="flex items-center gap-3 shrink-0 ml-2">
+                  <p className="text-sm font-bold text-gray-900">{formatCurrency(items.length > 0 ? total : Number(charge?.value ?? 0))}</p>
+                  {items.length > 0 && (
+                    <button
+                      onClick={() =>
+                        allPaid
+                          ? onToggle(items.map((p) => p.id), 'PENDENTE')
+                          : onToggle(pending.map((p) => p.id), 'PAGO')
+                      }
+                      title={charge ? 'Cobrança Asaas: o status muda pelo webhook; use só para ajuste manual' : allPaid ? 'Marcar tudo como pendente' : 'Marcar tudo como pago'}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                        allPaid
+                          ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                          : overdue
+                            ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                            : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+                      }`}
+                    >
+                      {allPaid ? <Check className="w-3 h-3" /> : null}
+                      {allPaid ? 'PAGO' : overdue ? 'ATRASADO' : paidTotal > 0 ? 'PARCIAL' : 'PENDENTE'}
+                    </button>
+                  )}
+                </div>
               </div>
-              <div className="flex items-center gap-3 shrink-0 ml-2">
-                <p className="text-sm font-bold text-gray-900">{formatCurrency(total)}</p>
-                <button
-                  onClick={() =>
-                    allPaid
-                      ? onToggle(items.map((p) => p.id), 'PENDENTE')
-                      : onToggle(pending.map((p) => p.id), 'PAGO')
-                  }
-                  title={allPaid ? 'Marcar tudo como pendente' : 'Marcar tudo como pago'}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                    allPaid
-                      ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                      : overdue
-                        ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                        : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
-                  }`}
-                >
-                  {allPaid ? <Check className="w-3 h-3" /> : null}
-                  {allPaid ? 'PAGO' : overdue ? 'ATRASADO' : paidTotal > 0 ? 'PARCIAL' : 'PENDENTE'}
-                </button>
+
+              {/* Faixa Asaas / NFS-e */}
+              <div className="flex flex-wrap items-center gap-1.5 px-3 pb-2.5">
+                {!charge ? (
+                  <button
+                    onClick={() => generate(client.id)}
+                    disabled={busy}
+                    className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-[#030A8C] text-white hover:bg-[#02077a] disabled:opacity-50 transition-colors"
+                  >
+                    {busy ? 'Gerando...' : 'Gerar cobrança Asaas'}
+                  </button>
+                ) : (
+                  <>
+                    {st && <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${st.cls}`}>{st.label}</span>}
+                    {nf && <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${nf.cls}`}>{nf.label}</span>}
+                    {charge.invoiceUrl && (
+                      <a href={charge.invoiceUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] text-[#030A8C] hover:underline font-medium">Fatura</a>
+                    )}
+                    {charge.bankSlipUrl && (
+                      <a href={charge.bankSlipUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] text-[#030A8C] hover:underline font-medium">Boleto</a>
+                    )}
+                    {charge.identificationField && (
+                      <button
+                        onClick={() => { navigator.clipboard.writeText(charge.identificationField!); setChargeMsg('Linha digitável copiada.') }}
+                        className="text-[11px] text-gray-500 hover:text-[#030A8C] font-medium"
+                      >
+                        Copiar linha digitável
+                      </button>
+                    )}
+                    <button onClick={() => syncCharge(charge.id)} disabled={busy} className="text-[11px] text-gray-500 hover:text-[#030A8C] font-medium disabled:opacity-50">
+                      Sincronizar
+                    </button>
+                    {!charge.nfse && ['CONFIRMED', 'RECEIVED'].includes(charge.status) && (
+                      <button onClick={() => nfseAction(charge.id, 'emit', 'NFS-e enviada para processamento.')} disabled={busy} className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50 transition-colors">
+                        Emitir NFS-e
+                      </button>
+                    )}
+                    {charge.nfse && (
+                      <>
+                        <button onClick={() => nfseAction(charge.id, 'consult')} disabled={busy} className="text-[11px] text-gray-500 hover:text-[#030A8C] font-medium disabled:opacity-50">
+                          Consultar NFS-e
+                        </button>
+                        {charge.nfse.pdfUrl && (
+                          <a href={charge.nfse.pdfUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] text-[#030A8C] hover:underline font-medium">PDF</a>
+                        )}
+                        {charge.nfse.xmlUrl && (
+                          <a href={charge.nfse.xmlUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] text-[#030A8C] hover:underline font-medium">XML</a>
+                        )}
+                        {charge.nfse.status === 'AUTORIZADO' && (
+                          <button onClick={() => nfseAction(charge.id, 'email', 'NFS-e reenviada por e-mail.')} disabled={busy} className="text-[11px] text-gray-500 hover:text-[#030A8C] font-medium disabled:opacity-50">
+                            Reenviar por e-mail
+                          </button>
+                        )}
+                        {charge.nfse.status === 'ERRO_AUTORIZACAO' && (
+                          <button onClick={() => nfseAction(charge.id, 'emit', 'Nova tentativa de emissão enviada.')} disabled={busy} className="text-[11px] font-semibold text-red-600 hover:underline disabled:opacity-50">
+                            Tentar novamente
+                          </button>
+                        )}
+                      </>
+                    )}
+                    {(charge.lastError || charge.nfse?.lastError || charge.nfse?.municipalMessage) && (
+                      <button
+                        onClick={() => alert(charge.lastError || charge.nfse?.lastError || charge.nfse?.municipalMessage || '')}
+                        className="text-[11px] text-red-600 hover:underline font-medium"
+                      >
+                        Ver erro
+                      </button>
+                    )}
+                    {charge.status === 'ERROR' && (
+                      <button onClick={() => generate(client.id)} disabled={busy} className="text-[11px] font-semibold text-red-600 hover:underline disabled:opacity-50">
+                        Tentar novamente
+                      </button>
+                    )}
+                  </>
+                )}
               </div>
             </div>
           )

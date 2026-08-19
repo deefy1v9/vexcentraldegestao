@@ -184,6 +184,18 @@ export async function runBillingReminders(): Promise<{ sent: number; skipped: nu
 
   for (const items of groups.values()) {
     const first = items[0] // vencimento mais próximo do grupo
+
+    // Cobrança da competência gerida pelo Asaas: a confirmação vem pelo
+    // webhook — a pergunta manual via WhatsApp fica desativada (o fluxo
+    // manual segue valendo para clientes fora do Asaas)
+    const asaasCharge = await prisma.asaasCharge.findUnique({
+      where: { clientId_year_month: { clientId: first.clientId, year: first.year, month: first.month } },
+    }).catch(() => null)
+    if (asaasCharge && !['CANCELLED', 'DELETED', 'ERROR'].includes(asaasCharge.status)) {
+      skipped++
+      continue
+    }
+
     const dueStr = first.dueDate.toISOString().slice(0, 10)
     const diffDays = Math.round((new Date(`${dueStr}T00:00:00Z`).getTime() - todayUTC.getTime()) / dayMs)
 

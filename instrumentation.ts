@@ -43,6 +43,19 @@ export async function register() {
       if (tasks.sent > 0) {
         console.log(`[tasks] lembretes de demandas: ${tasks.sent} enviados`)
       }
+
+      // Cobranças Asaas: gera as da janela de antecedência para clientes com
+      // cobrança automática ativada (idempotente; erro em um cliente não
+      // interrompe os demais)
+      try {
+        const { runAsaasBillingJob } = await import('./lib/billing-asaas')
+        const billing = await runAsaasBillingJob()
+        if (billing.created > 0 || billing.errors > 0) {
+          console.log(`[asaas] cobranças: ${billing.created} criadas, ${billing.skipped} puladas, ${billing.errors} erros`)
+        }
+      } catch (err) {
+        console.error('[asaas] billing job error:', err)
+      }
     } catch (err) {
       console.error('[billing] scheduler error:', err)
     }

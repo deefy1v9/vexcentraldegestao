@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
   const start = new Date(year, month - 1, 1)
   const end = new Date(year, month, 0, 23, 59, 59)
 
-  const [entries, clientPayments, users, serviceRevenueAgg, upcoming, recentEntries, recentReceipts] =
+  const [entries, clientPayments, users, serviceRevenueAgg, upcoming, recentEntries, recentReceipts, asaasCharges] =
     await Promise.all([
       // Lançamentos do mês (custos, salários e receitas extras); lápides ficam de fora
       prisma.financialEntry.findMany({
@@ -78,12 +78,18 @@ export async function GET(req: NextRequest) {
         orderBy: { paidAt: 'desc' },
         take: 8,
       }),
+      // Cobranças Asaas da competência (com a NFS-e vinculada)
+      prisma.asaasCharge.findMany({
+        where: { year, month },
+        include: { nfse: true, client: { select: { id: true, name: true } } },
+      }),
     ])
 
   return NextResponse.json({
     entries,
     clientPayments,
     users,
+    asaasCharges,
     previstoServicos: serviceRevenueAgg._sum.monthlyValue ?? 0,
     upcoming,
     recent: [

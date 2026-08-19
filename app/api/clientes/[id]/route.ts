@@ -34,6 +34,15 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
       payments: [],
       tierHistory: [],
       crmContact: null,
+      // Dados de faturamento/fiscais também são exclusivos de admin
+      billingEnabled: false,
+      legalName: null,
+      municipalReg: null,
+      billingEmail: null,
+      extraEmails: null,
+      asaasCustomerId: null,
+      asaasSyncStatus: null,
+      asaasSyncError: null,
       services: client.services.map((s) => ({ ...s, monthlyValue: null, totalContractValue: null })),
     })
   }
@@ -48,6 +57,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const { id } = await params
   const { services, ...body } = await req.json()
+  const has = (k: string) => Object.prototype.hasOwnProperty.call(body, k)
 
   const contractEnd = body.contractStart && body.contractMonths
     ? new Date(new Date(body.contractStart).setMonth(new Date(body.contractStart).getMonth() + Number(body.contractMonths)))
@@ -93,6 +103,27 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         contractMonths: body.contractMonths ? Number(body.contractMonths) : null,
         paymentDay: body.paymentDay ? Number(body.paymentDay) : null,
         // monthlyValue não é aceito do corpo: é derivado dos serviços (abaixo).
+        // Faturamento/NFS-e (asaasCustomerId é somente leitura — nunca aceito)
+        ...(has('billingEnabled') ? { billingEnabled: !!body.billingEnabled } : {}),
+        ...(has('legalName') ? { legalName: body.legalName || null } : {}),
+        ...(has('municipalReg') ? { municipalReg: body.municipalReg || null } : {}),
+        ...(has('billingEmail') ? { billingEmail: body.billingEmail || null } : {}),
+        ...(has('extraEmails') ? { extraEmails: body.extraEmails || null } : {}),
+        ...(has('zipCode') ? { zipCode: body.zipCode || null } : {}),
+        ...(has('street') ? { street: body.street || null } : {}),
+        ...(has('addressNumber') ? { addressNumber: body.addressNumber || null } : {}),
+        ...(has('complement') ? { complement: body.complement || null } : {}),
+        ...(has('district') ? { district: body.district || null } : {}),
+        ...(has('city') ? { city: body.city || null } : {}),
+        ...(has('state') ? { state: body.state || null } : {}),
+        ...(has('ibgeCode') ? { ibgeCode: body.ibgeCode || null } : {}),
+        ...(has('billingLeadDays') ? { billingLeadDays: Math.min(Math.max(Number(body.billingLeadDays) || 10, 1), 60) } : {}),
+        ...(has('billingType') && ['BOLETO', 'PIX', 'UNDEFINED'].includes(body.billingType)
+          ? { billingType: body.billingType } : {}),
+        ...(has('nfseEnabled') ? { nfseEnabled: !!body.nfseEnabled } : {}),
+        ...(has('nfseRule') && ['ON_CONFIRMED', 'ON_RECEIVED', 'ON_COMPETENCE', 'MANUAL'].includes(body.nfseRule)
+          ? { nfseRule: body.nfseRule } : {}),
+        ...(has('fiscalDescription') ? { fiscalDescription: body.fiscalDescription || null } : {}),
       },
     })
 

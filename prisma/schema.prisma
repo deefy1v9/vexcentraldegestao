@@ -79,6 +79,32 @@ model Client {
   tier          String?
   tierManual    Boolean   @default(false)
   tierChangedAt DateTime?
+
+  // ------- Faturamento (Asaas) e NFS-e (Focus) — ativação individual -------
+  billingEnabled   Boolean @default(false) // cobrança automática mensal
+  legalName        String? // razão social (tomador da NFS-e)
+  municipalReg     String? // inscrição municipal, quando aplicável
+  billingEmail     String? // e-mail financeiro (recebe boleto e NFS-e)
+  extraEmails      String? // e-mails adicionais, separados por vírgula
+  zipCode          String?
+  street           String?
+  addressNumber    String?
+  complement       String?
+  district         String?
+  city             String?
+  state            String?
+  ibgeCode         String? // código IBGE do município do tomador
+  billingLeadDays  Int     @default(10) // antecedência da geração da cobrança
+  billingType      String  @default("UNDEFINED") // BOLETO | PIX | UNDEFINED
+  nfseEnabled      Boolean @default(false) // emissão automática de NFS-e
+  // ON_CONFIRMED (padrão) | ON_RECEIVED | ON_COMPETENCE | MANUAL
+  nfseRule         String  @default("ON_CONFIRMED")
+  fiscalDescription String? // discriminação padrão do serviço na nota
+  asaasCustomerId  String? @unique // ID do cliente no Asaas (somente leitura)
+  asaasSyncStatus  String? // OK | ERRO | null (nunca sincronizado)
+  asaasSyncError   String?
+  asaasSyncedAt    DateTime?
+
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
@@ -90,6 +116,124 @@ model Client {
   tasks                Task[]
   paymentConfirmations PaymentConfirmation[]
   tierHistory          ClientTierHistory[]
+  asaasCharges         AsaasCharge[]
+}
+
+// Cobrança gerada no Asaas — uma por cliente e competência (unique).
+// Valores em Decimal (numeric), nunca float. A fonte dos valores é o
+// sistema (soma dos serviços válidos na competência), não o Asaas.
+model AsaasCharge {
+  id          String    @id @default(cuid())
+  clientId    String
+  year        Int
+  month       Int
+  asaasId     String?   @unique // id da cobrança no Asaas
+  externalRef String    @unique // billing:{clientId}:{YYYY-MM}
+  billingType String    @default("UNDEFINED") // BOLETO | PIX | UNDEFINED
+  value       Decimal   @db.Decimal(12, 2) // bruto
+  netValue    Decimal?  @db.Decimal(12, 2) // líquido informado pelo Asaas
+  fee         Decimal?  @db.Decimal(12, 2) // tarifa
+  dueDate     DateTime
+  // PENDING | CONFIRMED | RECEIVED | OVERDUE | REFUNDED | PARTIALLY_REFUNDED
+  // | CANCELLED | DELETED | ERROR
+  status      String    @default("PENDING")
+  invoiceUrl  String?
+  bankSlipUrl String?
+  identificationField String? // linha digitável
+  barCode     String?
+  confirmedAt DateTime? // pagamento confirmado (saldo pode não estar disponível)
+  paidAt      DateTime? // data de pagamento informada pelo Asaas
+  receivedAt  DateTime? // saldo disponível
+  creditDate  DateTime?
+  // Guardas de contabilização única (receita/tarifa nunca em dobro)
+  revenueBookedAt DateTime?
+  feeBookedAt     DateTime?
+  lastError   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  client Client        @relation(fields: [clientId], references: [id])
+  nfse   NfseInvoice?
+
+  @@unique([clientId, year, month])
+}
+
+// Configuração fiscal do prestador (linha única, id fixo "default").
+// Tokens NUNCA ficam aqui — vivem em SystemSettings/env, fora do GET.
+model FiscalConfig {
+  id                   String   @id @default("default")
+  cnpj                 String?
+  razaoSocial          String?
+  inscricaoMunicipal   String?
+  codigoMunicipio      String? // IBGE do prestador
+  optanteSimples       Boolean  @default(true)
+  regimeEspecial       String?
+  naturezaOperacao     String?
+  incentivadorCultural Boolean  @default(false)
+  codigoServicoMunicipal String?
+  itemListaServico     String?
+  cnae                 String?
+  codigoTributacao     String?
+  aliquotaIss          Decimal? @db.Decimal(6, 4)
+  issRetido            Boolean  @default(false)
+  pis                  Decimal? @db.Decimal(6, 4)
+  cofins               Decimal? @db.Decimal(6, 4)
+  csll                 Decimal? @db.Decimal(6, 4)
+  inss                 Decimal? @db.Decimal(6, 4)
+  ibsCbs               String? // configuração IBS/CBS conforme regra vigente
+  descricaoPadrao      String?
+  autoEmit             Boolean  @default(false)
+  emitRule             String   @default("ON_CONFIRMED")
+  updatedAt            DateTime @updatedAt
+}
+
+// NFS-e emitida via Focus — no máximo uma por cobrança.
+model NfseInvoice {
+  id               String    @id @default(cuid())
+  chargeId         String    @unique
+  focusRef         String    @unique // nfse:{chargeId}
+  // PROCESSANDO | AUTORIZADO | ERRO_AUTORIZACAO | CANCELADO | ERRO_CANCELAMENTO
+  status           String    @default("PROCESSANDO")
+  numero           String?
+  codigoVerificacao String?
+  pdfUrl           String?
+  xmlUrl           String?
+  municipalMessage String?
+  lastError        String?
+  issuedAt         DateTime?
+  emailSentAt      DateTime?
+  emailRecipients  String?
+  emailAttempts    Int       @default(0)
+  emailError       String?
+  emailRequestedBy String?
+  raw              Json?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  charge AsaasCharge @relation(fields: [chargeId], references: [id])
+}
+
+// Evento de webhook recebido (Asaas/Focus) — chave única = idempotência.
+model WebhookEvent {
+  id          String    @id @default(cuid())
+  provider    String // ASAAS | FOCUS
+  eventKey    String    @unique // id do evento ou hash determinístico
+  type        String?
+  payload     Json
+  processedAt DateTime?
+  error       String?
+  createdAt   DateTime  @default(now())
+}
+
+// Tentativas de chamadas às integrações (auditoria e diagnóstico).
+model IntegrationLog {
+  id        String   @id @default(cuid())
+  provider  String // ASAAS | FOCUS
+  action    String
+  refId     String?
+  ok        Boolean
+  error     String?
+  createdAt DateTime @default(now())
 }
 
 // Histórico de mudanças de grupo do cliente — nunca é apagado.

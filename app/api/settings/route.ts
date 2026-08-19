@@ -18,7 +18,22 @@ const ALLOWED_KEYS = [
   // Responsáveis padrão da operação (IDs de usuário)
   'DEFAULT_REVIEWER_ID',
   'DEFAULT_SCHEDULER_ID',
+  // Asaas e Focus NFe — tokens são write-only: aceitos no PUT e NUNCA
+  // devolvidos no GET (o GET expõe apenas flags de presença)
+  'ASAAS_ENV',
+  'ASAAS_API_KEY',
+  'ASAAS_WEBHOOK_TOKEN',
+  'FOCUS_NFE_ENV',
+  'FOCUS_NFE_TOKEN_HOMOLOGACAO',
+  'FOCUS_NFE_TOKEN_PRODUCAO',
+  'FOCUS_NFSE_MODE',
+  'FOCUS_WEBHOOK_TOKEN',
 ]
+
+const SECRET_KEYS = new Set([
+  'ASAAS_API_KEY', 'ASAAS_WEBHOOK_TOKEN',
+  'FOCUS_NFE_TOKEN_HOMOLOGACAO', 'FOCUS_NFE_TOKEN_PRODUCAO', 'FOCUS_WEBHOOK_TOKEN',
+])
 
 export async function GET() {
   // Expõe o UAZAPI_TOKEN — restrito a administradores.
@@ -28,11 +43,18 @@ export async function GET() {
   const rows = await prisma.$queryRaw<Array<{ key: string; value: string }>>`
     SELECT key, value FROM "SystemSettings"
     WHERE key IN ('UAZAPI_URL', 'UAZAPI_TOKEN', 'BILLING_REMINDER_TIME', 'DEFAULT_RECEIVING_ACCOUNT',
-                  'TIER_START_MAX', 'TIER_GROWTH_MAX')
+                  'TIER_START_MAX', 'TIER_GROWTH_MAX',
+                  'ASAAS_ENV', 'ASAAS_API_KEY', 'ASAAS_WEBHOOK_TOKEN',
+                  'FOCUS_NFE_ENV', 'FOCUS_NFE_TOKEN_HOMOLOGACAO', 'FOCUS_NFE_TOKEN_PRODUCAO',
+                  'FOCUS_NFSE_MODE', 'FOCUS_WEBHOOK_TOKEN')
   `
 
   const result: Record<string, string> = {}
-  for (const row of rows) result[row.key] = row.value
+  for (const row of rows) {
+    // Segredos das integrações nunca saem em resposta HTTP — só a presença
+    if (SECRET_KEYS.has(row.key)) result[`${row.key}_SET`] = row.value ? 'true' : 'false'
+    else result[row.key] = row.value
+  }
   return NextResponse.json(result)
 }
 

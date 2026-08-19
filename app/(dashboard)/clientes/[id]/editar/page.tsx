@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Header from '@/components/layout/Header'
 import CurrencyInput from '@/components/ui/CurrencyInput'
+import ClientBillingSection, { BillingForm, EMPTY_BILLING } from '@/components/clientes/ClientBillingSection'
 import { formatCurrency } from '@/lib/utils'
 import Link from 'next/link'
 import { ArrowLeft, Save, Trash2, Plus } from 'lucide-react'
@@ -61,6 +62,15 @@ export default function EditClientePage() {
   // Valor total mensal: soma automática dos serviços, somente leitura
   const totalMensal = services.reduce((sum, s) => sum + (s.monthlyValue ?? 0), 0)
 
+  // Faturamento e NFS-e
+  const [billing, setBilling] = useState<BillingForm>({ ...EMPTY_BILLING })
+  const [asaasInfo, setAsaasInfo] = useState<{ customerId: string | null; syncStatus: string | null; syncError: string | null; syncedAt: string | null }>({
+    customerId: null, syncStatus: null, syncError: null, syncedAt: null,
+  })
+  function setBillingField<K extends keyof BillingForm>(field: K, value: BillingForm[K]) {
+    setBilling((prev) => ({ ...prev, [field]: value }))
+  }
+
   useEffect(() => {
     fetch(`/api/clientes/${id}`)
       .then((r) => {
@@ -89,6 +99,33 @@ export default function EditClientePage() {
           description: s.description || '',
           monthlyValue: s.monthlyValue ?? null,
         })))
+        const d = data as unknown as Record<string, unknown>
+        setBilling({
+          billingEnabled: !!d.billingEnabled,
+          legalName: (d.legalName as string) || '',
+          municipalReg: (d.municipalReg as string) || '',
+          billingEmail: (d.billingEmail as string) || '',
+          extraEmails: (d.extraEmails as string) || '',
+          zipCode: (d.zipCode as string) || '',
+          street: (d.street as string) || '',
+          addressNumber: (d.addressNumber as string) || '',
+          complement: (d.complement as string) || '',
+          district: (d.district as string) || '',
+          city: (d.city as string) || '',
+          state: (d.state as string) || '',
+          ibgeCode: (d.ibgeCode as string) || '',
+          billingLeadDays: String(d.billingLeadDays ?? 10),
+          billingType: (d.billingType as string) || 'UNDEFINED',
+          nfseEnabled: !!d.nfseEnabled,
+          nfseRule: (d.nfseRule as string) || 'ON_CONFIRMED',
+          fiscalDescription: (d.fiscalDescription as string) || '',
+        })
+        setAsaasInfo({
+          customerId: (d.asaasCustomerId as string) || null,
+          syncStatus: (d.asaasSyncStatus as string) || null,
+          syncError: (d.asaasSyncError as string) || null,
+          syncedAt: (d.asaasSyncedAt as string) || null,
+        })
         setLoading(false)
       })
       .catch(() => {
@@ -123,6 +160,8 @@ export default function EditClientePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...form,
+          ...billing,
+          billingLeadDays: Number(billing.billingLeadDays) || 10,
           contractMonths: form.contractMonths ? Number(form.contractMonths) : null,
           paymentDay: form.paymentDay ? Number(form.paymentDay) : null,
           services: services.filter((s) => s.serviceName.trim()),
@@ -304,6 +343,14 @@ export default function EditClientePage() {
                 <Plus className="w-4 h-4" /> Adicionar outro serviço
               </button>
             </div>
+
+            {/* Faturamento e NFS-e */}
+            <ClientBillingSection
+              clientId={id}
+              form={billing}
+              onChange={setBillingField}
+              asaas={asaasInfo}
+            />
 
             {/* Observações */}
             <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
