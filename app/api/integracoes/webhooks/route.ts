@@ -34,7 +34,9 @@ export async function POST(req: NextRequest) {
       if (!webhookToken) {
         return NextResponse.json({ error: 'Configure FOCUS_WEBHOOK_TOKEN antes.' }, { status: 400 })
       }
-      const r = await focus.ensureHook(`${origin}/api/webhooks/focus-nfe`, webhookToken)
+      const { prisma } = await import('@/lib/prisma')
+      const fc = await prisma.fiscalConfig.findUnique({ where: { id: 'default' } })
+      const r = await focus.ensureHook(`${origin}/api/webhooks/focus-nfe`, webhookToken, fc?.cnpj ?? undefined)
       await logActivity(admin.id, 'registrou gatilho Focus', 'Financeiro', `${origin}/api/webhooks/focus-nfe`)
       return NextResponse.json({ ok: true, created: r.created })
     }

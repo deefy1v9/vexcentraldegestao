@@ -153,19 +153,21 @@ export async function listHooks() {
   return (Array.isArray(r.body) ? r.body : []) as Array<{ id?: string; url?: string; event?: string }>
 }
 
-/** Garante o gatilho nfse/nfsen apontando para o sistema, com header secreto. */
-export async function ensureHook(url: string, webhookToken: string): Promise<{ created: boolean }> {
+/** Garante o gatilho nfse/nfsen apontando para o sistema, com token secreto. */
+export async function ensureHook(url: string, webhookToken: string, cnpj?: string): Promise<{ created: boolean }> {
   const { mode } = await getFocusConfig()
   const event = mode === 'national' ? 'nfsen' : 'nfse'
+  // Token na query string (validado no endpoint) — headers personalizados
+  // não são garantidos em todas as contas Focus
+  const hookUrl = `${url}?token=${encodeURIComponent(webhookToken)}`
   const hooks = await listHooks()
-  if (hooks.some((h) => h.url === url && h.event === event)) return { created: false }
+  if (hooks.some((h) => (h.url === hookUrl || h.url === url) && h.event === event)) return { created: false }
   await focusFetch('/v2/hooks', {
     method: 'POST',
     body: JSON.stringify({
-      url,
+      url: hookUrl,
       event,
-      // Header personalizado validado no nosso endpoint
-      headers: { 'x-webhook-token': webhookToken },
+      ...(cnpj ? { cnpj: cnpj.replace(/\D/g, '') } : {}),
     }),
   })
   await log('ensureHook', url, true)

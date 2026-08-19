@@ -22,7 +22,12 @@ function safeEqual(a: string, b: string): boolean {
  */
 export async function POST(req: NextRequest) {
   const { webhookToken } = await getFocusConfig()
-  const received = req.headers.get('x-webhook-token') ?? ''
+  // O token pode vir no header personalizado OU na query string — nem toda
+  // conta Focus envia headers customizados no gatilho
+  const received =
+    req.headers.get('x-webhook-token') ??
+    new URL(req.url).searchParams.get('token') ??
+    ''
   if (!webhookToken || !received || !safeEqual(received, webhookToken)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
