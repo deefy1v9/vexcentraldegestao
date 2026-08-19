@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma'
 import * as asaas from '@/lib/asaas'
 import * as focus from '@/lib/focus-nfe'
 import { fiscalReadiness } from '@/lib/nfse'
-import { missingBillingFields } from '@/lib/billing-core'
+import { missingBillingFields, publicOrigin } from '@/lib/billing-core'
 import { getBillingSetting } from '@/lib/billing-whatsapp'
 
 /**
@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   const gate = await requireAdmin()
   if (gate instanceof NextResponse) return gate
 
-  const origin = new URL(req.url).origin
+  const origin = publicOrigin(req)
   const asaasWebhookUrl = `${origin}/api/webhooks/asaas`
   const focusWebhookUrl = `${origin}/api/webhooks/focus-nfe`
 

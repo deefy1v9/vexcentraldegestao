@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/api-auth'
 import { logActivity } from '@/lib/activity'
+import { publicOrigin } from '@/lib/billing-core'
 import * as asaas from '@/lib/asaas'
 import * as focus from '@/lib/focus-nfe'
 
@@ -15,7 +16,7 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => ({}))
   const provider = String(body.provider ?? '')
-  const origin = new URL(req.url).origin
+  const origin = publicOrigin(req)
 
   try {
     if (provider === 'asaas') {
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest) {
       if (!webhookToken) {
         return NextResponse.json({ error: 'Configure ASAAS_WEBHOOK_TOKEN antes (diferente da API Key).' }, { status: 400 })
       }
-      const r = await asaas.ensureWebhook(`${origin}/api/webhooks/asaas`, webhookToken)
+      const r = await asaas.ensureWebhook(`${origin}/api/webhooks/asaas`, webhookToken, admin.email)
       await logActivity(admin.id, 'registrou webhook Asaas', 'Financeiro', `${origin}/api/webhooks/asaas`)
       return NextResponse.json({ ok: true, created: r.created })
     }

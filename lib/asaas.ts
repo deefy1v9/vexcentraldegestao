@@ -220,7 +220,7 @@ export async function listWebhooks(): Promise<Array<{ url?: string; enabled?: bo
 }
 
 /** Cria/garante o webhook de cobranças apontando para o sistema. */
-export async function ensureWebhook(url: string, authToken: string): Promise<{ created: boolean }> {
+export async function ensureWebhook(url: string, authToken: string, alertEmail: string): Promise<{ created: boolean }> {
   const existing = await listWebhooks()
   if (existing.some((w) => w.url === url && w.enabled !== false)) return { created: false }
   await asaasFetch('/webhooks', {
@@ -228,7 +228,8 @@ export async function ensureWebhook(url: string, authToken: string): Promise<{ c
     body: JSON.stringify({
       name: 'VEX Central de Gestão',
       url,
-      email: undefined,
+      // E-mail de alerta exigido pelo Asaas (avisos de falha na fila)
+      email: alertEmail,
       enabled: true,
       interrupted: false,
       authToken,

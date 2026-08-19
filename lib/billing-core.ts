@@ -103,6 +103,20 @@ export function centsToDecimalString(cents: number): string {
   return (cents / 100).toFixed(2)
 }
 
+/**
+ * Origem pública do sistema atrás do proxy: prioriza os headers do Traefik
+ * (x-forwarded-*), depois NEXTAUTH_URL e por último a URL da requisição —
+ * evita expor 0.0.0.0:3000 nas URLs de webhook.
+ */
+export function publicOrigin(req: { headers: { get(name: string): string | null }; url: string }): string {
+  const host = req.headers.get('x-forwarded-host')
+  const proto = req.headers.get('x-forwarded-proto') || 'https'
+  if (host) return `${proto}://${host}`
+  const env = process.env.NEXTAUTH_URL
+  if (env) return env.replace(/\/$/, '')
+  return new URL(req.url).origin
+}
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 /** Valida lista de e-mails (máx. 10) para reenvio de NFS-e. */
