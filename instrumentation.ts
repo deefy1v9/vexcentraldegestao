@@ -12,7 +12,7 @@ export async function register() {
   if (process.env.NEXT_RUNTIME !== 'nodejs') return
 
   const { prisma } = await import('./lib/prisma')
-  const { runBillingReminders, spNow, getBillingSetting } = await import('./lib/billing-whatsapp')
+  const { spNow, getBillingSetting } = await import('./lib/billing-whatsapp')
   const { runTaskReminders } = await import('./lib/task-flow')
 
   async function tick() {
@@ -32,10 +32,9 @@ export async function register() {
         ON CONFLICT (key) DO UPDATE SET value = ${date}, "updatedAt" = NOW()
       `
 
-      const result = await runBillingReminders()
-      if (result.sent > 0 || result.skipped > 0) {
-        console.log(`[billing] lembretes de cobrança: ${result.sent} enviados, ${result.skipped} ignorados`)
-      }
+      // Confirmação de cobrança via WhatsApp DESATIVADA: com o Asaas ativo,
+      // o status de pagamento vem pelo webhook (Aguardando/Confirmado/
+      // Recebido/Vencido) — sem pergunta manual aos administradores.
 
       // Lembretes das demandas (produção D-2, revisão D-1) — nunca mudam
       // status; a marcação reminder*At em cada demanda impede duplicidade
