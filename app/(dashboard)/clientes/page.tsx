@@ -1,12 +1,12 @@
 import { prisma } from '@/lib/prisma'
 import { getSessionUser } from '@/lib/api-auth'
 import Header from '@/components/layout/Header'
-import DeleteClientButton from '@/components/clientes/DeleteClientButton'
+import ClientRowActions from '@/components/clientes/ClientRowActions'
 import TierRangesConfig from '@/components/clientes/TierRangesConfig'
 import TierBadge from '@/components/ui/TierBadge'
 import Link from 'next/link'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { Plus, Search, Pencil, Eye } from 'lucide-react'
+import { Plus, Search, Eye } from 'lucide-react'
 
 const TIER_FILTERS = [
   { key: '', label: 'Todos' },
@@ -209,7 +209,7 @@ export default async function ClientesPage({
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-end gap-1">
                         <Link
                           href={`/clientes/${client.id}`}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-gray-600 border border-gray-200 rounded-lg text-xs font-medium hover:border-[#030A8C] hover:text-[#030A8C] transition-colors"
@@ -217,18 +217,8 @@ export default async function ClientesPage({
                           <Eye className="w-3 h-3" />
                           Ver perfil
                         </Link>
-                        {isAdmin && (
-                          <>
-                            <Link
-                              href={`/clientes/${client.id}/editar`}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#030A8C]/10 text-[#030A8C] rounded-lg text-xs font-medium hover:bg-[#030A8C] hover:text-white transition-colors"
-                            >
-                              <Pencil className="w-3 h-3" />
-                              Editar
-                            </Link>
-                            <DeleteClientButton clientId={client.id} clientName={client.name} />
-                          </>
-                        )}
+                        {/* Ações secundárias e destrutivas ficam no menu ⋮ */}
+                        <ClientRowActions clientId={client.id} clientName={client.name} isAdmin={isAdmin} />
                       </div>
                     </td>
                   </tr>

@@ -11,6 +11,9 @@ import { formatCurrency } from '@/lib/utils'
 interface Indicators {
   activeClients: number
   totalClients: number
+  recebidaPrev?: number
+  newClientsNow?: number
+  newClientsPrev?: number
   mrr: number
   arr: number
   recebida: number
@@ -65,10 +68,21 @@ function Card({ card }: { card: CardDef }) {
 export default function DashboardIndicators({ d }: { d: Indicators }) {
   const [expanded, setExpanded] = useState(false)
 
+  // Tendências só com dados reais dos dois meses — sem base de comparação,
+  // o subtítulo padrão permanece
+  const recebidaTrend =
+    d.recebidaPrev && d.recebidaPrev > 0
+      ? `${d.recebida >= d.recebidaPrev ? '+' : ''}${(((d.recebida - d.recebidaPrev) / d.recebidaPrev) * 100).toFixed(0)}% vs mês anterior`
+      : 'mês corrente'
+  const clientesTrend =
+    d.newClientsNow != null && d.newClientsNow > 0
+      ? `+${d.newClientsNow} novo(s) no mês`
+      : `${d.totalClients} total`
+
   const primary: CardDef[] = [
-    { label: 'Clientes Ativos', value: String(d.activeClients), sub: `${d.totalClients} total`, icon: Building2, color: '#030A8C', href: '/clientes' },
+    { label: 'Clientes Ativos', value: String(d.activeClients), sub: clientesTrend, icon: Building2, color: '#030A8C', href: '/clientes' },
     { label: 'Faturamento mensal (MRR)', value: formatCurrency(d.mrr), sub: 'soma dos serviços ativos', icon: DollarSign, color: '#10b981', href: '/financeiro' },
-    { label: 'Receita Recebida', value: formatCurrency(d.recebida), sub: 'mês corrente', icon: TrendingUp, color: '#6366f1', href: '/financeiro' },
+    { label: 'Receita Recebida', value: formatCurrency(d.recebida), sub: recebidaTrend, icon: TrendingUp, color: '#6366f1', href: '/financeiro' },
     { label: 'Receita Atrasada', value: formatCurrency(d.atrasada), sub: 'vencida não paga', icon: AlertTriangle, color: '#ef4444', href: '/financeiro' },
   ]
 

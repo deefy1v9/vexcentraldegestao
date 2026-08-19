@@ -108,6 +108,22 @@ async function getDashboardData(viewer: { id: string; isAdmin: boolean }) {
     .filter((p) => p.status === 'PENDENTE')
     .reduce((s, p) => s + p.amount, 0)
 
+  // Tendências REAIS vs mês anterior (nunca inventadas): receita recebida
+  // por competência e clientes novos por data de cadastro
+  const prevMonth = month === 1 ? 12 : month - 1
+  const prevYear = month === 1 ? year - 1 : year
+  const [prevRecebidaAgg, newClientsNow, newClientsPrev] = await Promise.all([
+    prisma.clientPayment.aggregate({
+      _sum: { amount: true },
+      where: { status: 'PAGO', month: prevMonth, year: prevYear },
+    }),
+    prisma.client.count({ where: { createdAt: { gte: new Date(year, month - 1, 1) } } }),
+    prisma.client.count({
+      where: { createdAt: { gte: new Date(prevYear, prevMonth - 1, 1), lt: new Date(year, month - 1, 1) } },
+    }),
+  ])
+  const recebidaPrev = prevRecebidaAgg._sum.amount ?? 0
+
   // Segmentação da carteira: clientes ativos por grupo + receita mensal
   const tierAgg = await prisma.client.groupBy({
     by: ['tier'],
@@ -122,6 +138,9 @@ async function getDashboardData(viewer: { id: string; isAdmin: boolean }) {
 
   return {
     segments,
+    recebidaPrev,
+    newClientsNow,
+    newClientsPrev,
     totalClients,
     activeClients,
     inactiveClients,

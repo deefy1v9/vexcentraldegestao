@@ -18,6 +18,9 @@ const ALLOWED_KEYS = [
   // Responsáveis padrão da operação (IDs de usuário)
   'DEFAULT_REVIEWER_ID',
   'DEFAULT_SCHEDULER_ID',
+  // SMTP (write-only: nunca aparecem no GET) e certificado Focus
+  'SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'SMTP_SECURE',
+  'FOCUS_CERT_STATUS',
   // Asaas e Focus NFe — tokens são write-only: aceitos no PUT e NUNCA
   // devolvidos no GET (o GET expõe apenas flags de presença)
   'ASAAS_ENV',

@@ -22,7 +22,7 @@ async function getSettings(keys: string[]): Promise<Record<string, string>> {
 export async function getFocusConfig() {
   const s = await getSettings([
     'FOCUS_NFE_ENV', 'FOCUS_NFE_TOKEN_HOMOLOGACAO', 'FOCUS_NFE_TOKEN_PRODUCAO',
-    'FOCUS_NFSE_MODE', 'FOCUS_WEBHOOK_TOKEN',
+    'FOCUS_NFSE_MODE', 'FOCUS_WEBHOOK_TOKEN', 'FOCUS_CERT_STATUS',
   ])
   const env = (s.FOCUS_NFE_ENV || process.env.FOCUS_NFE_ENV || 'homologacao').toLowerCase()
   const isProd = env === 'producao' || env === 'production'
@@ -35,6 +35,10 @@ export async function getFocusConfig() {
       : s.FOCUS_NFE_TOKEN_HOMOLOGACAO || process.env.FOCUS_NFE_TOKEN_HOMOLOGACAO || '',
     mode: mode === 'national' || mode === 'nacional' ? 'national' : 'municipal',
     webhookToken: s.FOCUS_WEBHOOK_TOKEN || process.env.FOCUS_WEBHOOK_TOKEN || '',
+    // Certificado digital e-CNPJ A1: enquanto PENDING, a emissão de NFS-e
+    // fica bloqueada (estado controlado — Asaas e o resto seguem normais).
+    // Após cadastrar o certificado na Focus, gravar FOCUS_CERT_STATUS=OK.
+    certStatus: (s.FOCUS_CERT_STATUS || process.env.FOCUS_CERT_STATUS || 'PENDING').toUpperCase(),
   }
 }
 

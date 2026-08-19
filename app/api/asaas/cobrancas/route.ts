@@ -15,6 +15,13 @@ export async function POST(req: NextRequest) {
   if (admin instanceof NextResponse) return admin
 
   const body = await req.json().catch(() => ({}))
+  // runJob: roda a varredura completa (mesma do agendador diário)
+  if (body.runJob === true) {
+    const { runAsaasBillingJob } = await import('@/lib/billing-asaas')
+    const r = await runAsaasBillingJob()
+    return NextResponse.json(r)
+  }
+
   const clientId = String(body.clientId ?? '')
   const year = Number(body.year)
   const month = Number(body.month)

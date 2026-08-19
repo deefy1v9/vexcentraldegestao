@@ -1,7 +1,7 @@
 'use client'
 import { useSession } from 'next-auth/react'
 import { getInitials } from '@/lib/utils'
-import { Bell, Search, Mail, X, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { Bell, Search, Mail, X, AlertCircle, CheckCircle2, Sun, Moon } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 
 interface Notification {
@@ -26,6 +26,19 @@ export default function Header({ title, subtitle }: HeaderProps) {
   const [open, setOpen] = useState(false)
   const [dismissed, setDismissed] = useState<Set<string>>(new Set())
   const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // Tema claro/escuro: classe no <html>, preferência no localStorage;
+  // sem escolha salva, respeita prefers-color-scheme (script no layout)
+  const [dark, setDark] = useState(false)
+  useEffect(() => {
+    setDark(document.documentElement.classList.contains('dark'))
+  }, [])
+  function toggleTheme() {
+    const next = !dark
+    setDark(next)
+    document.documentElement.classList.toggle('dark', next)
+    try { localStorage.setItem('vex-theme', next ? 'dark' : 'light') } catch { /* sem storage */ }
+  }
 
   useEffect(() => {
     fetch('/api/notifications')
@@ -71,6 +84,17 @@ export default function Header({ title, subtitle }: HeaderProps) {
           <span>Buscar...</span>
           <span className="ml-auto text-xs bg-white rounded px-1.5 py-0.5 text-gray-400 border border-gray-200">⌘F</span>
         </div>
+
+        <button
+          onClick={toggleTheme}
+          title={dark ? 'Mudar para tema claro' : 'Mudar para tema escuro'}
+          aria-label={dark ? 'Mudar para tema claro' : 'Mudar para tema escuro'}
+          className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-gray-100 transition-colors"
+        >
+          {dark
+            ? <Sun className="w-[18px] h-[18px] text-gray-500" />
+            : <Moon className="w-[18px] h-[18px] text-gray-500" />}
+        </button>
 
         <button className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-gray-100 transition-colors">
           <Mail className="w-[18px] h-[18px] text-gray-500" />

@@ -26,6 +26,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cha
 
   try {
     if (action === 'emit') {
+      const { certStatus } = await (await import('@/lib/focus-nfe')).getFocusConfig()
+      if (certStatus !== 'OK') {
+        return NextResponse.json(
+          { error: 'Emissão bloqueada: aguardando o certificado digital e-CNPJ A1 ser cadastrado na Focus NFe.' },
+          { status: 409 },
+        )
+      }
       const r = await emitForCharge(chargeId)
       await logActivity(admin.id, 'emitiu NFS-e', 'Financeiro', charge.externalRef)
       const nfse = await prisma.nfseInvoice.findUnique({ where: { id: r.invoiceId } })

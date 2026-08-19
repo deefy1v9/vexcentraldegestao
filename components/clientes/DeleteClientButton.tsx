@@ -12,9 +12,12 @@ import { Trash2, AlertTriangle } from 'lucide-react'
 export default function DeleteClientButton({
   clientId,
   clientName,
+  variant = 'button',
 }: {
   clientId: string
   clientName: string
+  /** 'menu' renderiza como item de menu de contexto (largura total) */
+  variant?: 'button' | 'menu'
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -55,9 +58,13 @@ export default function DeleteClientButton({
         type="button"
         onClick={() => setOpen(true)}
         title={`Excluir ${clientName}`}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-medium hover:bg-red-600 hover:text-white transition-colors"
+        className={
+          variant === 'menu'
+            ? 'w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors text-left'
+            : 'inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-medium hover:bg-red-600 hover:text-white transition-colors'
+        }
       >
-        <Trash2 className="w-3 h-3" />
+        <Trash2 className={variant === 'menu' ? 'w-4 h-4' : 'w-3 h-3'} />
         Excluir
       </button>
 

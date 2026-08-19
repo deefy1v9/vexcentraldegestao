@@ -233,6 +233,11 @@ export async function maybeEmitForCharge(chargeId: string, trigger: 'ON_CONFIRME
   if (!charge || charge.nfse) return
   if (!charge.client.nfseEnabled) return
 
+  // Certificado digital pendente: bloqueio silencioso — sem tentativa, sem
+  // log repetido pelo cron/webhook. Libera ao gravar FOCUS_CERT_STATUS=OK.
+  const { certStatus } = await import('./focus-nfe').then((m) => m.getFocusConfig())
+  if (certStatus !== 'OK') return
+
   const cfg = await getFiscalConfig()
   if (!cfg.autoEmit) return
   const rule = charge.client.nfseRule || cfg.emitRule || 'ON_CONFIRMED'

@@ -193,6 +193,7 @@ export default function FinanceiroPanel() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'overview' | 'payments' | 'costs' | 'salaries'>('overview')
+  const [runningJob, setRunningJob] = useState(false)
 
   const load = useCallback(async (p: { year: number; month: number }) => {
     setLoading(true)
@@ -309,6 +310,56 @@ export default function FinanceiroPanel() {
           className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors">
           <ChevronRight className="w-4 h-4" />
         </button>
+
+        <div className="w-px h-6 bg-gray-200 mx-1 hidden sm:block" />
+
+        {/* Gerar cobranças: roda a mesma varredura do agendador (idempotente) */}
+        <button
+          onClick={async () => {
+            if (runningJob) return
+            setRunningJob(true)
+            try {
+              const res = await fetch('/api/asaas/cobrancas', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ runJob: true }),
+              })
+              const r = await res.json().catch(() => ({}))
+              alert(res.ok
+                ? `Cobranças: ${r.created ?? 0} criada(s), ${r.skipped ?? 0} já existente(s)/fora da janela, ${r.errors ?? 0} erro(s).`
+                : r.error || 'Falha ao gerar cobranças.')
+              if (res.ok) load(period)
+            } finally {
+              setRunningJob(false)
+            }
+          }}
+          disabled={runningJob}
+          className="px-3 py-2 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors disabled:opacity-50"
+        >
+          {runningJob ? 'Gerando...' : 'Gerar cobranças'}
+        </button>
+
+        {/* Exporta o mês carregado em CSV (recebimentos + custos + salários) */}
+        <button
+          onClick={() => {
+            if (!data) return
+            const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
+            const rows = [
+              ['tipo', 'descricao', 'cliente/colaborador', 'valor', 'vencimento', 'status'].join(';'),
+              ...payments.map((p) => ['recebimento', `competencia ${String(p.month).padStart(2, '0')}/${p.year}`, p.client.name, p.amount.toFixed(2), p.dueDate?.slice(0, 10) ?? '', p.status].map(esc).join(';')),
+              ...entries.map((e) => [e.type.toLowerCase(), e.name || e.description, e.user?.name ?? e.category, e.amount.toFixed(2), e.dueDate?.slice(0, 10) ?? '', e.status].map(esc).join(';')),
+            ].join('\n')
+            const blob = new Blob([`﻿${rows}`], { type: 'text/csv;charset=utf-8' })
+            const a = document.createElement('a')
+            a.href = URL.createObjectURL(blob)
+            a.download = `financeiro-${period.year}-${String(period.month).padStart(2, '0')}.csv`
+            a.click()
+            URL.revokeObjectURL(a.href)
+          }}
+          className="px-3 py-2 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors"
+        >
+          Exportar relatório
+        </button>
       </div>
 
       {error && (
@@ -326,20 +377,20 @@ export default function FinanceiroPanel() {
             icon: TrendingUp, color: 'text-green-600 bg-green-50',
           },
           {
+            label: 'Receita Prevista', value: formatCurrency(previstoServicos),
+            sub: 'serviços ativos',
+            icon: Users, color: 'text-[#030A8C] bg-blue-50',
+          },
+          {
             label: 'Custos Totais', value: formatCurrency(custosTotais),
             sub: `${formatCurrency(custosPagos)} pago · ${formatCurrency(custosPendentes)} pendente`,
             icon: TrendingDown, color: 'text-red-600 bg-red-50',
           },
           {
-            label: 'Lucro Líquido', value: formatCurrency(lucroRealizado),
-            sub: lucroRealizado >= 0 ? 'resultado positivo' : 'resultado negativo',
+            label: 'Resultado Previsto', value: formatCurrency(resultadoPrevisto),
+            sub: 'receita prevista − custos',
             icon: DollarSign,
-            color: lucroRealizado >= 0 ? 'text-[#030A8C] bg-blue-50' : 'text-red-600 bg-red-50',
-          },
-          {
-            label: 'Salários', value: formatCurrency(salariosPrevistos),
-            sub: `${salaryEntries.length} colaborador(es) · ${formatCurrency(salariosPagos)} pago · ${formatCurrency(salariosPrevistos - salariosPagos)} pendente`,
-            icon: Users, color: 'text-purple-600 bg-purple-50',
+            color: resultadoPrevisto >= 0 ? 'text-[#030A8C] bg-blue-50' : 'text-red-600 bg-red-50',
           },
         ].map((card) => (
           <div key={card.label} className="bg-white rounded-xl border border-gray-200 p-5">
@@ -352,7 +403,7 @@ export default function FinanceiroPanel() {
             {loading ? (
               <div className="h-6 w-24 bg-gray-100 rounded animate-pulse" />
             ) : (
-              <p className={`text-xl font-bold ${card.label === 'Lucro Líquido' && lucroRealizado < 0 ? 'text-red-600' : 'text-gray-900'}`}>
+              <p className={`text-xl font-bold ${card.label === 'Resultado Previsto' && resultadoPrevisto < 0 ? 'text-red-600' : 'text-gray-900'}`}>
                 {card.value}
               </p>
             )}
@@ -425,6 +476,79 @@ export default function FinanceiroPanel() {
         </div>
       </div>
 
+    </div>
+  )
+}
+
+/* ------------------------------- Integrações ------------------------------- */
+
+interface IntegrationsStatus {
+  asaas: { env: string; configured: boolean; connected: boolean }
+  focus: { env: string; mode: string; configured: boolean; certStatus: string }
+  email: { configured: boolean }
+}
+
+/**
+ * Card de integrações com status real (sem tokens). Certificado A1 pendente
+ * NÃO é falha da Focus: aparece como "aguardando certificado" e bloqueia
+ * apenas a emissão de NFS-e — Asaas e o resto seguem normais.
+ */
+function IntegrationsCard() {
+  const [st, setSt] = useState<IntegrationsStatus | null>(null)
+  useEffect(() => {
+    fetch('/api/integracoes/status')
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setSt)
+      .catch(() => {})
+  }, [])
+  if (!st) return null
+
+  const Dot = ({ ok }: { ok: boolean }) => (
+    <span className={`w-2 h-2 rounded-full shrink-0 ${ok ? 'bg-green-500' : 'bg-orange-400'}`} />
+  )
+
+  return (
+    <div className="border border-gray-100 rounded-xl overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+        <p className="font-semibold text-gray-900 text-sm">Integrações</p>
+        <a href="/financeiro/integracoes" className="text-[11px] text-[#030A8C] hover:underline font-medium">
+          Gerenciar integrações
+        </a>
+      </div>
+      <div className="divide-y divide-gray-100 text-sm">
+        <div className="flex items-center justify-between px-4 py-2.5">
+          <span className="flex items-center gap-2 text-gray-700">
+            <Dot ok={st.asaas.connected} /> Asaas
+          </span>
+          <span className="text-xs text-gray-500">
+            {st.asaas.connected ? 'Conectado' : st.asaas.configured ? 'Configurado' : 'Não configurado'} · {st.asaas.env === 'production' ? 'produção' : 'sandbox'}
+          </span>
+        </div>
+        <div className="flex items-center justify-between px-4 py-2.5">
+          <span className="flex items-center gap-2 text-gray-700">
+            <Dot ok={st.focus.configured} /> Focus NFe
+          </span>
+          <span className="text-xs text-gray-500">
+            {st.focus.configured ? 'Conectado' : 'Não configurado'} · {st.focus.env}
+          </span>
+        </div>
+        <div className="flex items-center justify-between px-4 py-2.5">
+          <span className="flex items-center gap-2 text-gray-700">
+            <Dot ok={st.focus.certStatus === 'OK'} /> Certificado digital A1
+          </span>
+          <span className={`text-xs ${st.focus.certStatus === 'OK' ? 'text-gray-500' : 'text-orange-600 font-medium'}`}>
+            {st.focus.certStatus === 'OK' ? 'Cadastrado' : 'Aguardando certificado'}
+          </span>
+        </div>
+        <div className="flex items-center justify-between px-4 py-2.5">
+          <span className="flex items-center gap-2 text-gray-700">
+            <Dot ok={st.email.configured} /> E-mail transacional
+          </span>
+          <span className="text-xs text-gray-500">
+            {st.email.configured ? 'Configurado' : 'SMTP pendente'}
+          </span>
+        </div>
+      </div>
     </div>
   )
 }
@@ -506,6 +630,7 @@ function OverviewTab({
           )}
         </div>
 
+        <div className="space-y-4">
         {/* Movimentações recentes */}
         <div className="border border-gray-100 rounded-xl overflow-hidden">
           <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
@@ -532,6 +657,10 @@ function OverviewTab({
               ))}
             </div>
           )}
+        </div>
+
+        {/* Integrações — status real, sem tokens */}
+        <IntegrationsCard />
         </div>
       </div>
     </div>

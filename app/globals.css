@@ -75,3 +75,78 @@ body {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* ===========================================================================
+   TEMA ESCURO — ativado pela classe .dark no <html> (toggle no cabeçalho,
+   persistido em localStorage; sem preferência salva vale o tema do sistema).
+   Estratégia: remapeio central das utilities de cor mais usadas, sem tocar
+   componente por componente. Paleta: fundo #0B1220, cartão #101A30 (azul-
+   marinho VEX), bordas discretas, texto claro com contraste acessível.
+   =========================================================================== */
+.dark {
+  --background: #0B1220;
+  --surface: #101A30;
+  --border: #1E2A47;
+  --text: #E7EBF4;
+  --text-secondary: #9AA6BF;
+}
+
+.dark body { background: var(--background); color: var(--text); }
+
+/* Superfícies */
+.dark .bg-white { background-color: var(--surface) !important; }
+.dark .bg-gray-50, .dark .bg-gray-100 { background-color: #0E1730 !important; }
+.dark .hover\:bg-gray-50:hover, .dark .hover\:bg-gray-100:hover { background-color: #16223f !important; }
+.dark .hover\:bg-gray-200:hover { background-color: #1c2a4c !important; }
+.dark .bg-black\/40 { background-color: rgba(0, 0, 0, 0.65) !important; }
+
+/* Tons suaves de status (mantêm o matiz, fundo escuro) */
+.dark .bg-blue-50 { background-color: rgba(48, 90, 255, 0.12) !important; }
+.dark .bg-green-50, .dark .bg-green-100 { background-color: rgba(34, 197, 94, 0.14) !important; }
+.dark .bg-red-50, .dark .bg-red-100 { background-color: rgba(239, 68, 68, 0.14) !important; }
+.dark .bg-orange-50, .dark .bg-orange-100 { background-color: rgba(249, 115, 22, 0.14) !important; }
+.dark .bg-yellow-50 { background-color: rgba(234, 179, 8, 0.12) !important; }
+.dark .bg-purple-50, .dark .bg-purple-100 { background-color: rgba(139, 92, 246, 0.14) !important; }
+.dark .bg-teal-50, .dark .bg-teal-100 { background-color: rgba(20, 184, 166, 0.14) !important; }
+
+/* Texto */
+.dark .text-gray-900, .dark .text-gray-800 { color: var(--text) !important; }
+.dark .text-gray-700, .dark .text-gray-600 { color: #C3CBDD !important; }
+.dark .text-gray-500 { color: var(--text-secondary) !important; }
+.dark .text-gray-400 { color: #7A879F !important; }
+.dark .text-gray-300 { color: #55617A !important; }
+.dark .text-green-700 { color: #4ade80 !important; }
+.dark .text-red-700 { color: #f87171 !important; }
+.dark .text-orange-700 { color: #fb923c !important; }
+.dark .text-purple-700 { color: #c084fc !important; }
+.dark .text-teal-700 { color: #2dd4bf !important; }
+.dark .text-\[\#030A8C\] { color: #8FA2FF !important; }
+.dark .bg-\[\#030A8C\]\/5, .dark .bg-\[\#030A8C\]\/10 { background-color: rgba(143, 162, 255, 0.12) !important; }
+
+/* Bordas e divisores */
+.dark .border-gray-100, .dark .border-gray-200, .dark .border-gray-300 { border-color: var(--border) !important; }
+.dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]),
+.dark .divide-gray-50 > :not([hidden]) ~ :not([hidden]) { border-color: var(--border) !important; }
+.dark .border-dashed { border-color: #2a3a63 !important; }
+
+/* Inputs e componentes utilitários próprios */
+.dark .input { background: #0E1730; border-color: var(--border); color: var(--text); }
+.dark .input::placeholder { color: #55617A; }
+.dark .input:focus { border-color: #8FA2FF; box-shadow: 0 0 0 3px rgba(143, 162, 255, 0.15); }
+.dark select, .dark input[type="date"], .dark input[type="time"], .dark input[type="month"] { color-scheme: dark; }
+
+/* Sombras mais discretas no escuro */
+.dark .shadow-sm, .dark .shadow-md, .dark .shadow-lg, .dark .shadow-xl { box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45) !important; }
+
+/* Transição suave na troca de tema */
+html { transition: background-color 0.25s ease; }
+body, .bg-white, .input { transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease; }
+
+/* Acessibilidade: reduz animações para quem prefere menos movimento */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
