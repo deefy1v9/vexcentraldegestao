@@ -218,8 +218,8 @@ export default function ClientServicesPanel({
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-6">
-      <div className="flex items-center justify-between mb-1">
+    <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
+      <div className="flex items-center justify-between gap-2 flex-wrap mb-1">
         <h2 className="font-semibold text-gray-900 flex items-center gap-2">
           <Briefcase className="w-4 h-4 text-[#030A8C]" />
           Serviços Contratados
@@ -257,10 +257,10 @@ export default function ClientServicesPanel({
       )}
 
       {showForm && isAdmin && (
-        <div className="bg-gray-50 rounded-lg p-5 mb-4 space-y-4 border border-gray-200">
+        <div className="bg-gray-50 rounded-lg p-4 sm:p-5 mb-4 space-y-4 border border-gray-200">
           <h3 className="font-semibold text-gray-800 text-sm">Adicionar serviço</h3>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {/* Serviço */}
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">Serviço *</label>
@@ -350,7 +350,7 @@ export default function ClientServicesPanel({
           </div>
 
           {/* Datas */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">Data de início</label>
               <input type="date" value={form.startDate}

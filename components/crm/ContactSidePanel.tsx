@@ -191,7 +191,7 @@ export default function ContactSidePanel({
   )
 
   return (
-    <div className="w-[320px] border-l border-gray-200 bg-white flex flex-col shrink-0">
+    <div className="w-[86vw] max-w-[340px] lg:w-[320px] h-full border-l border-gray-200 bg-white flex flex-col shrink-0">
       <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
         <div className="flex-1 min-w-0">
           <p className="text-xs font-semibold text-gray-900 truncate">{contactName}</p>

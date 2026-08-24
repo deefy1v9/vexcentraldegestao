@@ -10,7 +10,7 @@ export default async function IntegracoesPage() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <Header title="Diagnóstico das integrações" subtitle="Asaas e Focus NFe — status, webhooks e pendências" />
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
         <IntegrationsDiagnostics />
       </div>
     </div>

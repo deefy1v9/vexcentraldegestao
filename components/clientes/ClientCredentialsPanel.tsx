@@ -64,7 +64,7 @@ export default function ClientCredentialsPanel({
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-6">
+    <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-semibold text-gray-900 flex items-center gap-2">
           <Lock className="w-4 h-4 text-[#030A8C]" />
@@ -81,7 +81,7 @@ export default function ClientCredentialsPanel({
 
       {showForm && (
         <div className="bg-gray-50 rounded-lg p-4 mb-4 space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1 block">Tipo</label>
               <select value={form.type} onChange={(e) => setForm((p) => ({ ...p, type: e.target.value }))}
@@ -116,7 +116,7 @@ export default function ClientCredentialsPanel({
               <input value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
                 className="input text-sm" placeholder="email@..." />
             </div>
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <label className="text-xs font-medium text-gray-600 mb-1 block">Notas</label>
               <input value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
                 className="input text-sm" placeholder="Informações adicionais..." />
@@ -194,7 +194,7 @@ export default function ClientCredentialsPanel({
                   </div>
                 )}
                 {cred.notes && (
-                  <div className="col-span-2 text-gray-500 italic">{cred.notes}</div>
+                  <div className="sm:col-span-2 text-gray-500 italic">{cred.notes}</div>
                 )}
               </div>
             </div>

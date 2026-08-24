@@ -117,7 +117,7 @@ export default function EditColaboradorPage() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <Header title={`Editar — ${user.name}`} subtitle={user.position || user.role} />
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
         <div className="max-w-4xl">
           <Link href="/colaboradores" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 mb-6">
             <ArrowLeft className="w-4 h-4" /> Voltar para Colaboradores
@@ -127,7 +127,7 @@ export default function EditColaboradorPage() {
             {/* Edit Form */}
             <div className="lg:col-span-2 space-y-4">
               <form onSubmit={handleSave} className="space-y-4">
-                <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
+                <div className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6 space-y-4">
                   <h2 className="font-bold text-gray-900 flex items-center gap-2">
                     <div className="w-7 h-7 bg-[#030A8C]/10 rounded-lg flex items-center justify-center">
                       <Mail className="w-4 h-4 text-[#030A8C]" />
@@ -190,7 +190,7 @@ export default function EditColaboradorPage() {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
+                <div className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6 space-y-4">
                   <h2 className="font-bold text-gray-900 flex items-center gap-2">
                     <div className="w-7 h-7 bg-[#030A8C]/10 rounded-lg flex items-center justify-center">
                       <DollarSign className="w-4 h-4 text-[#030A8C]" />
@@ -211,7 +211,7 @@ export default function EditColaboradorPage() {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
+                <div className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6 space-y-4">
                   <h2 className="font-bold text-gray-900">Alterar Senha</h2>
                   <p className="text-xs text-gray-500">Deixe em branco para manter a senha atual.</p>
                   <input
@@ -224,11 +224,11 @@ export default function EditColaboradorPage() {
                   />
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                   <button
                     type="submit"
                     disabled={saving}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-[#030A8C] text-white rounded-xl text-sm font-medium hover:bg-[#02077a] transition-colors disabled:opacity-50"
+                    className="flex items-center justify-center gap-2 px-5 py-2.5 bg-[#030A8C] text-white rounded-xl text-sm font-medium hover:bg-[#02077a] transition-colors disabled:opacity-50"
                   >
                     <Save className="w-4 h-4" />
                     {saving ? 'Salvando...' : 'Salvar Alterações'}
@@ -242,7 +242,7 @@ export default function EditColaboradorPage() {
                   <button
                     type="button"
                     onClick={handleDeactivate}
-                    className="ml-auto flex items-center gap-2 px-4 py-2.5 text-red-500 hover:bg-red-50 rounded-xl text-sm font-medium transition-colors"
+                    className="sm:ml-auto flex items-center gap-2 px-4 py-2.5 text-red-500 hover:bg-red-50 rounded-xl text-sm font-medium transition-colors"
                   >
                     <Trash2 className="w-4 h-4" />
                     Desativar

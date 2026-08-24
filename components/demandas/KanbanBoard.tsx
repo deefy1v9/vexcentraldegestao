@@ -550,7 +550,7 @@ export default function KanbanBoard({
     <>
       {/* Minhas Demandas — resumo pessoal, aberto por padrão para o colaborador */}
       {myTasks.length > 0 && (
-        <div className="px-6 pt-4">
+        <div className="px-4 sm:px-6 pt-4">
           <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
               <p className="font-semibold text-gray-900 text-sm">Minhas Demandas</p>
@@ -601,7 +601,7 @@ export default function KanbanBoard({
       )}
 
       {/* Collaborator filter bar */}
-      <div className="px-6 py-3 border-b border-gray-100 flex items-center gap-2 flex-wrap">
+      <div className="px-4 sm:px-6 py-3 border-b border-gray-100 flex items-center gap-2 flex-wrap">
         {isAdmin && (
           <button
             onClick={() => setSelectedUserId('all')}
@@ -693,7 +693,7 @@ export default function KanbanBoard({
       )}
 
       {/* Kanban board */}
-      <div className="flex-1 overflow-x-auto p-6">
+      <div className="flex-1 overflow-x-auto p-4 sm:p-6">
         <div className="flex gap-4 h-full min-w-max">
           {COLUMNS.map((col) => {
             const colTasks = visibleTasks.filter((t) => t.status === col.key).sort(compareTasks)
@@ -999,7 +999,7 @@ export default function KanbanBoard({
                     {selectedTask.description && <p className="text-sm text-gray-500">{selectedTask.description}</p>}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                     <div>
                       <p className="text-xs text-gray-400 mb-1 font-medium">Status</p>
                       {/* Colaborador só mexe no status da demanda atribuída a ele
@@ -1349,7 +1349,7 @@ export default function KanbanBoard({
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
                       <select

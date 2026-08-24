@@ -273,7 +273,7 @@ export default function FinanceiroPanel() {
   ] as const
 
   return (
-    <div className="flex-1 overflow-y-auto p-6 space-y-6">
+    <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
 
       {/* Atalhos administrativos */}
       <div className="flex items-center justify-end gap-2 -mb-3">
@@ -286,7 +286,7 @@ export default function FinanceiroPanel() {
       </div>
 
       {/* Navegação de mês */}
-      <div className="flex items-center justify-center gap-2">
+      <div className="flex flex-wrap items-center justify-center gap-2">
         <button onClick={() => shiftMonth(-1)} aria-label="Mês anterior"
           className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors">
           <ChevronLeft className="w-4 h-4" />

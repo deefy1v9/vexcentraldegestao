@@ -37,29 +37,30 @@ export default async function LogsPage({
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <Header title="Logs de Atividade" subtitle="Registro de todas as ações no sistema" />
-      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
         {/* Filters */}
-        <form className="flex gap-3 flex-wrap">
-          <select name="userId" defaultValue={userId || ''} className="input text-sm max-w-[200px]">
+        <form className="flex flex-col sm:flex-row gap-3 sm:flex-wrap">
+          <select name="userId" defaultValue={userId || ''} className="input text-sm w-full sm:w-auto sm:max-w-[200px]">
             <option value="">Todos os colaboradores</option>
             {users.map((u) => (
               <option key={u.id} value={u.id}>{u.name}</option>
             ))}
           </select>
-          <select name="module" defaultValue={module || ''} className="input text-sm max-w-[200px]">
+          <select name="module" defaultValue={module || ''} className="input text-sm w-full sm:w-auto sm:max-w-[200px]">
             <option value="">Todos os módulos</option>
             {modules.map((m) => (
               <option key={m} value={m}>{m}</option>
             ))}
           </select>
           <button type="submit"
-            className="px-4 py-2 bg-[#030A8C] text-white rounded-lg text-sm font-medium hover:bg-[#02077a] transition-colors">
+            className="w-full sm:w-auto px-4 py-2 bg-[#030A8C] text-white rounded-lg text-sm font-medium hover:bg-[#02077a] transition-colors">
             Filtrar
           </button>
         </form>
 
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <table className="w-full">
+          <div className="overflow-x-auto -mx-4 sm:mx-0">
+          <table className="w-full min-w-[600px]">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50">
                 <th className="text-left text-xs font-semibold text-gray-500 px-4 py-3 uppercase tracking-wide">Colaborador</th>
@@ -104,6 +105,7 @@ export default async function LogsPage({
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
     </div>

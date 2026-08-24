@@ -73,7 +73,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
   /* ------------------------------ seções (server) ------------------------------ */
 
   const infoCard = (
-    <div className="bg-white rounded-xl border border-gray-200 p-6">
+    <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-semibold text-gray-900">Dados do Cliente</h2>
         {isAdmin && (
@@ -207,7 +207,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
 
   const billingSection = isAdmin ? (
     <div className="space-y-4">
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-semibold text-gray-900">Faturamento e NFS-e</h2>
           <Link href={`/clientes/${id}/editar`} className="flex items-center gap-1 text-xs text-[#030A8C] hover:underline font-medium">
@@ -241,7 +241,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
         )}
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
         <h2 className="font-semibold text-gray-900 mb-3">Cobranças Asaas</h2>
         {client.asaasCharges.length === 0 ? (
           <p className="text-xs text-gray-500">Nenhuma cobrança gerada ainda — use os Recebimentos do Financeiro para gerar.</p>
@@ -280,7 +280,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
   )
 
   const historySection = (
-    <div className="bg-white rounded-xl border border-gray-200 p-6">
+    <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
       <h2 className="font-semibold text-gray-900 mb-3">Histórico do cliente</h2>
       <div className="space-y-1.5">
         <p className="text-[11px] text-gray-500">Cadastrado em {formatDate(client.createdAt)}</p>
@@ -302,7 +302,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <Header title={client.name} subtitle={client.niche || 'Cliente'} />
-      <div className="flex-1 overflow-y-auto p-6 space-y-5">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <Link href="/clientes" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900">
             <ArrowLeft className="w-4 h-4" /> Voltar para Clientes
@@ -349,7 +349,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
               <ClientServicesPanel clientId={id} initialServices={sanitizedServices} isAdmin={isAdmin} />
             ),
             financeiro: (
-              <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
                 <h2 className="font-semibold text-gray-900 mb-3">Histórico de Pagamentos</h2>
                 {paymentsList()}
               </div>

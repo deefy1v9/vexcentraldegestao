@@ -86,12 +86,12 @@ export default function BillingWhatsAppSettings() {
           de confirmação. A primeira resposta registra o pagamento — sem duplicar.
         </p>
 
-        <div className="flex flex-wrap items-end gap-3">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-3">
           <div>
             <label className="text-xs font-medium text-gray-600 mb-1 block">Horário do envio diário</label>
             <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="input text-sm !w-auto" />
           </div>
-          <div className="flex-1 min-w-[220px]">
+          <div className="flex-1 sm:min-w-[220px]">
             <label className="text-xs font-medium text-gray-600 mb-1 block">
               Conta padrão para recebimentos confirmados pelo WhatsApp
             </label>
@@ -105,7 +105,7 @@ export default function BillingWhatsAppSettings() {
           <button
             onClick={save}
             disabled={saving}
-            className="flex items-center gap-1.5 px-4 py-2 bg-[#030A8C] text-white rounded-lg text-xs font-semibold hover:bg-[#02077a] disabled:opacity-50 transition-colors"
+            className="flex items-center justify-center gap-1.5 w-full sm:w-auto px-4 py-2 bg-[#030A8C] text-white rounded-lg text-xs font-semibold hover:bg-[#02077a] disabled:opacity-50 transition-colors"
           >
             {saved ? <Check className="w-3.5 h-3.5" /> : null}
             {saving ? 'Salvando...' : saved ? 'Salvo' : 'Salvar'}

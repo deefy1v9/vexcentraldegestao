@@ -193,17 +193,17 @@ export default async function DashboardPage() {
     <div className="flex flex-col h-full overflow-hidden">
       <Header title="Dashboard" subtitle={timeStr} />
 
-      <div className="flex-1 overflow-y-auto p-6 space-y-5">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
 
         {/* Welcome */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h2 className="text-lg font-bold text-gray-900">Olá, {firstName} 👋</h2>
             <p className="text-sm text-gray-500 mt-0.5">Resumo da agência de hoje.</p>
           </div>
           <Link
             href="/demandas"
-            className="flex items-center gap-2 bg-[#030A8C] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#02077a] transition-colors"
+            className="flex items-center justify-center gap-2 w-full sm:w-auto bg-[#030A8C] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#02077a] transition-colors"
           >
             <Kanban className="w-4 h-4" />
             Ver Demandas

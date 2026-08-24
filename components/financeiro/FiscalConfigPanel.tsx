@@ -150,7 +150,7 @@ export default function FiscalConfigPanel() {
         </p>
       )}
 
-      <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+      <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 space-y-4">
         <h2 className="font-bold text-gray-900">Prestador</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
@@ -188,7 +188,7 @@ export default function FiscalConfigPanel() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+      <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 space-y-4">
         <h2 className="font-bold text-gray-900">Serviço e tributos</h2>
         <p className="text-xs text-gray-400">
           Preencha com os valores validados pela contabilidade e pelas regras do seu município. Nada aqui é presumido pelo sistema.
@@ -245,7 +245,7 @@ export default function FiscalConfigPanel() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+      <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 space-y-4">
         <h2 className="font-bold text-gray-900">Emissão</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <label className="flex items-center gap-2 text-sm text-gray-700">

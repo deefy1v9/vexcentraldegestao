@@ -204,7 +204,7 @@ export default function EditClientePage() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <Header title={`Editar — ${client.name}`} subtitle={client.niche || 'Cliente'} />
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
         <div className="max-w-3xl">
           <Link href={`/clientes/${id}`} className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 mb-6">
             <ArrowLeft className="w-4 h-4" /> Voltar para o cliente
@@ -212,7 +212,7 @@ export default function EditClientePage() {
 
           <form onSubmit={handleSave} className="space-y-4">
             {/* Dados básicos */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
+            <div className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6 space-y-4">
               <h2 className="font-bold text-gray-900">Dados do Cliente</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-2">
@@ -259,7 +259,7 @@ export default function EditClientePage() {
             </div>
 
             {/* Contrato */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
+            <div className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6 space-y-4">
               <h2 className="font-bold text-gray-900">Contrato</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
@@ -289,7 +289,7 @@ export default function EditClientePage() {
             </div>
 
             {/* Serviços */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
+            <div className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="font-bold text-gray-900">Serviços Contratados</h2>
                 <p className="text-xs text-gray-500">
@@ -353,7 +353,7 @@ export default function EditClientePage() {
             />
 
             {/* Observações */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
+            <div className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6 space-y-4">
               <h2 className="font-bold text-gray-900">Observações</h2>
               <textarea
                 value={form.notes}
@@ -371,7 +371,7 @@ export default function EditClientePage() {
             )}
 
             {/* Actions */}
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <button
                 type="submit"
                 disabled={saving}

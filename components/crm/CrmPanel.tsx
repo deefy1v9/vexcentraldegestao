@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   Send, Plus, X, MessageCircle, Phone, Search,
   Settings, Paperclip, Loader2, Wifi, WifiOff,
-  RefreshCw, Copy, Check, PanelRight,
+  RefreshCw, Copy, Check, PanelRight, ChevronLeft,
 } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import ContactSidePanel from './ContactSidePanel'
@@ -307,9 +307,12 @@ export default function CrmPanel({
           : 'Desconectado'
 
   return (
-    <div className="flex-1 flex overflow-hidden">
+    <div className="flex-1 flex overflow-hidden relative">
       {/* ── Contact sidebar ── */}
-      <div className="w-[280px] border-r border-gray-200 bg-white flex flex-col shrink-0">
+      {/* No mobile, a lista ocupa a tela toda; ao abrir uma conversa ela some
+          e o chat aparece no lugar (painel único). No desktop (lg+) é uma
+          coluna fixa ao lado. */}
+      <div className={`w-full lg:w-[280px] border-r border-gray-200 bg-white flex-col shrink-0 ${selectedContact ? 'hidden lg:flex' : 'flex'}`}>
 
         {/* Header */}
         <div className="px-4 pt-4 pb-3 border-b border-gray-200">
@@ -398,10 +401,18 @@ export default function CrmPanel({
       {/* ── Chat area ── */}
       {selectedContact ? (
         <>
-        <div className="flex-1 flex flex-col bg-gray-50">
+        <div className="flex-1 flex flex-col bg-gray-50 min-w-0">
 
           {/* Chat header */}
-          <div className="bg-white border-b border-gray-200 px-5 py-3 flex items-center gap-3 shrink-0">
+          <div className="bg-white border-b border-gray-200 px-4 sm:px-5 py-3 flex items-center gap-2 sm:gap-3 shrink-0">
+            {/* Voltar para a lista — só no mobile (painel único). */}
+            <button
+              onClick={() => setSelectedContact(null)}
+              aria-label="Voltar para conversas"
+              className="lg:hidden p-1 -ml-1 shrink-0 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <ChevronLeft className="w-5 h-5 text-gray-500" />
+            </button>
             <div className="w-9 h-9 bg-[#030A8C] rounded-full flex items-center justify-center shrink-0">
               <span className="text-white font-bold text-sm">{getInitial(contactName(selectedContact))}</span>
             </div>
@@ -507,16 +518,27 @@ export default function CrmPanel({
         </div>
 
         {showSidePanel && (
-          <ContactSidePanel
-            key={selectedContact.id}
-            contactId={selectedContact.id}
-            contactName={contactName(selectedContact)}
-            onClose={() => setShowSidePanel(false)}
-          />
+          <>
+            {/* No mobile o painel de atividades vira um drawer sobreposto;
+                no desktop (lg+) é a terceira coluna, no fluxo. */}
+            <div
+              className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+              onClick={() => setShowSidePanel(false)}
+              aria-hidden
+            />
+            <div className="fixed inset-y-0 right-0 z-50 lg:static lg:z-auto">
+              <ContactSidePanel
+                key={selectedContact.id}
+                contactId={selectedContact.id}
+                contactName={contactName(selectedContact)}
+                onClose={() => setShowSidePanel(false)}
+              />
+            </div>
+          </>
         )}
         </>
       ) : (
-        <div className="flex-1 flex items-center justify-center bg-gray-50">
+        <div className="flex-1 hidden lg:flex items-center justify-center bg-gray-50">
           <div className="text-center">
             <div className="w-16 h-16 bg-white border border-gray-200 rounded-2xl flex items-center justify-center mx-auto mb-4">
               <MessageCircle className="w-8 h-8 text-gray-300" />
@@ -530,8 +552,8 @@ export default function CrmPanel({
       {/* ── Settings modal (WhatsApp connection) ── */}
       {showSettings && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white border border-gray-200 rounded-2xl w-full max-w-sm shadow-2xl">
-            <div className="flex items-center justify-between p-5 border-b border-gray-100">
+          <div className="bg-white border border-gray-200 rounded-2xl w-full max-w-sm shadow-2xl max-h-[90dvh] overflow-y-auto">
+            <div className="flex items-center justify-between p-5 border-b border-gray-100 sticky top-0 bg-white z-10">
               <h3 className="font-semibold text-gray-900">Configurações WhatsApp</h3>
               <button onClick={() => setShowSettings(false)} className="p-1 hover:bg-gray-100 rounded-lg transition-colors">
                 <X className="w-5 h-5 text-gray-400" />

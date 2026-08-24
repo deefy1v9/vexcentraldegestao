@@ -89,7 +89,7 @@ export default function IntegrationsDiagnostics() {
       </div>
 
       {/* Asaas */}
-      <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-2 text-sm">
+      <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 space-y-2 text-sm">
         <p className="font-bold text-gray-900">Asaas</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-gray-700">
           <p className="flex items-center gap-2"><Flag ok={diag.asaas.env === 'sandbox'} warn={diag.asaas.env === 'production'} /> Ambiente: <b>{diag.asaas.env}</b></p>
@@ -111,7 +111,7 @@ export default function IntegrationsDiagnostics() {
       </div>
 
       {/* Focus */}
-      <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-2 text-sm">
+      <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 space-y-2 text-sm">
         <p className="font-bold text-gray-900">Focus NFe</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-gray-700">
           <p className="flex items-center gap-2"><Flag ok={diag.focus.env === 'homologacao'} warn={diag.focus.env === 'producao'} /> Ambiente: <b>{diag.focus.env}</b></p>
@@ -133,7 +133,7 @@ export default function IntegrationsDiagnostics() {
       </div>
 
       {/* Fiscal + cron + eventos */}
-      <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-1.5 text-sm text-gray-700">
+      <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 space-y-1.5 text-sm text-gray-700">
         <p className="font-bold text-gray-900 mb-1">Sistema</p>
         <p className="flex items-center gap-2">
           <Flag ok={diag.fiscal.ready} />
@@ -153,7 +153,7 @@ export default function IntegrationsDiagnostics() {
 
       {/* Cadastros incompletos */}
       {diag.clients.incomplete.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-200 p-5 text-sm">
+        <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 text-sm">
           <p className="font-bold text-gray-900 mb-2">Clientes com cadastro incompleto para cobrança</p>
           <div className="space-y-1">
             {diag.clients.incomplete.map((c) => (

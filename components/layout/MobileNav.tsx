@@ -1,6 +1,5 @@
 'use client'
 import { createContext, useContext, useState, useCallback, useEffect } from 'react'
-import { usePathname } from 'next/navigation'
 
 /**
  * Estado da navegação mobile, compartilhado entre o hambúrguer (no Header,
@@ -23,15 +22,13 @@ const MobileNavContext = createContext<MobileNavState>({
 
 export function MobileNavProvider({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false)
-  const pathname = usePathname()
 
   const toggle = useCallback(() => setOpen((o) => !o), [])
   const close = useCallback(() => setOpen(false), [])
 
-  // Fecha o drawer ao navegar para outra rota.
-  useEffect(() => {
-    setOpen(false)
-  }, [pathname])
+  // O drawer fecha ao navegar porque cada item da Sidebar chama close() no
+  // clique; e com o drawer aberto o backdrop cobre o resto da tela, então não
+  // há outra forma de navegar sem fechá-lo antes.
 
   // Trava o scroll do body enquanto o drawer estiver aberto no mobile.
   useEffect(() => {

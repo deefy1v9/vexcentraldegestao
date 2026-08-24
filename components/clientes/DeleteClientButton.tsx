@@ -70,7 +70,7 @@ export default function DeleteClientButton({
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-xl w-full max-w-md p-6 shadow-xl">
+          <div className="bg-white rounded-xl w-full max-w-md max-h-[90dvh] overflow-y-auto p-4 sm:p-6 shadow-xl">
             <div className="flex items-start gap-3 mb-4">
               <div className="w-9 h-9 rounded-lg bg-red-50 flex items-center justify-center shrink-0">
                 <AlertTriangle className="w-4 h-4 text-red-600" />

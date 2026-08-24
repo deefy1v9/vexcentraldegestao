@@ -86,20 +86,20 @@ export default function TierRangesConfig() {
             O grupo recomendado de cada cliente é calculado pelo ticket mensal (soma dos serviços
             ativos). Classificações manuais têm prioridade e nunca são alteradas automaticamente.
           </p>
-          <div className="flex flex-wrap items-end gap-3">
-            <div>
+          <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-3">
+            <div className="w-full sm:w-auto">
               <label className="text-xs font-medium text-gray-600 mb-1 block">Start: ticket até</label>
               <CurrencyInput value={startMax} onChange={setStartMax} className="input text-sm" ariaLabel="Limite do grupo Start" />
             </div>
-            <div>
+            <div className="w-full sm:w-auto">
               <label className="text-xs font-medium text-gray-600 mb-1 block">Growth: ticket até</label>
               <CurrencyInput value={growthMax} onChange={setGrowthMax} className="input text-sm" ariaLabel="Limite do grupo Growth" />
             </div>
-            <p className="text-xs text-gray-400 pb-2.5">Scale: acima do limite do Growth</p>
+            <p className="text-xs text-gray-400 sm:pb-2.5">Scale: acima do limite do Growth</p>
             <button
               onClick={save}
               disabled={saving}
-              className="flex items-center gap-1.5 px-4 py-2 bg-[#030A8C] text-white rounded-lg text-xs font-semibold hover:bg-[#02077a] disabled:opacity-50 transition-colors"
+              className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 bg-[#030A8C] text-white rounded-lg text-xs font-semibold hover:bg-[#02077a] disabled:opacity-50 transition-colors"
             >
               {savedMsg ? <Check className="w-3.5 h-3.5" /> : null}
               {saving ? 'Salvando...' : 'Salvar faixas'}
