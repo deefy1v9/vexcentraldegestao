@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { reclassifyAllClients } from '@/lib/client-tier'
+import { encryptSecret, decryptSecret } from '@/lib/crypto'
+import { SECRET_SETTING_KEYS } from '@/lib/settings'
 
 const ALLOWED_KEYS = [
   'UAZAPI_URL',
@@ -56,6 +58,7 @@ export async function GET() {
   for (const row of rows) {
     // Segredos das integrações nunca saem em resposta HTTP — só a presença
     if (SECRET_KEYS.has(row.key)) result[`${row.key}_SET`] = row.value ? 'true' : 'false'
+    else if (SECRET_SETTING_KEYS.has(row.key)) result[row.key] = decryptSecret(row.value) ?? ''
     else result[row.key] = row.value
   }
   return NextResponse.json(result)
@@ -68,10 +71,22 @@ export async function PUT(req: NextRequest) {
   const body = await req.json()
 
   for (const k of ALLOWED_KEYS.filter((key) => body[key] !== undefined)) {
+    const raw = String(body[k])
+    const isSecret = SECRET_SETTING_KEYS.has(k)
+
+    // Campo de segredo em branco significa "não mexi nele" — o formulário de
+    // integrações só exibe se o valor existe, nunca o valor. Gravar o vazio
+    // apagaria a chave do Asaas ou da Focus sem ninguém perceber.
+    if (isSecret && !raw) continue
+
+    // Segredos de integração cifrados em repouso (AES-256-GCM): dão acesso a
+    // dinheiro, emissão fiscal e à caixa de e-mail da agência.
+    const stored = isSecret ? (encryptSecret(raw) ?? '') : raw
+
     await prisma.$executeRaw`
       INSERT INTO "SystemSettings" (key, value, "updatedAt")
-      VALUES (${k}, ${String(body[k])}, NOW())
-      ON CONFLICT (key) DO UPDATE SET value = ${String(body[k])}, "updatedAt" = NOW()
+      VALUES (${k}, ${stored}, NOW())
+      ON CONFLICT (key) DO UPDATE SET value = ${stored}, "updatedAt" = NOW()
     `
   }
 

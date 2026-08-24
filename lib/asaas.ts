@@ -1,4 +1,5 @@
 import { prisma } from './prisma'
+import { getSettings } from './settings'
 
 /**
  * Cliente HTTP do Asaas — exclusivo do backend.
@@ -13,10 +14,7 @@ import { prisma } from './prisma'
 const SANDBOX_URL = process.env.ASAAS_SANDBOX_BASE_URL || 'https://api-sandbox.asaas.com/v3'
 const PRODUCTION_URL = process.env.ASAAS_PRODUCTION_BASE_URL || 'https://api.asaas.com/v3'
 
-async function getSettings(keys: string[]): Promise<Record<string, string>> {
-  const rows = await prisma.systemSettings.findMany({ where: { key: { in: keys } } })
-  return Object.fromEntries(rows.map((r) => [r.key, r.value]))
-}
+
 
 export async function getAsaasConfig() {
   const s = await getSettings(['ASAAS_ENV', 'ASAAS_API_KEY', 'ASAAS_WEBHOOK_TOKEN'])

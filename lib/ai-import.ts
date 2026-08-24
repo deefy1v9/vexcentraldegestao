@@ -1,6 +1,7 @@
 import { createHash } from 'crypto'
 import { z } from 'zod'
 import { prisma } from './prisma'
+import { getSettings } from './settings'
 
 /**
  * Importação de calendário/briefing com IA (OpenAI).
@@ -20,13 +21,11 @@ const TZ_NOTE = 'America/Sao_Paulo'
 /* --------------------------------- config --------------------------------- */
 
 export async function getAiConfig() {
-  const rows = await prisma.$queryRaw<Array<{ key: string; value: string }>>`
-    SELECT key, value FROM "SystemSettings" WHERE key IN ('OPENAI_API_KEY', 'OPENAI_MODEL')
-  `
-  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]))
+  // getSettings descriptografa OPENAI_API_KEY quando ela estiver cifrada.
+  const s = await getSettings(['OPENAI_API_KEY', 'OPENAI_MODEL'])
   return {
-    apiKey: map['OPENAI_API_KEY'] || process.env.OPENAI_API_KEY || '',
-    model: map['OPENAI_MODEL'] || process.env.OPENAI_MODEL || 'gpt-4o-mini',
+    apiKey: s.OPENAI_API_KEY || process.env.OPENAI_API_KEY || '',
+    model: s.OPENAI_MODEL || process.env.OPENAI_MODEL || 'gpt-4o-mini',
   }
 }
 

@@ -1,4 +1,5 @@
 import { prisma } from './prisma'
+import { getSettings } from './settings'
 import { focusBasicAuth } from './billing-core'
 
 /**
@@ -14,10 +15,7 @@ import { focusBasicAuth } from './billing-core'
 const HOMOLOG_URL = process.env.FOCUS_NFE_HOMOLOGACAO_BASE_URL || 'https://homologacao.focusnfe.com.br'
 const PROD_URL = process.env.FOCUS_NFE_PRODUCAO_BASE_URL || 'https://api.focusnfe.com.br'
 
-async function getSettings(keys: string[]): Promise<Record<string, string>> {
-  const rows = await prisma.systemSettings.findMany({ where: { key: { in: keys } } })
-  return Object.fromEntries(rows.map((r) => [r.key, r.value]))
-}
+
 
 export async function getFocusConfig() {
   const s = await getSettings([

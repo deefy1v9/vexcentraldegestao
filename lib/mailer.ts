@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer'
 import { prisma } from './prisma'
+import { getSettings } from './settings'
 
 /**
  * E-mail transacional do sistema — exclusivo do backend.
@@ -19,10 +20,7 @@ export const MAIL_FROM = 'VEX Growth Financeiro <financeiro@vexgrowth.com.br>'
 export const MAIL_REPLY_TO = 'financeiro@vexgrowth.com.br'
 
 async function getSmtpConfig() {
-  const rows = await prisma.systemSettings.findMany({
-    where: { key: { in: ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'SMTP_SECURE'] } },
-  })
-  const s = Object.fromEntries(rows.map((r) => [r.key, r.value]))
+  const s = await getSettings(['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'SMTP_SECURE'])
   const host = s.SMTP_HOST || process.env.SMTP_HOST || ''
   const port = Number(s.SMTP_PORT || process.env.SMTP_PORT || 587)
   const user = s.SMTP_USER || process.env.SMTP_USER || ''
