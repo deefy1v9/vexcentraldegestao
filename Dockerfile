@@ -21,7 +21,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends dumb-init opens
 RUN groupadd --system --gid 1001 nodejs
 RUN useradd --system --uid 1001 --gid nodejs nextjs
 
-COPY --from=builder /app/public ./public
+# `public` precisa pertencer ao usuario nextjs: os anexos de demandas sao
+# gravados em public/uploads/tasks/<id> em tempo de execucao. Sem o --chown
+# o diretorio ficava root:root e todo upload falhava com EACCES.
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
@@ -30,6 +33,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_module
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
 COPY --chown=nextjs:nodejs entrypoint.sh ./entrypoint.sh
 
+# Ponto de montagem do volume de uploads. Criar aqui, ja com o dono correto,
+# faz o Docker herdar essa permissao ao inicializar o volume nomeado.
+RUN mkdir -p ./public/uploads && chown -R nextjs:nodejs ./public
 RUN chmod +x ./entrypoint.sh
 USER nextjs
 

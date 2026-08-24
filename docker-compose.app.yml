@@ -8,6 +8,10 @@ services:
       AUTH_SECRET: ${AUTH_SECRET}
       NEXTAUTH_URL: https://central.vexgrowth.com.br
       NODE_ENV: production
+    volumes:
+      # Anexos de demandas sao gravados em disco. Sem este volume, todo
+      # anexo enviado desaparecia no deploy seguinte junto com o container.
+      - vex-uploads:/app/public/uploads
     networks:
       - traefik-public   # <-- ALTERE para o nome da rede do Traefik existente
       - internal
@@ -67,6 +71,7 @@ services:
       retries: 5
 
 volumes:
+  vex-uploads:         # anexos de demandas (public/uploads)
   vex-postgres-data:   # nome único para não conflitar com outros projetos
 
 networks:

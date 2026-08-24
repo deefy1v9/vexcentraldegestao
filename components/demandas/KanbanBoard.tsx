@@ -299,6 +299,11 @@ export default function KanbanBoard({
     if (res.ok) {
       const att = await res.json()
       setAttachments((prev) => [...prev, att])
+    } else {
+      // A API recusa por tamanho (413) ou tipo (415) — antes o upload
+      // simplesmente não acontecia, sem dizer por quê.
+      const err = await res.json().catch(() => ({}))
+      alert(err.error || 'Não foi possível enviar o arquivo')
     }
     setUploading(false)
     if (fileInputRef.current) fileInputRef.current.value = ''
