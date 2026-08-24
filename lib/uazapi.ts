@@ -1,13 +1,14 @@
-import { prisma } from './prisma'
+import { getSettings } from './settings'
 
 async function getConfig() {
-  const rows = await prisma.$queryRaw<Array<{ key: string; value: string }>>`
-    SELECT key, value FROM "SystemSettings" WHERE key IN ('UAZAPI_URL', 'UAZAPI_TOKEN')
-  `
-  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]))
+  // UAZAPI_TOKEN é cifrado em repouso (está em SECRET_SETTING_KEYS). getSettings
+  // descriptografa na leitura; tokens legados em texto puro passam sem
+  // alteração. Ler o valor cru aqui enviava "enc:v1:..." como header de
+  // autenticação para a UAZAPI, que respondia 401 — e o WhatsApp não conectava.
+  const s = await getSettings(['UAZAPI_URL', 'UAZAPI_TOKEN'])
   return {
-    base: (map['UAZAPI_URL'] || process.env.UAZAPI_URL || '').replace(/\/$/, ''),
-    token: map['UAZAPI_TOKEN'] || process.env.UAZAPI_TOKEN || '',
+    base: (s['UAZAPI_URL'] || process.env.UAZAPI_URL || '').replace(/\/$/, ''),
+    token: s['UAZAPI_TOKEN'] || process.env.UAZAPI_TOKEN || '',
   }
 }
 
