@@ -27,8 +27,12 @@ export const SECRET_SETTING_KEYS = new Set<string>([
 /** Lê várias chaves de uma vez, já descriptografadas quando for o caso. */
 export async function getSettings(keys: string[]): Promise<Record<string, string>> {
   const rows = await prisma.systemSettings.findMany({ where: { key: { in: keys } } })
+
   return Object.fromEntries(
-    rows.map((r) => [r.key, SECRET_SETTING_KEYS.has(r.key) ? (decryptSecret(r.value) ?? '') : r.value]),
+    rows.map((r) => [
+      r.key,
+      SECRET_SETTING_KEYS.has(r.key) ? (decryptSecret(r.value) ?? '') : r.value,
+    ]),
   )
 }
 
