@@ -13,7 +13,8 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "test": "tsx --test scripts/tests/*.test.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "db:deploy": "prisma migrate deploy"
   },
   "dependencies": {
     "@google/genai": "^2.17.1",
