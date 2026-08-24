@@ -16,6 +16,7 @@ import {
 import { signOut } from 'next-auth/react'
 import { useSession } from 'next-auth/react'
 import { getInitials } from '@/lib/utils'
+import { useMobileNav } from './MobileNav'
 
 /**
  * `adminOnly` esconde o item do colaborador — que só acompanha clientes e as
@@ -36,13 +37,14 @@ const generalItems = [
   { href: '/logs', label: 'Logs', icon: Activity },
 ]
 
-function NavItem({ href, label, icon: Icon }: { href: string; label: string; icon: React.ElementType }) {
+function NavItem({ href, label, icon: Icon, onNavigate }: { href: string; label: string; icon: React.ElementType; onNavigate?: () => void }) {
   const pathname = usePathname()
   const active = pathname === href || pathname.startsWith(href + '/')
 
   return (
     <Link
       href={href}
+      onClick={onNavigate}
       className={cn(
         'relative flex items-center gap-3 px-4 py-2.5 text-sm transition-all rounded-r-xl',
         active
@@ -64,9 +66,29 @@ export default function Sidebar() {
   const name = session?.user?.name ?? ''
   const role = (session?.user as any)?.role ?? ''
   const isAdmin = role === 'ADMIN'
+  const { open, close } = useMobileNav()
 
   return (
-    <div className="p-3 shrink-0">
+    <>
+      {/* Backdrop: só no mobile, quando o drawer está aberto. */}
+      <div
+        onClick={close}
+        aria-hidden
+        className={cn(
+          'fixed inset-0 z-40 bg-black/40 transition-opacity lg:hidden',
+          open ? 'opacity-100' : 'pointer-events-none opacity-0',
+        )}
+      />
+
+      {/* No mobile é um drawer fixo que desliza da esquerda; no desktop (lg+)
+          volta a ser uma coluna estática no fluxo. */}
+      <div
+        className={cn(
+          'p-3 shrink-0 z-50 transition-transform duration-200 ease-out',
+          'fixed inset-y-0 left-0 lg:static lg:translate-x-0',
+          open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
+        )}
+      >
       <aside className="w-[220px] h-full bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col overflow-hidden">
 
         {/* Logo */}
@@ -84,7 +106,7 @@ export default function Sidebar() {
               {menuItems
                 .filter((item) => isAdmin || !item.adminOnly)
                 .map(({ adminOnly: _adminOnly, ...item }) => (
-                  <NavItem key={item.href} {...item} />
+                  <NavItem key={item.href} {...item} onNavigate={close} />
                 ))}
             </div>
           </div>
@@ -97,10 +119,10 @@ export default function Sidebar() {
               {/* Financeiro e Logs são exclusivos de administradores. */}
               {isAdmin &&
                 generalItems.map((item) => (
-                  <NavItem key={item.href} {...item} />
+                  <NavItem key={item.href} {...item} onNavigate={close} />
                 ))}
               <button
-                onClick={() => signOut({ callbackUrl: '/login' })}
+                onClick={() => { close(); signOut({ callbackUrl: '/login' }) }}
                 className="w-full relative flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-400 hover:text-gray-700 hover:bg-gray-50 transition-all rounded-r-xl"
               >
                 <LogOut className="w-[18px] h-[18px] shrink-0 text-gray-400" />
@@ -140,6 +162,7 @@ export default function Sidebar() {
         </div>
 
       </aside>
-    </div>
+      </div>
+    </>
   )
 }

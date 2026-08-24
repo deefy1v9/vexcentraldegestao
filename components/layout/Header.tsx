@@ -1,8 +1,9 @@
 'use client'
 import { useSession } from 'next-auth/react'
 import { getInitials } from '@/lib/utils'
-import { Bell, Search, Mail, X, AlertCircle, CheckCircle2, Sun, Moon } from 'lucide-react'
+import { Bell, Search, Mail, X, AlertCircle, CheckCircle2, Sun, Moon, Menu } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
+import { useMobileNav } from './MobileNav'
 
 interface Notification {
   id: string
@@ -21,6 +22,7 @@ export default function Header({ title, subtitle }: HeaderProps) {
   const { data: session } = useSession()
   const name = session?.user?.name ?? ''
   const email = session?.user?.email ?? ''
+  const { toggle } = useMobileNav()
 
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [open, setOpen] = useState(false)
@@ -72,13 +74,23 @@ export default function Header({ title, subtitle }: HeaderProps) {
   }
 
   return (
-    <header className="h-[72px] bg-white border-b border-gray-100 px-6 flex items-center justify-between shrink-0">
-      <div>
-        <h1 className="text-xl font-bold text-gray-900 leading-tight">{title}</h1>
-        {subtitle && <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>}
+    <header className="h-[72px] bg-white border-b border-gray-100 px-4 sm:px-6 flex items-center justify-between gap-2 shrink-0">
+      <div className="flex items-center gap-2 min-w-0">
+        {/* Hambúrguer: abre a sidebar como drawer no mobile. */}
+        <button
+          onClick={toggle}
+          aria-label="Abrir menu"
+          className="lg:hidden w-9 h-9 shrink-0 flex items-center justify-center rounded-xl hover:bg-gray-100 transition-colors -ml-1"
+        >
+          <Menu className="w-5 h-5 text-gray-600" />
+        </button>
+        <div className="min-w-0">
+          <h1 className="text-lg sm:text-xl font-bold text-gray-900 leading-tight truncate">{title}</h1>
+          {subtitle && <p className="text-xs text-gray-400 mt-0.5 truncate">{subtitle}</p>}
+        </div>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1 sm:gap-2 shrink-0">
         <div className="hidden lg:flex items-center gap-2 bg-gray-100 rounded-xl px-3 py-2 mr-2 text-sm text-gray-400 w-52">
           <Search className="w-4 h-4" />
           <span>Buscar...</span>
@@ -96,7 +108,7 @@ export default function Header({ title, subtitle }: HeaderProps) {
             : <Moon className="w-[18px] h-[18px] text-gray-500" />}
         </button>
 
-        <button className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-gray-100 transition-colors">
+        <button className="hidden sm:flex w-9 h-9 items-center justify-center rounded-xl hover:bg-gray-100 transition-colors">
           <Mail className="w-[18px] h-[18px] text-gray-500" />
         </button>
 
@@ -118,7 +130,7 @@ export default function Header({ title, subtitle }: HeaderProps) {
           </button>
 
           {open && (
-            <div className="absolute right-0 top-full mt-2 w-[360px] bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden">
+            <div className="absolute right-0 top-full mt-2 w-[calc(100vw-2rem)] max-w-[360px] bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden">
               <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
                 <p className="font-bold text-gray-900 text-sm">Notificações</p>
                 {count > 0 && (
