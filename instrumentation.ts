@@ -1,12 +1,17 @@
 /**
  * Agendador interno do servidor (Next.js instrumentation hook).
  *
- * A cada minuto compara o horário civil de America/Sao_Paulo com o horário
- * configurado (SystemSettings BILLING_REMINDER_TIME, padrão 09:00) e dispara
- * a rotina de confirmação de cobranças via WhatsApp. A marca de última
- * execução fica no banco (BILLING_REMINDER_LAST_RUN), então reinícios do
- * container não duplicam envios — e a chave única por cobrança é uma segunda
- * barreira contra mensagens repetidas.
+ * Roda a cada minuto e faz duas coisas independentes:
+ *
+ * 1. Despachante da IA/CRM (toda rodada): envia mensagens agendadas cuja hora
+ *    chegou, expira ações da IA não confirmadas e reprocessa jobs presos.
+ *
+ * 2. Rotina diária de billing (uma vez por dia, no horário configurado):
+ *    lembretes de demandas e geração de cobranças Asaas. A marca
+ *    BILLING_REMINDER_LAST_RUN evita repetir no mesmo dia.
+ *
+ * Um único intervalo cobre os dois — o despachante precisa de granularidade de
+ * minuto, então vem antes dos early-returns da rotina diária.
  */
 export async function register() {
   if (process.env.NEXT_RUNTIME !== 'nodejs') return
@@ -14,8 +19,17 @@ export async function register() {
   const { prisma } = await import('./lib/prisma')
   const { spNow, getBillingSetting } = await import('./lib/billing-whatsapp')
   const { runTaskReminders } = await import('./lib/task-flow')
+  const { runDispatcher } = await import('./lib/scheduler')
 
   async function tick() {
+    // Despachante da IA/CRM: toda rodada, granularidade de minuto. Não lança
+    // (o runDispatcher já trata os próprios erros) e roda antes dos guards da
+    // rotina diária de billing abaixo.
+    const disp = await runDispatcher()
+    if (disp.enviadas > 0 || disp.falhas > 0) {
+      console.log(`[scheduler] agendadas: ${disp.enviadas} enviadas, ${disp.falhas} falhas`)
+    }
+
     try {
       const { date, time } = spNow()
       const sendTime = (await getBillingSetting('BILLING_REMINDER_TIME')) || '09:00'

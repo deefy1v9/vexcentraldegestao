@@ -29,34 +29,38 @@ enum TaskPriority {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  name      String
-  email     String   @unique
-  password  String
-  role      UserRole @default(COLABORADOR)
-  phone     String?
-  position  String? // função (Designer, Social Media...)
+  id          String   @id @default(cuid())
+  name        String
+  email       String   @unique
+  password    String
+  role        UserRole @default(COLABORADOR)
+  phone       String?
+  position    String? // função (Designer, Social Media...)
   // Especialidades usadas pela IA para sugerir o responsável
   // (ex: Design, Reels, Copywriting, Vídeo, Tráfego pago...)
   specialties String[] @default([])
-  salary    Float?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  salary      Float?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  activityLogs    ActivityLog[]
-  crmMessages     CrmMessage[]
-  assignedEvents  CalendarEvent[]
-  assignedTasks   Task[]           @relation("TaskAssignee")
-  createdTasks    Task[]           @relation("TaskCreator")
-  producedTasks   Task[]           @relation("TaskProducer")
-  reviewedTasks   Task[]           @relation("TaskReviewer")
-  scheduledTasks  Task[]           @relation("TaskScheduler")
+  activityLogs     ActivityLog[]
+  crmMessages      CrmMessage[]
+  assignedEvents   CalendarEvent[]
+  assignedTasks    Task[]           @relation("TaskAssignee")
+  createdTasks     Task[]           @relation("TaskCreator")
+  producedTasks    Task[]           @relation("TaskProducer")
+  reviewedTasks    Task[]           @relation("TaskReviewer")
+  scheduledTasks   Task[]           @relation("TaskScheduler")
   taskComments     TaskComment[]
   taskEvents       TaskEvent[]
   salaryContracts  SalaryContract[]
   financialEntries FinancialEntry[]
   aiImports        AiImport[]
+
+  assignedActivities CrmActivity[]      @relation("ActivityAssignee")
+  createdActivities  CrmActivity[]      @relation("ActivityCreator")
+  scheduledMessages  ScheduledMessage[]
 }
 
 model Client {
@@ -76,37 +80,37 @@ model Client {
   // Segmentação da carteira: START | GROWTH | SCALE.
   // Automática pela faixa de ticket (configurável) ou manual por admin —
   // classificação manual nunca é sobrescrita pelo recálculo.
-  tier          String?
-  tierManual    Boolean   @default(false)
-  tierChangedAt DateTime?
+  tier           String?
+  tierManual     Boolean   @default(false)
+  tierChangedAt  DateTime?
 
   // ------- Faturamento (Asaas) e NFS-e (Focus) — ativação individual -------
-  billingEnabled   Boolean @default(false) // cobrança automática mensal
-  legalName        String? // razão social (tomador da NFS-e)
-  municipalReg     String? // inscrição municipal, quando aplicável
-  billingEmail     String? // e-mail financeiro (recebe boleto e NFS-e)
-  extraEmails      String? // e-mails adicionais, separados por vírgula
-  zipCode          String?
-  street           String?
-  addressNumber    String?
-  complement       String?
-  district         String?
-  city             String?
-  state            String?
-  ibgeCode         String? // código IBGE do município do tomador
-  billingLeadDays  Int     @default(10) // antecedência da geração da cobrança
-  billingType      String  @default("UNDEFINED") // BOLETO | PIX | UNDEFINED
-  nfseEnabled      Boolean @default(false) // emissão automática de NFS-e
+  billingEnabled    Boolean   @default(false) // cobrança automática mensal
+  legalName         String? // razão social (tomador da NFS-e)
+  municipalReg      String? // inscrição municipal, quando aplicável
+  billingEmail      String? // e-mail financeiro (recebe boleto e NFS-e)
+  extraEmails       String? // e-mails adicionais, separados por vírgula
+  zipCode           String?
+  street            String?
+  addressNumber     String?
+  complement        String?
+  district          String?
+  city              String?
+  state             String?
+  ibgeCode          String? // código IBGE do município do tomador
+  billingLeadDays   Int       @default(10) // antecedência da geração da cobrança
+  billingType       String    @default("UNDEFINED") // BOLETO | PIX | UNDEFINED
+  nfseEnabled       Boolean   @default(false) // emissão automática de NFS-e
   // ON_CONFIRMED (padrão) | ON_RECEIVED | ON_COMPETENCE | MANUAL
-  nfseRule         String  @default("ON_CONFIRMED")
+  nfseRule          String    @default("ON_CONFIRMED")
   fiscalDescription String? // discriminação padrão do serviço na nota
-  asaasCustomerId  String? @unique // ID do cliente no Asaas (somente leitura)
-  asaasSyncStatus  String? // OK | ERRO | null (nunca sincronizado)
-  asaasSyncError   String?
-  asaasSyncedAt    DateTime?
+  asaasCustomerId   String?   @unique // ID do cliente no Asaas (somente leitura)
+  asaasSyncStatus   String? // OK | ERRO | null (nunca sincronizado)
+  asaasSyncError    String?
+  asaasSyncedAt     DateTime?
 
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   credentials          ClientCredential[]
   services             ClientService[]
@@ -123,36 +127,36 @@ model Client {
 // Valores em Decimal (numeric), nunca float. A fonte dos valores é o
 // sistema (soma dos serviços válidos na competência), não o Asaas.
 model AsaasCharge {
-  id          String    @id @default(cuid())
-  clientId    String
-  year        Int
-  month       Int
-  asaasId     String?   @unique // id da cobrança no Asaas
-  externalRef String    @unique // billing:{clientId}:{YYYY-MM}
-  billingType String    @default("UNDEFINED") // BOLETO | PIX | UNDEFINED
-  value       Decimal   @db.Decimal(12, 2) // bruto
-  netValue    Decimal?  @db.Decimal(12, 2) // líquido informado pelo Asaas
-  fee         Decimal?  @db.Decimal(12, 2) // tarifa
-  dueDate     DateTime
+  id                  String    @id @default(cuid())
+  clientId            String
+  year                Int
+  month               Int
+  asaasId             String?   @unique // id da cobrança no Asaas
+  externalRef         String    @unique // billing:{clientId}:{YYYY-MM}
+  billingType         String    @default("UNDEFINED") // BOLETO | PIX | UNDEFINED
+  value               Decimal   @db.Decimal(12, 2) // bruto
+  netValue            Decimal?  @db.Decimal(12, 2) // líquido informado pelo Asaas
+  fee                 Decimal?  @db.Decimal(12, 2) // tarifa
+  dueDate             DateTime
   // PENDING | CONFIRMED | RECEIVED | OVERDUE | REFUNDED | PARTIALLY_REFUNDED
   // | CANCELLED | DELETED | ERROR
-  status      String    @default("PENDING")
-  invoiceUrl  String?
-  bankSlipUrl String?
+  status              String    @default("PENDING")
+  invoiceUrl          String?
+  bankSlipUrl         String?
   identificationField String? // linha digitável
-  barCode     String?
-  confirmedAt DateTime? // pagamento confirmado (saldo pode não estar disponível)
-  paidAt      DateTime? // data de pagamento informada pelo Asaas
-  receivedAt  DateTime? // saldo disponível
-  creditDate  DateTime?
+  barCode             String?
+  confirmedAt         DateTime? // pagamento confirmado (saldo pode não estar disponível)
+  paidAt              DateTime? // data de pagamento informada pelo Asaas
+  receivedAt          DateTime? // saldo disponível
+  creditDate          DateTime?
   // Guardas de contabilização única (receita/tarifa nunca em dobro)
-  revenueBookedAt DateTime?
-  feeBookedAt     DateTime?
-  lastError   String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  revenueBookedAt     DateTime?
+  feeBookedAt         DateTime?
+  lastError           String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
-  client Client        @relation(fields: [clientId], references: [id])
+  client Client       @relation(fields: [clientId], references: [id])
   nfse   NfseInvoice?
 
   @@unique([clientId, year, month])
@@ -161,54 +165,54 @@ model AsaasCharge {
 // Configuração fiscal do prestador (linha única, id fixo "default").
 // Tokens NUNCA ficam aqui — vivem em SystemSettings/env, fora do GET.
 model FiscalConfig {
-  id                   String   @id @default("default")
-  cnpj                 String?
-  razaoSocial          String?
-  inscricaoMunicipal   String?
-  codigoMunicipio      String? // IBGE do prestador
-  optanteSimples       Boolean  @default(true)
-  regimeEspecial       String?
-  naturezaOperacao     String?
-  incentivadorCultural Boolean  @default(false)
+  id                     String   @id @default("default")
+  cnpj                   String?
+  razaoSocial            String?
+  inscricaoMunicipal     String?
+  codigoMunicipio        String? // IBGE do prestador
+  optanteSimples         Boolean  @default(true)
+  regimeEspecial         String?
+  naturezaOperacao       String?
+  incentivadorCultural   Boolean  @default(false)
   codigoServicoMunicipal String?
-  itemListaServico     String?
-  cnae                 String?
-  codigoTributacao     String?
-  aliquotaIss          Decimal? @db.Decimal(6, 4)
-  issRetido            Boolean  @default(false)
-  pis                  Decimal? @db.Decimal(6, 4)
-  cofins               Decimal? @db.Decimal(6, 4)
-  csll                 Decimal? @db.Decimal(6, 4)
-  inss                 Decimal? @db.Decimal(6, 4)
-  ibsCbs               String? // configuração IBS/CBS conforme regra vigente
-  descricaoPadrao      String?
-  autoEmit             Boolean  @default(false)
-  emitRule             String   @default("ON_CONFIRMED")
-  updatedAt            DateTime @updatedAt
+  itemListaServico       String?
+  cnae                   String?
+  codigoTributacao       String?
+  aliquotaIss            Decimal? @db.Decimal(6, 4)
+  issRetido              Boolean  @default(false)
+  pis                    Decimal? @db.Decimal(6, 4)
+  cofins                 Decimal? @db.Decimal(6, 4)
+  csll                   Decimal? @db.Decimal(6, 4)
+  inss                   Decimal? @db.Decimal(6, 4)
+  ibsCbs                 String? // configuração IBS/CBS conforme regra vigente
+  descricaoPadrao        String?
+  autoEmit               Boolean  @default(false)
+  emitRule               String   @default("ON_CONFIRMED")
+  updatedAt              DateTime @updatedAt
 }
 
 // NFS-e emitida via Focus — no máximo uma por cobrança.
 model NfseInvoice {
-  id               String    @id @default(cuid())
-  chargeId         String    @unique
-  focusRef         String    @unique // nfse:{chargeId}
+  id                String    @id @default(cuid())
+  chargeId          String    @unique
+  focusRef          String    @unique // nfse:{chargeId}
   // PROCESSANDO | AUTORIZADO | ERRO_AUTORIZACAO | CANCELADO | ERRO_CANCELAMENTO
-  status           String    @default("PROCESSANDO")
-  numero           String?
+  status            String    @default("PROCESSANDO")
+  numero            String?
   codigoVerificacao String?
-  pdfUrl           String?
-  xmlUrl           String?
-  municipalMessage String?
-  lastError        String?
-  issuedAt         DateTime?
-  emailSentAt      DateTime?
-  emailRecipients  String?
-  emailAttempts    Int       @default(0)
-  emailError       String?
-  emailRequestedBy String?
-  raw              Json?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  pdfUrl            String?
+  xmlUrl            String?
+  municipalMessage  String?
+  lastError         String?
+  issuedAt          DateTime?
+  emailSentAt       DateTime?
+  emailRecipients   String?
+  emailAttempts     Int       @default(0)
+  emailError        String?
+  emailRequestedBy  String?
+  raw               Json?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   charge AsaasCharge @relation(fields: [chargeId], references: [id])
 }
@@ -283,7 +287,7 @@ model ClientService {
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @default(now()) @updatedAt
 
-  client   Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client   Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
   payments ClientPayment[]
 }
 
@@ -353,12 +357,12 @@ model Task {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  client    Client? @relation(fields: [clientId], references: [id])
-  assignee  User?   @relation("TaskAssignee", fields: [assigneeId], references: [id])
-  creator   User    @relation("TaskCreator", fields: [creatorId], references: [id])
-  producer  User?   @relation("TaskProducer", fields: [producerId], references: [id])
-  reviewer  User?   @relation("TaskReviewer", fields: [reviewerId], references: [id])
-  scheduler User?   @relation("TaskScheduler", fields: [schedulerId], references: [id])
+  client      Client?          @relation(fields: [clientId], references: [id])
+  assignee    User?            @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  creator     User             @relation("TaskCreator", fields: [creatorId], references: [id])
+  producer    User?            @relation("TaskProducer", fields: [producerId], references: [id])
+  reviewer    User?            @relation("TaskReviewer", fields: [reviewerId], references: [id])
+  scheduler   User?            @relation("TaskScheduler", fields: [schedulerId], references: [id])
   comments    TaskComment[]
   attachments TaskAttachment[]
   events      TaskEvent[]
@@ -441,9 +445,9 @@ model FinancialEntry {
   // Origem recorrente (custo ou salário); no máximo uma ocorrência por período
   recurringCostId  String?
   salaryContractId String?
-  recurringCost  RecurringCost?  @relation(fields: [recurringCostId], references: [id], onDelete: SetNull)
-  salaryContract SalaryContract? @relation(fields: [salaryContractId], references: [id], onDelete: SetNull)
-  user           User?           @relation(fields: [userId], references: [id])
+  recurringCost    RecurringCost?  @relation(fields: [recurringCostId], references: [id], onDelete: SetNull)
+  salaryContract   SalaryContract? @relation(fields: [salaryContractId], references: [id], onDelete: SetNull)
+  user             User?           @relation(fields: [userId], references: [id])
 
   @@unique([recurringCostId, year, month])
   @@unique([salaryContractId, year, month])
@@ -488,18 +492,18 @@ model SalaryContract {
 }
 
 model ClientPayment {
-  id        String    @id @default(cuid())
-  clientId  String
-  serviceId String?
-  month     Int
-  year      Int
-  amount    Float
-  dueDate   DateTime
-  paidAt    DateTime?
-  status    String    @default("PENDENTE")
+  id              String    @id @default(cuid())
+  clientId        String
+  serviceId       String?
+  month           Int
+  year            Int
+  amount          Float
+  dueDate         DateTime
+  paidAt          DateTime?
+  status          String    @default("PENDENTE")
   // Conta em que o valor entrou (confirmações via WhatsApp)
   receivedAccount String?
-  createdAt DateTime  @default(now())
+  createdAt       DateTime  @default(now())
 
   client  Client         @relation(fields: [clientId], references: [id])
   service ClientService? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
@@ -560,8 +564,10 @@ model CrmContact {
   lastMessage    DateTime?
   createdAt      DateTime  @default(now())
 
-  client        Client?           @relation(fields: [clientId], references: [id])
+  client        Client?            @relation(fields: [clientId], references: [id])
   conversations CrmConversation[]
+  activities    CrmActivity[]
+  scheduled     ScheduledMessage[]
 }
 
 model CrmConversation {
@@ -574,6 +580,8 @@ model CrmConversation {
 
   contact  CrmContact   @relation(fields: [contactId], references: [id])
   messages CrmMessage[]
+  drafts   AiDraft[]
+  aiJobs   AiJob[]
 }
 
 model CrmMessage {
@@ -641,4 +649,106 @@ model NotificationDismissal {
   createdAt DateTime @default(now())
 
   @@unique([userId, notifId])
+}
+
+/// Atividade de relacionamento do CRM (ligação, follow-up, reunião, proposta).
+/// Separado de Task: Task é entrega de trabalho no Kanban, atividade é contato
+/// comercial com o cliente.
+model CrmActivity {
+  id          String    @id @default(cuid())
+  contactId   String
+  type        String    @default("FOLLOWUP")
+  title       String
+  notes       String?
+  dueDate     DateTime
+  status      String    @default("PENDENTE")
+  assigneeId  String?
+  createdById String?
+  createdByAi Boolean   @default(false)
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  contact   CrmContact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  assignee  User?      @relation("ActivityAssignee", fields: [assigneeId], references: [id])
+  createdBy User?      @relation("ActivityCreator", fields: [createdById], references: [id])
+
+  @@index([status, dueDate])
+  @@index([contactId])
+}
+
+/// Mensagem de WhatsApp agendada para envio futuro. O despachante roda a cada
+/// minuto e envia o que estiver vencido.
+model ScheduledMessage {
+  id             String    @id @default(cuid())
+  contactId      String?
+  whatsappNumber String
+  content        String
+  scheduledFor   DateTime
+  status         String    @default("PENDENTE")
+  attempts       Int       @default(0)
+  lastError      String?
+  sentAt         DateTime?
+  createdById    String?
+  createdByAi    Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  contact   CrmContact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  createdBy User?       @relation(fields: [createdById], references: [id])
+
+  @@index([status, scheduledFor])
+}
+
+/// Ação que a IA quer executar e que só roda depois de confirmação humana no
+/// chat de comando. É o freio entre "a IA entendeu" e "o cliente recebeu".
+model AiPendingAction {
+  id          String    @id @default(cuid())
+  commandChat String
+  toolName    String
+  payload     String
+  summary     String
+  status      String    @default("AGUARDANDO")
+  resultInfo  String?
+  createdAt   DateTime  @default(now())
+  expiresAt   DateTime
+  resolvedAt  DateTime?
+
+  @@index([commandChat, status])
+}
+
+/// Sugestão de resposta gerada pela IA para uma mensagem de cliente. Nunca é
+/// enviada sozinha: aparece no CRM para aprovação com um clique.
+model AiDraft {
+  id             String    @id @default(cuid())
+  conversationId String
+  content        String
+  basedOnMsgId   String?
+  status         String    @default("PENDENTE")
+  createdAt      DateTime  @default(now())
+  resolvedAt     DateTime?
+
+  conversation CrmConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, status])
+}
+
+/// Fila durável do agente. O webhook grava o job e responde 200 na hora; o
+/// processamento roda em background e, se o container cair no meio, o
+/// despachante reprocessa o que ficou preso.
+model AiJob {
+  id             String    @id @default(cuid())
+  conversationId String
+  commandChat    String
+  incomingText   String
+  status         String    @default("PENDENTE")
+  attempts       Int       @default(0)
+  lastError      String?
+  createdAt      DateTime  @default(now())
+  startedAt      DateTime?
+  finishedAt     DateTime?
+
+  conversation CrmConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
 }

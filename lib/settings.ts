@@ -22,6 +22,7 @@ export const SECRET_SETTING_KEYS = new Set<string>([
   'OPENAI_API_KEY',
   'SMTP_PASS',
   'UAZAPI_TOKEN',
+  'ANTHROPIC_API_KEY',
 ])
 
 /** Lê várias chaves de uma vez, já descriptografadas quando for o caso. */

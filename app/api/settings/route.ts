@@ -33,11 +33,19 @@ const ALLOWED_KEYS = [
   'FOCUS_NFE_TOKEN_PRODUCAO',
   'FOCUS_NFSE_MODE',
   'FOCUS_WEBHOOK_TOKEN',
+  // Assistente de IA do CRM (ANTHROPIC_API_KEY é write-only, como as demais)
+  'AI_ENABLED',
+  'AI_DRAFTS_ENABLED',
+  'AI_COMMAND_NUMBERS',
+  'AI_AGENT_MODEL',
+  'AI_DRAFT_MODEL',
+  'ANTHROPIC_API_KEY',
 ]
 
 const SECRET_KEYS = new Set([
   'ASAAS_API_KEY', 'ASAAS_WEBHOOK_TOKEN',
   'FOCUS_NFE_TOKEN_HOMOLOGACAO', 'FOCUS_NFE_TOKEN_PRODUCAO', 'FOCUS_WEBHOOK_TOKEN',
+  'ANTHROPIC_API_KEY',
 ])
 
 export async function GET() {
@@ -51,7 +59,9 @@ export async function GET() {
                   'TIER_START_MAX', 'TIER_GROWTH_MAX',
                   'ASAAS_ENV', 'ASAAS_API_KEY', 'ASAAS_WEBHOOK_TOKEN',
                   'FOCUS_NFE_ENV', 'FOCUS_NFE_TOKEN_HOMOLOGACAO', 'FOCUS_NFE_TOKEN_PRODUCAO',
-                  'FOCUS_NFSE_MODE', 'FOCUS_WEBHOOK_TOKEN')
+                  'FOCUS_NFSE_MODE', 'FOCUS_WEBHOOK_TOKEN',
+                  'AI_ENABLED', 'AI_DRAFTS_ENABLED', 'AI_COMMAND_NUMBERS',
+                  'AI_AGENT_MODEL', 'AI_DRAFT_MODEL', 'ANTHROPIC_API_KEY')
   `
 
   const result: Record<string, string> = {}
