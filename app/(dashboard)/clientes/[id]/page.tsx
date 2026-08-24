@@ -5,6 +5,7 @@ import { formatCurrency, formatDate } from '@/lib/utils'
 import Link from 'next/link'
 import { ArrowLeft, Globe, Mail, Instagram, Facebook, Lock, Eye } from 'lucide-react'
 import ClientCredentialsPanel from '@/components/clientes/ClientCredentialsPanel'
+import { decryptSecret } from '@/lib/crypto'
 
 const CRED_ICONS: Record<string, React.ElementType> = {
   wordpress: Globe,
@@ -26,6 +27,13 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
   })
 
   if (!client) notFound()
+
+  // As senhas ficam cifradas no banco (AES-256-GCM). Sem descriptografar aqui,
+  // o cofre exibia o texto cifrado 'enc:v1:...' em vez da senha real.
+  const credentials = client.credentials.map((c) => ({
+    ...c,
+    password: decryptSecret(c.password),
+  }))
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -91,7 +99,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
             </div>
 
             {/* Credentials */}
-            <ClientCredentialsPanel clientId={id} initialCredentials={client.credentials} />
+            <ClientCredentialsPanel clientId={id} initialCredentials={credentials} />
           </div>
 
           {/* Sidebar */}

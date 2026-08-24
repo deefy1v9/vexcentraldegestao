@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
+import { useSession } from 'next-auth/react'
 import Header from '@/components/layout/Header'
 import Link from 'next/link'
 import { ArrowLeft, Save, Trash2 } from 'lucide-react'
@@ -26,6 +27,8 @@ export default function EditClientePage() {
   const params = useParams()
   const router = useRouter()
   const id = params.id as string
+  const { data: session } = useSession()
+  const isAdmin = session?.user?.role === 'ADMIN'
 
   const [client, setClient] = useState<Client | null>(null)
   const [loading, setLoading] = useState(true)
@@ -248,14 +251,16 @@ export default function EditClientePage() {
               <Link href={`/clientes/${id}`} className="px-5 py-2.5 border border-gray-200 text-gray-500 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors">
                 Cancelar
               </Link>
-              <button
-                type="button"
-                onClick={handleDelete}
-                className="ml-auto flex items-center gap-2 px-4 py-2.5 text-red-500 hover:bg-red-50 rounded-xl text-sm font-medium transition-colors"
-              >
-                <Trash2 className="w-4 h-4" />
-                Excluir Cliente
-              </button>
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  className="ml-auto flex items-center gap-2 px-4 py-2.5 text-red-500 hover:bg-red-50 rounded-xl text-sm font-medium transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Excluir Cliente
+                </button>
+              )}
             </div>
           </form>
         </div>

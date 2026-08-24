@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { requireUser, requireAdmin } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
+import { decryptSecret } from '@/lib/crypto'
 
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const user = await requireUser()
+  if (user instanceof NextResponse) return user
 
   const { id } = await params
   const client = await prisma.client.findUnique({
@@ -21,12 +22,19 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
   })
 
   if (!client) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  return NextResponse.json(client)
+
+  // As senhas ficam cifradas no banco; descriptografa antes de devolver.
+  const credentials = client.credentials.map((c) => ({ ...c, password: decryptSecret(c.password) }))
+  if (client.credentials.length > 0) {
+    await logActivity(user.id, 'acessou credenciais do cliente', 'Clientes', client.name)
+  }
+
+  return NextResponse.json({ ...client, credentials })
 }
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const user = await requireUser()
+  if (user instanceof NextResponse) return user
 
   const { id } = await params
   const { services, ...body } = await req.json()
@@ -66,13 +74,15 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     return updated
   })
 
-  await logActivity((session.user as any).id, 'atualizou cliente', 'Clientes', client.name)
+  await logActivity(user.id, 'atualizou cliente', 'Clientes', client.name)
   return NextResponse.json(client)
 }
 
 export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Apagar um cliente destrói contrato, pagamentos, credenciais e todo o
+  // histórico de CRM — ação restrita a administradores.
+  const user = await requireAdmin()
+  if (user instanceof NextResponse) return user
 
   const { id } = await params
 
@@ -103,6 +113,6 @@ export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id:
     return tx.client.delete({ where: { id } })
   })
 
-  await logActivity((session.user as any).id, 'removeu cliente', 'Clientes', client.name)
+  await logActivity(user.id, 'removeu cliente', 'Clientes', client.name)
   return NextResponse.json({ ok: true })
 }

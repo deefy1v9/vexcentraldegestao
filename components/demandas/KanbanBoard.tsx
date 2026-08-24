@@ -112,6 +112,9 @@ export default function KanbanBoard({
     if (res.ok) {
       const att = await res.json()
       setAttachments((prev) => [...prev, att])
+    } else {
+      const err = await res.json().catch(() => ({}))
+      alert(err.error || 'Não foi possível enviar o arquivo')
     }
     setUploading(false)
     if (fileInputRef.current) fileInputRef.current.value = ''
@@ -792,14 +795,16 @@ export default function KanbanBoard({
               )}
             </div>
 
-            <div className="px-5 py-4 border-t border-gray-100">
-              <button
-                onClick={() => deleteTask(selectedTask.id)}
-                className="w-full py-2 text-sm text-red-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors font-medium"
-              >
-                Excluir demanda
-              </button>
-            </div>
+            {(isAdmin || selectedTask.creator?.id === currentUserId) && (
+              <div className="px-5 py-4 border-t border-gray-100">
+                <button
+                  onClick={() => deleteTask(selectedTask.id)}
+                  className="w-full py-2 text-sm text-red-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors font-medium"
+                >
+                  Excluir demanda
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

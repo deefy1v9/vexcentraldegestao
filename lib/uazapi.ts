@@ -1,4 +1,5 @@
 import { prisma } from './prisma'
+import { decryptSecret } from './crypto'
 
 async function getConfig() {
   const rows = await prisma.$queryRaw<Array<{ key: string; value: string }>>`
@@ -7,7 +8,9 @@ async function getConfig() {
   const map = Object.fromEntries(rows.map((r) => [r.key, r.value]))
   return {
     base: (map['UAZAPI_URL'] || process.env.UAZAPI_URL || '').replace(/\/$/, ''),
-    token: map['UAZAPI_TOKEN'] || process.env.UAZAPI_TOKEN || '',
+    // O token fica cifrado em SystemSettings; valores legados em texto
+    // puro atravessam decryptSecret sem alteracao.
+    token: decryptSecret(map['UAZAPI_TOKEN']) || process.env.UAZAPI_TOKEN || '',
   }
 }
 

@@ -11,6 +11,13 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
   const { id } = await params
   const credentials = await prisma.clientCredential.findMany({ where: { clientId: id } })
 
+  // Leitura do cofre e auditada: as senhas saem em claro na resposta, entao
+  // precisa haver rastro de quem consultou (LGPD).
+  if (credentials.length > 0) {
+    const client = await prisma.client.findUnique({ where: { id }, select: { name: true } })
+    await logActivity(gate.id, 'acessou credenciais do cliente', 'Clientes', client?.name)
+  }
+
   // Descriptografa a senha antes de devolver ao cliente autenticado.
   return NextResponse.json(
     credentials.map((c) => ({ ...c, password: decryptSecret(c.password) })),

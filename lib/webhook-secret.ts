@@ -20,7 +20,19 @@ export function getWebhookSecret(): string {
 /** Compara o token recebido com o esperado, em tempo constante. */
 export function isValidWebhookToken(received: string | null): boolean {
   const expected = getWebhookSecret()
-  if (!expected) return true // sem segredo configurado: não bloqueia (degrada com aviso)
+
+  // Sem segredo configurado, o endpoint público não tem como se defender:
+  // rejeita (fail-closed) em vez de aceitar qualquer requisição. O app já
+  // exige AUTH_SECRET para o next-auth, então isto só acontece em ambiente
+  // mal configurado — e aí é melhor o CRM não receber nada do que aceitar
+  // mensagens forjadas de qualquer origem.
+  if (!expected) {
+    console.error(
+      'CRM webhook rejeitado: defina AUTH_SECRET (ou CRM_WEBHOOK_SECRET) para autenticar o endpoint.',
+    )
+    return false
+  }
+
   if (!received) return false
   const a = Buffer.from(received)
   const b = Buffer.from(expected)
