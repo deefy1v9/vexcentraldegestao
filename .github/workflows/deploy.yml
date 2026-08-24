@@ -11,8 +11,37 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
+  # Roda antes do build para falhar rapido e barato. Ate aqui o `next build`
+  # dentro do Docker era o unico verificador, e os testes nunca rodavam no CI.
+  quality:
+    name: Typecheck & Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Tests
+        run: npm test
+
   deploy:
     name: Build & Deploy
+    needs: quality
     runs-on: ubuntu-latest
     permissions:
       contents: read
