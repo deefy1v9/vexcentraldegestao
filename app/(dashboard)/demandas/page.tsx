@@ -35,8 +35,8 @@ export default async function DemandasPage() {
         initialTasks={tasks}
         clients={clients}
         users={users}
-        currentUserId={(session?.user as any)?.id}
-        isAdmin={(session?.user as any)?.role === 'ADMIN'}
+        currentUserId={session?.user?.id ?? ''}
+        isAdmin={session?.user?.role === 'ADMIN'}
       />
     </div>
   )

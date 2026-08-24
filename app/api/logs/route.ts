@@ -9,14 +9,14 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url)
   const userId = searchParams.get('userId')
-  const module = searchParams.get('module')
+  const moduleFilter = searchParams.get('module')
   const page = Number(searchParams.get('page') || 1)
   const limit = 50
 
   const logs = await prisma.activityLog.findMany({
     where: {
       ...(userId ? { userId } : {}),
-      ...(module ? { module } : {}),
+      ...(moduleFilter ? { module: moduleFilter } : {}),
     },
     include: { user: { select: { id: true, name: true } } },
     orderBy: { createdAt: 'desc' },
@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
   const total = await prisma.activityLog.count({
     where: {
       ...(userId ? { userId } : {}),
-      ...(module ? { module } : {}),
+      ...(moduleFilter ? { module: moduleFilter } : {}),
     },
   })
 

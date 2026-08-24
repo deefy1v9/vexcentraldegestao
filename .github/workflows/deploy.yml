@@ -10,8 +10,38 @@ env:
   IMAGE_NAME: deefy1v9/vexcentraldegestao
 
 jobs:
+  # Gate de qualidade: roda antes do build para falhar rápido e barato.
+  # Antes, o `next build` dentro do Docker era o único verificador de tipos —
+  # e nada checava lint.
+  quality:
+    name: Lint & Typecheck
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
   deploy:
     name: Build & Deploy
+    needs: quality
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -63,10 +93,24 @@ jobs:
           username: root
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
+            set -e
             echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u deefy1v9 --password-stdin
             docker pull ghcr.io/${{ env.IMAGE_NAME }}:latest
+
             export DB_PASSWORD="${{ secrets.DB_PASSWORD }}"
             export AUTH_SECRET="${{ secrets.AUTH_SECRET }}"
+
+            # Chave de criptografia das credenciais de clientes. Enquanto o
+            # secret CREDENTIALS_SECRET não existir, cai no AUTH_SECRET — que
+            # é exatamente o valor com que os dados já foram cifrados.
+            # Só defina o secret com um valor NOVO depois de reciptografar,
+            # senão as senhas gravadas ficam ilegíveis.
+            CREDENTIALS_SECRET="${{ secrets.CREDENTIALS_SECRET }}"
+            if [ -z "$CREDENTIALS_SECRET" ]; then
+              CREDENTIALS_SECRET="$AUTH_SECRET"
+            fi
+            export CREDENTIALS_SECRET
+
             docker stack deploy \
               --compose-file /opt/vex/docker-compose.app.yml \
               --with-registry-auth \

@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { requireUser } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const user = await requireUser()
+  if (user instanceof NextResponse) return user
 
   const { id } = await params
   const { content } = await req.json()
@@ -12,7 +12,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const comment = await prisma.taskComment.create({
     data: {
       taskId: id,
-      userId: (session.user as any).id,
+      userId: user.id,
       content,
     },
     include: { user: { select: { id: true, name: true } } },

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { requireUser } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { isConfigured, uazSendText } from '@/lib/uazapi'
 
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const user = await requireUser()
+  if (user instanceof NextResponse) return user
 
   const { id } = await params
   const messages = await prisma.crmMessage.findMany({
@@ -18,14 +18,14 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const user = await requireUser()
+  if (user instanceof NextResponse) return user
 
   const { id } = await params
   const { content, whatsappNumber } = await req.json()
 
-  const userId = (session.user as any).id
-  const userName = session.user?.name || 'Colaborador'
+  const userId = user.id
+  const userName = user.name || 'Colaborador'
 
   const message = await prisma.crmMessage.create({
     data: {

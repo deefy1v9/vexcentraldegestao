@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { requireUser } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 
 export async function GET() {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const user = await requireUser()
+  if (user instanceof NextResponse) return user
 
-  const isAdmin = (session.user as any).role === 'ADMIN'
-  const userId = (session.user as any).id
+  const isAdmin = user.role === 'ADMIN'
+  const userId = user.id
   const now = new Date()
   const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000)
 

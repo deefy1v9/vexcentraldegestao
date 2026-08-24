@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { requireUser } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 
 export async function GET() {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const user = await requireUser()
+  if (user instanceof NextResponse) return user
 
   const contacts = await prisma.crmContact.findMany({
     include: {
@@ -24,8 +24,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const user = await requireUser()
+  if (user instanceof NextResponse) return user
 
   const body = await req.json()
   const clientId: string | undefined = body.clientId || undefined

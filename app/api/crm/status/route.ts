@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { requireUser } from '@/lib/api-auth'
 import { isConfigured, uazStatus } from '@/lib/uazapi'
 
 export async function GET() {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const user = await requireUser()
+  if (user instanceof NextResponse) return user
 
   if (!await isConfigured()) {
     return NextResponse.json({ configured: false, connected: false })
@@ -12,7 +12,15 @@ export async function GET() {
 
   try {
     const data = await uazStatus()
-    const s = (data as any).status ?? (data as any).instance ?? data
+    // A UAZAPI varia o formato da resposta entre versões; normaliza aqui.
+    const raw = data as unknown as Record<string, unknown>
+    const s = (raw.status ?? raw.instance ?? raw) as {
+      connected?: boolean
+      loggedIn?: boolean
+      state?: string
+      jid?: string
+      wuid?: string
+    }
     const connected = !!(
       s?.connected ||
       s?.loggedIn ||

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { requireUser } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { isConfigured, uazSendMedia } from '@/lib/uazapi'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const user = await requireUser()
+  if (user instanceof NextResponse) return user
 
   const { id } = await params
   const conv = await prisma.crmConversation.findUnique({
@@ -27,8 +27,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   else if (file.type.startsWith('video/')) mediaType = 'video'
   else if (file.type.startsWith('audio/')) mediaType = 'audio'
 
-  const userId = (session.user as any).id
-  const userName = session.user?.name || 'Colaborador'
+  const userId = user.id
+  const userName = user.name || 'Colaborador'
 
   const message = await prisma.crmMessage.create({
     data: {

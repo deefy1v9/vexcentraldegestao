@@ -57,7 +57,7 @@ function NavItem({ href, label, icon: Icon }: { href: string; label: string; ico
 export default function Sidebar() {
   const { data: session } = useSession()
   const name = session?.user?.name ?? ''
-  const role = (session?.user as any)?.role ?? ''
+  const role = session?.user?.role ?? ''
   const isAdmin = role === 'ADMIN'
 
   return (

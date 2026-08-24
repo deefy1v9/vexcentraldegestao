@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { requireUser } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
 import { isConfigured, uazSendText } from '@/lib/uazapi'
 
 export async function GET(req: NextRequest) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const user = await requireUser()
+  if (user instanceof NextResponse) return user
 
   const { searchParams } = new URL(req.url)
   const clientId = searchParams.get('clientId')
@@ -30,8 +30,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const user = await requireUser()
+  if (user instanceof NextResponse) return user
 
   const body = await req.json()
   const { title, description, status, priority, dueDate, clientId, assigneeId, tags } = body
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
       dueDate: dueDate ? new Date(dueDate) : null,
       clientId: clientId || null,
       assigneeId: assigneeId || null,
-      creatorId: (session.user as any).id,
+      creatorId: user.id,
       tags: tags || [],
     },
     include: {
@@ -56,10 +56,10 @@ export async function POST(req: NextRequest) {
     },
   })
 
-  await logActivity((session.user as any).id, 'criou demanda', 'Demandas', task.title)
+  await logActivity(user.id, 'criou demanda', 'Demandas', task.title)
 
   // Fire WhatsApp notification in background — don't block the response
-  const assigneePhone = (task.assignee as any)?.phone as string | null | undefined
+  const assigneePhone = task.assignee?.phone
   if (assigneePhone) {
     isConfigured().then(async (configured) => {
       if (!configured) return
@@ -74,8 +74,8 @@ export async function POST(req: NextRequest) {
         ``,
         `• Prioridade: ${PRIORITY[task.priority] ?? task.priority}`,
         task.dueDate ? `• Prazo: ${new Date(task.dueDate).toLocaleDateString('pt-BR')}` : null,
-        task.client ? `• Cliente: ${(task.client as any).name}` : null,
-        `• Criado por: ${(task.creator as any)?.name ?? 'Sistema'}`,
+        task.client ? `• Cliente: ${task.client.name}` : null,
+        `• Criado por: ${task.creator?.name ?? 'Sistema'}`,
       ]
       const text = lines.filter(Boolean).join('\n')
       await uazSendText(assigneePhone, text)
