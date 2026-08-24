@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { isValidWebhookToken } from '@/lib/webhook-secret'
+import { getAiConfig, isCommandNumber, normalizeNumber } from '@/lib/ai/config'
+import { processAiJob } from '@/lib/ai/agent'
+import { generateDraft } from '@/lib/ai/drafts'
 
 export async function POST(req: NextRequest) {
   try {
@@ -27,10 +30,9 @@ export async function POST(req: NextRequest) {
     const contactJid: string = fromMe
       ? (data?.chatid ?? data?.to ?? data?.chat ?? '')
       : (data?.from ?? '')
-    const number = contactJid
-      .replace(/@s\.whatsapp\.net$/, '')
-      .replace(/@g\.us$/, '')
-      .replace(/\D/g, '')
+    const number = normalizeNumber(
+      contactJid.replace(/@s\.whatsapp\.net$/, '').replace(/@g\.us$/, ''),
+    )
     if (!number) return NextResponse.json({ ok: true })
 
     const content: string = data?.body || data?.text || '[Mídia]'
@@ -70,18 +72,20 @@ export async function POST(req: NextRequest) {
       if (exists) return NextResponse.json({ ok: true })
     }
 
-    // Mensagem enviada pelo próprio CRM (tem senderId) já foi gravada pela
-    // rota de envio — o webhook só ecoa de volta. Não duplica.
+    // Mensagem que saiu do próprio sistema (pelo CRM, pela IA ou por um
+    // agendamento) já foi gravada na hora do envio — o webhook só ecoa de
+    // volta. Casa por conteúdo recente em vez de por senderId, porque as
+    // mensagens da IA não têm usuário associado.
     if (fromMe) {
-      const crmSent = await prisma.crmMessage.findFirst({
+      const jaRegistrada = await prisma.crmMessage.findFirst({
         where: {
           conversationId,
           content,
-          senderId: { not: null },
+          fromClient: false,
           sentAt: { gte: new Date(Date.now() - 5 * 60 * 1000) },
         },
       })
-      if (crmSent) return NextResponse.json({ ok: true })
+      if (jaRegistrada) return NextResponse.json({ ok: true })
     }
 
     await prisma.crmMessage.create({
@@ -98,6 +102,32 @@ export async function POST(req: NextRequest) {
       where: { id: conversationId },
       data: { updatedAt: new Date() },
     })
+
+    // ─── Camada de IA ────────────────────────────────────────────────────
+    // Só mensagens recebidas disparam IA. Mensagens que nós enviamos, não.
+    if (!fromMe) {
+      const cfg = await getAiConfig().catch(() => null)
+
+      if (cfg?.enabled && cfg.apiKey) {
+        if (isCommandNumber(cfg, number)) {
+          // Chat de comando: enfileira e processa em background. O job fica
+          // gravado antes de responder, então se o container cair no meio o
+          // despachante reprocessa em vez de a mensagem sumir.
+          const job = await prisma.aiJob.create({
+            data: { conversationId, commandChat: number, incomingText: content },
+          })
+          void processAiJob(job.id).catch((err) =>
+            console.error('[ai] processamento em background falhou', err),
+          )
+        } else if (cfg.draftsEnabled) {
+          // Conversa de cliente: apenas sugere uma resposta no CRM.
+          // A IA nunca responde o cliente sozinha.
+          void generateDraft({ conversationId, cfg }).catch((err) =>
+            console.error('[ai] geração de rascunho falhou', err),
+          )
+        }
+      }
+    }
 
     return NextResponse.json({ ok: true })
   } catch (err) {

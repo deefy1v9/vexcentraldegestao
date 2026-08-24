@@ -46,6 +46,10 @@ model User {
   assignedTasks  Task[]          @relation("TaskAssignee")
   createdTasks   Task[]          @relation("TaskCreator")
   taskComments   TaskComment[]
+
+  assignedActivities CrmActivity[]      @relation("ActivityAssignee")
+  createdActivities  CrmActivity[]      @relation("ActivityCreator")
+  scheduledMessages  ScheduledMessage[]
 }
 
 model Client {
@@ -132,9 +136,9 @@ model Task {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
-  client   Client?       @relation(fields: [clientId], references: [id])
-  assignee User?         @relation("TaskAssignee", fields: [assigneeId], references: [id])
-  creator  User          @relation("TaskCreator", fields: [creatorId], references: [id])
+  client      Client?          @relation(fields: [clientId], references: [id])
+  assignee    User?            @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  creator     User             @relation("TaskCreator", fields: [creatorId], references: [id])
   comments    TaskComment[]
   attachments TaskAttachment[]
 }
@@ -211,8 +215,10 @@ model CrmContact {
   lastMessage    DateTime?
   createdAt      DateTime  @default(now())
 
-  client        Client?           @relation(fields: [clientId], references: [id])
+  client        Client?            @relation(fields: [clientId], references: [id])
   conversations CrmConversation[]
+  activities    CrmActivity[]
+  scheduled     ScheduledMessage[]
 }
 
 model CrmConversation {
@@ -225,6 +231,8 @@ model CrmConversation {
 
   contact  CrmContact   @relation(fields: [contactId], references: [id])
   messages CrmMessage[]
+  drafts   AiDraft[]
+  aiJobs   AiJob[]
 }
 
 model CrmMessage {
@@ -246,4 +254,106 @@ model SystemSettings {
   key       String   @id
   value     String
   updatedAt DateTime @updatedAt
+}
+
+/// Atividade de relacionamento do CRM (ligação, follow-up, reunião, proposta).
+/// Separado de Task: Task é entrega de trabalho no Kanban, atividade é contato
+/// comercial com o cliente.
+model CrmActivity {
+  id          String    @id @default(cuid())
+  contactId   String
+  type        String    @default("FOLLOWUP")
+  title       String
+  notes       String?
+  dueDate     DateTime
+  status      String    @default("PENDENTE")
+  assigneeId  String?
+  createdById String?
+  createdByAi Boolean   @default(false)
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  contact   CrmContact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  assignee  User?      @relation("ActivityAssignee", fields: [assigneeId], references: [id])
+  createdBy User?      @relation("ActivityCreator", fields: [createdById], references: [id])
+
+  @@index([status, dueDate])
+  @@index([contactId])
+}
+
+/// Mensagem de WhatsApp agendada para envio futuro. O despachante roda a cada
+/// minuto e envia o que estiver vencido.
+model ScheduledMessage {
+  id             String    @id @default(cuid())
+  contactId      String?
+  whatsappNumber String
+  content        String
+  scheduledFor   DateTime
+  status         String    @default("PENDENTE")
+  attempts       Int       @default(0)
+  lastError      String?
+  sentAt         DateTime?
+  createdById    String?
+  createdByAi    Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  contact   CrmContact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  createdBy User?       @relation(fields: [createdById], references: [id])
+
+  @@index([status, scheduledFor])
+}
+
+/// Ação que a IA quer executar e que só roda depois de confirmação humana no
+/// chat de comando. É o freio entre "a IA entendeu" e "o cliente recebeu".
+model AiPendingAction {
+  id          String    @id @default(cuid())
+  commandChat String
+  toolName    String
+  payload     String
+  summary     String
+  status      String    @default("AGUARDANDO")
+  resultInfo  String?
+  createdAt   DateTime  @default(now())
+  expiresAt   DateTime
+  resolvedAt  DateTime?
+
+  @@index([commandChat, status])
+}
+
+/// Sugestão de resposta gerada pela IA para uma mensagem de cliente. Nunca é
+/// enviada sozinha: aparece no CRM para aprovação com um clique.
+model AiDraft {
+  id             String    @id @default(cuid())
+  conversationId String
+  content        String
+  basedOnMsgId   String?
+  status         String    @default("PENDENTE")
+  createdAt      DateTime  @default(now())
+  resolvedAt     DateTime?
+
+  conversation CrmConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, status])
+}
+
+/// Fila durável do agente. O webhook grava o job e responde 200 na hora; o
+/// processamento roda em background e, se o container cair no meio, o
+/// despachante reprocessa o que ficou preso.
+model AiJob {
+  id             String    @id @default(cuid())
+  conversationId String
+  commandChat    String
+  incomingText   String
+  status         String    @default("PENDENTE")
+  attempts       Int       @default(0)
+  lastError      String?
+  createdAt      DateTime  @default(now())
+  startedAt      DateTime?
+  finishedAt     DateTime?
+
+  conversation CrmConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
 }

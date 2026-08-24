@@ -3,9 +3,12 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   Send, Plus, X, MessageCircle, Phone, Search,
   Settings, Paperclip, Loader2, Wifi, WifiOff,
-  RefreshCw, Copy, Check,
+  RefreshCw, Copy, Check, PanelRight,
 } from 'lucide-react'
 import { useSession } from 'next-auth/react'
+import ContactSidePanel from './ContactSidePanel'
+import DraftBanner from './DraftBanner'
+import AiSettingsSection from './AiSettingsSection'
 
 interface Message {
   id: string
@@ -96,6 +99,7 @@ export default function CrmPanel({
   const [showAddContact, setShowAddContact] = useState(false)
   const [addForm, setAddForm] = useState({ clientId: '', whatsappNumber: '' })
   const [showSettings, setShowSettings] = useState(false)
+  const [showSidePanel, setShowSidePanel] = useState(false)
 
   // Connection state
   const [connState, setConnState] = useState<ConnectionState>('checking')
@@ -392,6 +396,7 @@ export default function CrmPanel({
 
       {/* ── Chat area ── */}
       {selectedContact ? (
+        <>
         <div className="flex-1 flex flex-col bg-gray-50">
 
           {/* Chat header */}
@@ -405,6 +410,13 @@ export default function CrmPanel({
             </div>
             <button onClick={refreshMessages} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors" title="Atualizar">
               <RefreshCw className="w-3.5 h-3.5 text-gray-400" />
+            </button>
+            <button
+              onClick={() => setShowSidePanel((v) => !v)}
+              className={`p-1.5 rounded-lg transition-colors ${showSidePanel ? 'bg-blue-50 text-[#030A8C]' : 'hover:bg-gray-100 text-gray-400'}`}
+              title="Atividades e agendamentos"
+            >
+              <PanelRight className="w-3.5 h-3.5" />
             </button>
             <span className={`w-2 h-2 rounded-full ${connDot}`} />
             <span className="text-xs text-gray-500">WhatsApp</span>
@@ -457,6 +469,9 @@ export default function CrmPanel({
             <div ref={messagesEndRef} />
           </div>
 
+          {/* Sugestao da IA, aguardando aprovacao */}
+          {activeConvId && <DraftBanner conversationId={activeConvId} onSent={refreshMessages} />}
+
           {/* Message input */}
           <div className="bg-white border-t border-gray-200 px-5 py-4 shrink-0">
             <div className="flex items-end gap-2 bg-white border border-gray-200 rounded-2xl px-3 py-2 focus-within:border-[#030A8C] transition-colors">
@@ -489,6 +504,16 @@ export default function CrmPanel({
             <p className="text-[10px] text-gray-400 mt-1.5 text-center">Enter para enviar · Shift+Enter para nova linha</p>
           </div>
         </div>
+
+        {showSidePanel && (
+          <ContactSidePanel
+            key={selectedContact.id}
+            contactId={selectedContact.id}
+            contactName={contactName(selectedContact)}
+            onClose={() => setShowSidePanel(false)}
+          />
+        )}
+        </>
       ) : (
         <div className="flex-1 flex items-center justify-center bg-gray-50">
           <div className="text-center">
@@ -543,6 +568,10 @@ export default function CrmPanel({
                   {savingCreds ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Salvando...</> : credsSaved ? <><Check className="w-3.5 h-3.5" /> Salvo!</> : 'Salvar credenciais'}
                 </button>
               </div>
+
+              <div className="border-t border-gray-100 pt-3" />
+
+              <AiSettingsSection />
 
               <div className="border-t border-gray-100 pt-3" />
 

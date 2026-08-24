@@ -85,6 +85,64 @@ registrando `0_init` como já aplicada — sem executar DDL e sem tocar nos dado
 > `--accept-data-loss`, e qualquer mudança destrutiva no schema apagava dados
 > sem revisão.
 
+## Assistente de IA no CRM
+
+Duas funções distintas, ambas desligadas por padrão e configuradas em
+**CRM → Configurações**:
+
+### 1. Assistente por WhatsApp (chat de comando)
+
+Você manda mensagem para o WhatsApp da agência a partir do seu número pessoal
+(cadastrado em "Números que comandam a IA") e pede em linguagem natural:
+
+> "manda pro João amanhã às 9h avisando que o relatório sai sexta"
+
+A IA busca o contato, monta a ação e **pede confirmação antes de qualquer coisa
+sair**. Só depois do seu "pode mandar" a mensagem é enviada ou agendada.
+
+O que ela sabe fazer: buscar contatos, enviar mensagem, agendar mensagem,
+listar/cancelar agendamentos, criar/listar/concluir atividades do CRM.
+
+Qualquer número fora da allowlist é tratado como cliente comum — nunca comanda
+a IA. É o que impede alguém de mandar mensagem para a instância e instruir a IA
+a disparar mensagens para a sua carteira de clientes.
+
+### 2. Rascunhos de resposta
+
+Quando um cliente escreve, a IA redige uma sugestão de resposta que aparece
+dentro da conversa no CRM. **Ela nunca responde o cliente sozinha**: alguém lê,
+edita se quiser e clica em enviar.
+
+### Custo
+
+Você paga por uso direto à Anthropic — não há custo fixo. Os modelos são
+configuráveis na mesma tela:
+
+| Função | Padrão | Preço (entrada/saída por 1M tokens) |
+|---|---|---|
+| Assistente | Claude Sonnet 5 | $3 / $15 |
+| Rascunhos | Claude Haiku 4.5 | $1 / $5 |
+
+Em um cenário de ~300 comandos e ~1.500 mensagens de clientes por mês, dá
+cerca de **US$ 7/mês**. O prefixo das requisições (instruções + ferramentas)
+usa prompt caching, o que corta ~90% do custo de entrada repetida.
+
+### Mensagens agendadas
+
+Agendamentos ficam na tabela `ScheduledMessage`. Um despachante roda a cada
+minuto dentro do próprio processo do servidor (ligado por `instrumentation.ts`)
+e envia o que venceu, com até 3 tentativas.
+
+> O despachante assume **uma réplica** do serviço `app` — é como o stack está
+> configurado. Subir para duas réplicas exigiria um lock distribuído, senão as
+> duas instâncias enviariam a mesma mensagem.
+
+Para diagnóstico dá para disparar uma rodada à mão:
+
+```bash
+curl -X POST "https://central.vexgrowth.com.br/api/cron/dispatch?token=<CRM_WEBHOOK_SECRET>"
+```
+
 ## Deploy
 
 Push em `main` dispara `.github/workflows/deploy.yml`:
