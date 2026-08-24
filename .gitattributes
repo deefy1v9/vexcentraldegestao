@@ -1,0 +1,12 @@
+# Normaliza finais de linha no repositório.
+* text=auto eol=lf
+
+# Estes arquivos são executados dentro de containers Linux: com CRLF o
+# `sh ./entrypoint.sh` quebra logo na primeira linha.
+*.sh text eol=lf
+Dockerfile text eol=lf
+entrypoint.sh text eol=lf
+
+*.png binary
+*.ico binary
+*.svg text eol=lf

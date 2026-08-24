@@ -1,3 +1,22 @@
+# =============================================================================
+#  ATENÇÃO — ARQUIVO OBSOLETO. NÃO APLIQUE ESTE STACK EM PRODUÇÃO.
+# =============================================================================
+#
+#  O servidor de produção é COMPARTILHADO com outros projetos e o Traefik que
+#  roda lá NÃO veio deste arquivo: é o container 'n8n-traefik-1', da stack do
+#  n8n, com providers docker+swarm, rede 'traefik-public' e cert resolver
+#  'mytlschallenge'.
+#
+#  Rodar 'docker stack deploy -c docker-compose.infra.yml infra' subiria um
+#  SEGUNDO Traefik disputando as portas 80/443 e derrubaria todos os projetos
+#  do servidor, inclusive os que não são nossos.
+#
+#  Este arquivo fica no repositório apenas como referência histórica de como
+#  provisionar um servidor NOVO do zero. Para ajustar o roteamento da Central
+#  de Gestão, altere as labels do serviço 'app' em docker-compose.app.yml —
+#  nunca esta infraestrutura compartilhada.
+# =============================================================================
+
 version: "3.9"
 
 services:

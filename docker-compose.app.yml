@@ -6,8 +6,17 @@ services:
     environment:
       DATABASE_URL: postgresql://vex:${DB_PASSWORD}@db:5432/vex_gestao
       AUTH_SECRET: ${AUTH_SECRET}
+      # Chave de criptografia das credenciais de clientes (AES-256-GCM).
+      # O workflow de deploy usa o AUTH_SECRET como fallback quando o secret
+      # CREDENTIALS_SECRET não existe, preservando os dados já cifrados.
+      # ATENÇÃO: se este valor mudar, as senhas gravadas ficam ilegíveis.
+      CREDENTIALS_SECRET: ${CREDENTIALS_SECRET}
       NEXTAUTH_URL: https://central.vexgrowth.com.br
       NODE_ENV: production
+    volumes:
+      # Anexos de demandas são gravados em disco. Sem este volume, todo
+      # anexo enviado desaparecia no deploy seguinte junto com o container.
+      - vex-uploads:/app/public/uploads
     networks:
       - traefik-public   # <-- ALTERE para o nome da rede do Traefik existente
       - internal
@@ -38,10 +47,22 @@ services:
         - traefik.http.routers.vex.rule=Host(`central.vexgrowth.com.br`)
         - traefik.http.routers.vex.tls.certresolver=mytlschallenge
         - traefik.http.services.vex.loadbalancer.server.port=3000
-    # Sem healthcheck: a imagem node:20-slim não tem wget/curl, e um
-    # healthcheck falho marcava o container como unhealthy -> swarm matava
-    # -> rollback travava em rollback_paused. O swarm já considera o
-    # container saudável enquanto o processo do Next.js estiver rodando.
+    # Healthcheck em Node puro: a imagem node:20-slim não tem wget nem curl,
+    # e era isso que fazia o healthcheck antigo falhar, o swarm matar o
+    # container e o deploy travar em rollback_paused.
+    # /api/health não consulta o banco — responde assim que o servidor sobe.
+    # Como o entrypoint só inicia o Next depois de aplicar as migrations, o
+    # Traefik passa a rotear apenas quando o container está de fato pronto.
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "require('http').get('http://127.0.0.1:3000/api/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
 
   db:
     image: postgres:16-alpine
@@ -66,8 +87,52 @@ services:
       timeout: 5s
       retries: 5
 
+  # Dump diário do Postgres, com retenção de 7 dias. Sem isto não havia
+  # nenhuma cópia de segurança do banco de produção.
+  # Restaurar:  pg_restore -h db -U vex -d vex_gestao -c /backups/<arquivo>.dump
+  db-backup:
+    image: postgres:16-alpine
+    environment:
+      PGPASSWORD: ${DB_PASSWORD}
+    volumes:
+      - vex-db-backups:/backups
+    networks:
+      - internal
+    depends_on:
+      - db
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        while true; do
+          # O swarm ignora depends_on: espera o banco aceitar conexoes, senao
+          # o primeiro dump falharia e o proximo so viria 24h depois.
+          until pg_isready -h db -U vex -d vex_gestao -q; do
+            echo "aguardando o banco..."
+            sleep 5
+          done
+          ts=$$(date +%Y%m%d-%H%M%S)
+          if pg_dump -h db -U vex -d vex_gestao -Fc -f /backups/vex_gestao-$$ts.dump; then
+            echo "backup ok: vex_gestao-$$ts.dump"
+          else
+            echo "BACKUP FALHOU em $$ts" >&2
+          fi
+          find /backups -name '*.dump' -mtime +7 -delete
+          sleep 86400
+        done
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 30s
+      resources:
+        limits:
+          memory: 128M
+
 volumes:
   vex-postgres-data:   # nome único para não conflitar com outros projetos
+  vex-uploads:         # anexos de demandas (public/uploads)
+  vex-db-backups:      # dumps diários do Postgres
 
 networks:
   traefik-public:         # <-- ALTERE para o nome da rede do Traefik existente

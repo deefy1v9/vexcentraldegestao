@@ -25,8 +25,11 @@ services:
       UAZAPI_URL: ${UAZAPI_URL}
       UAZAPI_TOKEN: ${UAZAPI_TOKEN}
       UAZAPI_INSTANCE: ${UAZAPI_INSTANCE}
+    volumes:
+      - uploads_data:/app/public/uploads
     depends_on:
       - db
 
 volumes:
   postgres_data:
+  uploads_data:
