@@ -98,6 +98,8 @@ export async function sendMail(opts: {
   kind?: string
   /** Remetente: 'contato' para avisos, 'financeiro' (padrão) para cobrança. */
   profile?: MailProfile
+  /** Anexos (ex.: PDF da proposta). O conteúdo nunca vai para log. */
+  attachments?: Array<{ filename: string; content: Buffer; contentType?: string }>
 }): Promise<{ sent: boolean; skipped?: boolean; providerResponse?: string; from?: string }> {
   const cfg = await getSmtpConfig(opts.profile ?? 'financeiro')
   if (!cfg.configured) throw new MailNotConfiguredError(cfg.profile)
@@ -124,6 +126,7 @@ export async function sendMail(opts: {
       to: opts.to,
       subject: opts.subject,
       html: opts.html,
+      ...(opts.attachments?.length ? { attachments: opts.attachments } : {}),
     })
     await prisma.integrationLog.create({
       data: {

@@ -4,11 +4,12 @@ import { notFound } from 'next/navigation'
 import Header from '@/components/layout/Header'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import Link from 'next/link'
-import { ArrowLeft, Pencil } from 'lucide-react'
+import { ArrowLeft, Pencil, FileText } from 'lucide-react'
 import ClientCredentialsPanel from '@/components/clientes/ClientCredentialsPanel'
 import ClientServicesPanel from '@/components/clientes/ClientServicesPanel'
 import ClientProfileTabs from '@/components/clientes/ClientProfileTabs'
 import ClientEmailActions from '@/components/clientes/ClientEmailActions'
+import ProposalsList from '@/components/propostas/ProposalsList'
 import TierBadge from '@/components/ui/TierBadge'
 import { missingBillingFields } from '@/lib/billing-core'
 
@@ -308,7 +309,29 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
           <Link href="/clientes" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900">
             <ArrowLeft className="w-4 h-4" /> Voltar para Clientes
           </Link>
-          <div className="flex items-center gap-4 flex-wrap">
+          <div className="flex items-center gap-3 flex-wrap">
+            {isAdmin && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <Link
+                  href={`/propostas/nova?clientId=${id}`}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#030A8C] text-white rounded-lg text-xs font-semibold hover:bg-[#02077a] transition-colors"
+                >
+                  <FileText className="w-3.5 h-3.5" /> Nova proposta
+                </Link>
+                <Link
+                  href={`/propostas/nova?clientId=${id}&kind=ADITIVO`}
+                  className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-medium text-gray-700 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors"
+                >
+                  Criar aditivo
+                </Link>
+                <Link
+                  href={`/clientes/${id}/propostas`}
+                  className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-medium text-gray-700 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors"
+                >
+                  Histórico de propostas
+                </Link>
+              </div>
+            )}
             {isAdmin && nextCharge && (
               <div className="text-right">
                 <p className="text-[11px] text-gray-400">Próxima cobrança</p>
@@ -327,6 +350,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
             { key: 'servicos', label: 'Serviços' },
             ...(isAdmin ? [{ key: 'financeiro', label: 'Financeiro' }] : []),
             ...(isAdmin ? [{ key: 'faturamento', label: 'Faturamento e NFS-e' }] : []),
+            ...(isAdmin ? [{ key: 'propostas', label: 'Propostas' }] : []),
             ...(isAdmin ? [{ key: 'credenciais', label: 'Credenciais' }] : []),
             { key: 'historico', label: 'Histórico' },
           ]}
@@ -359,6 +383,20 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
               </div>
             ),
             faturamento: billingSection,
+            propostas: isAdmin ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <p className="text-sm text-gray-500">Propostas e aditivos deste cliente.</p>
+                  <Link
+                    href={`/propostas/nova?clientId=${id}`}
+                    className="text-xs font-semibold text-[#030A8C] hover:underline"
+                  >
+                    Nova proposta
+                  </Link>
+                </div>
+                <ProposalsList clientId={id} compact />
+              </div>
+            ) : null,
             credenciais: isAdmin ? (
               <ClientCredentialsPanel clientId={id} initialCredentials={client.credentials} />
             ) : null,

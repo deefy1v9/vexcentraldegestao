@@ -3,6 +3,7 @@ import { getSessionUser } from '@/lib/api-auth'
 import Header from '@/components/layout/Header'
 import ClientRowActions from '@/components/clientes/ClientRowActions'
 import TierRangesConfig from '@/components/clientes/TierRangesConfig'
+import ProposalsNav from '@/components/propostas/ProposalsNav'
 import TierBadge from '@/components/ui/TierBadge'
 import Link from 'next/link'
 import { formatCurrency, formatDate } from '@/lib/utils'
@@ -62,6 +63,9 @@ export default async function ClientesPage({
     <div className="flex flex-col h-full overflow-hidden">
       <Header title="Clientes" subtitle={`${clients.length} cliente(s) cadastrado(s)`} />
       <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+        {/* Navegação interna da área de Clientes (menu lateral não muda) */}
+        {isAdmin && <ProposalsNav />}
+
         {/* Faixas da segmentação — só administradores configuram */}
         {isAdmin && <TierRangesConfig />}
 

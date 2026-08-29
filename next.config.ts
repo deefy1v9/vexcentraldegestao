@@ -16,6 +16,11 @@ const nextConfig: NextConfig = {
   output: "standalone",
   // Não revela que o servidor roda Next.js.
   poweredByHeader: false,
+  // pdfkit lê as métricas das fontes (.afm) do próprio diretório em tempo de
+  // execução. Empacotado no chunk, esses arquivos ficam de fora e a geração
+  // do PDF quebra no container — mantendo-o externo, o tracing copia o pacote
+  // inteiro para o standalone. `docx` acompanha pelo mesmo motivo (templates).
+  serverExternalPackages: ["pdfkit", "docx"],
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

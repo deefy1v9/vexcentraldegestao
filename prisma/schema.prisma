@@ -64,6 +64,8 @@ model User {
 
   contractAnalyses ContractAnalysis[]
   confirmedPlans   PlanProposal[]     @relation("PlanConfirmedBy")
+  prospects        Prospect[]
+  proposals        Proposal[]
 }
 
 model Client {
@@ -129,6 +131,7 @@ model Client {
   asaasCharges         AsaasCharge[]
   contractAnalyses     ContractAnalysis[]
   planProposals        PlanProposal[]
+  proposals            Proposal[]
 }
 
 // ---------------------------------------------------------------------------
@@ -407,6 +410,15 @@ model ClientService {
   customName         String?
   description        String?
   monthlyValue       Float?
+  // ---- Dados comerciais para propostas (opcionais, aditivos ao cadastro) ----
+  // Nada aqui substitui os campos acima: servem de padrão ao montar proposta.
+  proposalDescription String? // descrição comercial exibida na proposta
+  defaultScope        String? // escopo padrão do serviço
+  defaultDeliverables String[] @default([]) // entregáveis padrão
+  defaultMonthlyCents Int? // valor mensal padrão em centavos
+  defaultSetupCents   Int? // valor único/setup padrão em centavos
+  defaultMonths       Int? // duração padrão em meses
+  billingKind         String? // RECORRENTE | UNICO
   paymentType        String?
   contractDuration   Int?
   firstPaymentDate   DateTime?
@@ -882,4 +894,205 @@ model AiJob {
   conversation CrmConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([status, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Propostas comerciais e aditivos.
+// Valores sempre em CENTAVOS inteiros — nunca float. O documento gerado fica
+// no banco (bytes) e só sai por rota autenticada, nunca por URL pública.
+// ---------------------------------------------------------------------------
+
+// Interessado que ainda não é cliente. Criar proposta para um prospect NÃO o
+// transforma em cliente: a conversão é um passo explícito depois da aprovação.
+model Prospect {
+  id            String  @id @default(cuid())
+  personType    String  @default("PF") // PF | PJ
+  document      String  @unique // CPF/CNPJ apenas dígitos
+  name          String // nome completo ou razão social
+  tradeName     String?
+  contactName   String?
+  email         String?
+  phone         String?
+  zipCode       String?
+  street        String?
+  addressNumber String?
+  complement    String?
+  district      String?
+  city          String?
+  state         String?
+  notes         String?
+  // Preenchido quando o prospect vira cliente — impede conversão em dobro
+  convertedClientId String?  @unique
+  convertedAt       DateTime?
+  createdById       String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  createdBy User       @relation(fields: [createdById], references: [id])
+  proposals Proposal[]
+}
+
+// Modelo do documento, versionado. O conteúdo é uma árvore de seções com
+// placeholders resolvidos de forma determinística (sem IA).
+model ProposalTemplate {
+  id        String   @id @default(cuid())
+  name      String
+  version   Int      @default(1)
+  isDefault Boolean  @default(false)
+  isActive  Boolean  @default(true)
+  content   Json // seções, cláusulas e textos institucionais
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  proposals Proposal[]
+
+  @@unique([name, version])
+}
+
+// Proposta comercial ou aditivo (kind). O aditivo referencia a proposta de
+// origem em parentId e nunca altera o documento original.
+model Proposal {
+  id     String @id @default(cuid())
+  number String @unique // PROP-2026-0001 | ADT-2026-0001
+  kind   String @default("PROPOSTA") // PROPOSTA | ADITIVO
+  year   Int
+  seq    Int
+
+  clientId   String?
+  prospectId String?
+  templateId String?
+  parentId   String? // proposta de origem do aditivo
+
+  // RASCUNHO | GERADA | ENVIADA | VISUALIZADA | APROVADA | RECUSADA |
+  // EXPIRADA | CANCELADA | SUBSTITUIDA
+  status         String @default("RASCUNHO")
+  currentVersion Int    @default(1)
+
+  // Dados do tomador congelados no momento da emissão (o cadastro pode mudar)
+  snapshot Json
+
+  issueDate    DateTime
+  validUntil   DateTime
+  startDate    DateTime?
+  months       Int       @default(0)
+  paymentDay   Int?
+  paymentTerms String?
+  notes        String?
+
+  // Totais calculados (centavos inteiros)
+  discountCents      Int      @default(0) // desconto geral
+  discountPercent    Decimal? @db.Decimal(5, 2)
+  monthlyCents       Int      @default(0) // mensalidade final
+  setupCents         Int      @default(0) // pagamento único/setup
+  totalCents         Int      @default(0) // total da vigência
+  itemsDiscountCents Int      @default(0) // soma dos descontos por item
+
+  createdById       String
+  sentAt            DateTime?
+  viewedAt          DateTime?
+  approvedAt        DateTime?
+  rejectedAt        DateTime?
+  canceledAt        DateTime?
+  convertedClientId String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  client    Client?           @relation(fields: [clientId], references: [id])
+  prospect  Prospect?         @relation(fields: [prospectId], references: [id])
+  template  ProposalTemplate? @relation(fields: [templateId], references: [id])
+  parent    Proposal?         @relation("ProposalAddendum", fields: [parentId], references: [id])
+  addendums Proposal[]        @relation("ProposalAddendum")
+  createdBy User              @relation(fields: [createdById], references: [id])
+
+  items     ProposalItem[]
+  versions  ProposalVersion[]
+  documents ProposalDocument[]
+  events    ProposalEvent[]
+
+  @@unique([kind, year, seq])
+  @@index([clientId, status])
+  @@index([prospectId, status])
+  @@index([status, issueDate])
+}
+
+model ProposalItem {
+  id         String  @id @default(cuid())
+  proposalId String
+  serviceId  String? // ClientService de origem, quando houver
+  order      Int     @default(0)
+
+  name         String
+  description  String?
+  scope        String?
+  deliverables String[] @default([])
+
+  quantity        Int      @default(1)
+  monthlyCents    Int      @default(0)
+  setupCents      Int      @default(0)
+  discountCents   Int      @default(0)
+  discountPercent Decimal? @db.Decimal(5, 2)
+  months          Int      @default(0)
+  periodicity     String   @default("MENSAL") // MENSAL | UNICO
+  startDate       DateTime?
+  notes           String?
+
+  // Aditivo: o que este item faz com o contrato atual
+  changeType           String? // ADICIONA | REMOVE | ALTERA | MANTEM
+  previousMonthlyCents Int?
+  previousMonths       Int?
+
+  proposal Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
+  @@index([proposalId, order])
+}
+
+// Histórico imutável: cada versão guarda a proposta inteira como estava.
+model ProposalVersion {
+  id          String   @id @default(cuid())
+  proposalId  String
+  version     Int
+  snapshot    Json
+  note        String?
+  createdById String
+  createdAt   DateTime @default(now())
+
+  proposal Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
+  @@unique([proposalId, version])
+}
+
+// Documento gerado. Fica no banco (privado por construção) e só é servido por
+// rota autenticada — sem URL pública e sem nome de arquivo adivinhável.
+model ProposalDocument {
+  id          String   @id @default(cuid())
+  proposalId  String
+  version     Int
+  format      String // PDF | DOCX
+  bytes       Bytes
+  size        Int
+  checksum    String // sha256 do conteúdo
+  fileName    String
+  createdById String
+  downloads   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  proposal Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
+  @@unique([proposalId, version, format])
+}
+
+model ProposalEvent {
+  id         String   @id @default(cuid())
+  proposalId String
+  userId     String?
+  // CRIACAO | EDICAO | VERSAO | PDF | DOCX | ENVIO | VISUALIZACAO | APROVACAO |
+  // RECUSA | CANCELAMENTO | CONVERSAO | DOWNLOAD | STATUS
+  kind       String
+  detail     String
+  meta       Json? // metadados não sensíveis
+  createdAt  DateTime @default(now())
+
+  proposal Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
+  @@index([proposalId, createdAt])
 }
