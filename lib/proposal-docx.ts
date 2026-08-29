@@ -198,7 +198,8 @@ export async function renderProposalDocx(data: ProposalRenderData): Promise<Buff
       }
       case 'signature':
         children.push(para(`Local: ${data.recipient.city ? `${data.recipient.city}/${data.recipient.state ?? ''}`.replace(/\/$/, '') : 'São Paulo/SP'}`, { align: AlignmentType.LEFT, spacing: 60 }))
-        children.push(para(`Data: ${formatDateBR(data.issueDate)}`, { align: AlignmentType.LEFT, spacing: 600 }))
+        // Espaço em branco para a assinatura à mão, igual ao PDF
+        children.push(para(`Data: ${formatDateBR(data.issueDate)}`, { align: AlignmentType.LEFT, spacing: 1600 }))
         children.push(new Table({
           width: { size: 100, type: WidthType.PERCENTAGE },
           rows: [new TableRow({

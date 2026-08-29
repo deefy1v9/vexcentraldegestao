@@ -324,14 +324,20 @@ function addendumSection(doc: Doc, data: ProposalRenderData) {
   })
 }
 
+/** Altura reservada abaixo da data para a assinatura à mão. */
+const SIGNATURE_SPACE = 78
+
 function signature(doc: Doc, data: ProposalRenderData) {
-  ensureSpace(doc, 180)
-  doc.moveDown(1)
+  // Local, data, espaço de assinatura e os dois nomes precisam caber juntos:
+  // quebrar no meio deixaria a linha de assinatura órfã no topo da página.
+  ensureSpace(doc, SIGNATURE_SPACE + 130)
+  doc.moveDown(1.5)
   paragraph(doc, `Local: ${data.recipient.city ? `${data.recipient.city}/${data.recipient.state ?? ''}`.replace(/\/$/, '') : 'São Paulo/SP'}`, { gap: 0.1 })
-  paragraph(doc, `Data: ${formatDateBR(data.issueDate)}`, { gap: 1.6 })
+  paragraph(doc, `Data: ${formatDateBR(data.issueDate)}`, { gap: 0 })
 
   const colWidth = (CONTENT_WIDTH - 40) / 2
-  const y = doc.y
+  // Espaço em branco entre a data e a linha — é onde a pessoa assina
+  const y = doc.y + SIGNATURE_SPACE
   doc.moveTo(MARGIN, y).lineTo(MARGIN + colWidth, y).strokeColor(COLORS.text).stroke()
   doc.moveTo(MARGIN + colWidth + 40, y).lineTo(MARGIN + colWidth * 2 + 40, y).stroke()
 
@@ -342,11 +348,17 @@ function signature(doc: Doc, data: ProposalRenderData) {
     .text(`Representante VEX: ${VEX.representative} | CPF: ${VEX.representativeCpf} | Cargo: ${VEX.representativeRole}`,
       MARGIN, doc.y, { width: colWidth, align: 'center' })
 
+  const leftBottom = doc.y
+
   doc.font(FONT_BOLD).fontSize(9).fillColor(COLORS.text)
     .text(data.recipient.name.toUpperCase(), MARGIN + colWidth + 40, y + 6, { width: colWidth, align: 'center' })
   doc.font(FONT).fontSize(8).fillColor(COLORS.muted)
     .text(`${data.recipient.personType === 'PJ' ? 'CNPJ' : 'CPF'}: ${formatDocument(data.recipient.document)}`,
       MARGIN + colWidth + 40, doc.y, { width: colWidth, align: 'center' })
+
+  // Cursor volta para baixo da coluna mais alta das duas
+  doc.y = Math.max(leftBottom, doc.y)
+  doc.moveDown(1)
 }
 
 function cover(doc: Doc, template: ProposalTemplateContent, data: ProposalRenderData) {
