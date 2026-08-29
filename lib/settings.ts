@@ -21,6 +21,7 @@ export const SECRET_SETTING_KEYS = new Set<string>([
   'FOCUS_WEBHOOK_TOKEN',
   'OPENAI_API_KEY',
   'SMTP_PASS',
+  'SMTP_CONTATO_PASS',
   'UAZAPI_TOKEN',
   'ANTHROPIC_API_KEY',
 ])

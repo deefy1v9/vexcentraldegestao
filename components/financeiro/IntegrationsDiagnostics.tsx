@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { RefreshCw, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react'
+import EmailSettingsCard from './EmailSettingsCard'
 
 interface Diag {
   asaas: {
@@ -131,6 +132,9 @@ export default function IntegrationsDiagnostics() {
           <p className="sm:col-span-2 text-xs text-gray-400 break-all">URL: {diag.focus.webhookUrl}</p>
         </div>
       </div>
+
+      {/* E-mail (contato e financeiro) */}
+      <EmailSettingsCard />
 
       {/* Fiscal + cron + eventos */}
       <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 space-y-1.5 text-sm text-gray-700">

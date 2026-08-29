@@ -20,8 +20,12 @@ const ALLOWED_KEYS = [
   // Responsáveis padrão da operação (IDs de usuário)
   'DEFAULT_REVIEWER_ID',
   'DEFAULT_SCHEDULER_ID',
-  // SMTP (write-only: nunca aparecem no GET) e certificado Focus
-  'SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'SMTP_SECURE',
+  // SMTP — servidor compartilhado e um usuário/senha por remetente
+  // (as senhas são write-only: nunca aparecem no GET)
+  'SMTP_HOST', 'SMTP_PORT', 'SMTP_SECURE',
+  'SMTP_USER', 'SMTP_PASS',                 // remetente financeiro@
+  'SMTP_CONTATO_USER', 'SMTP_CONTATO_PASS', // remetente contato@
+  'MAIL_FROM_FINANCEIRO', 'MAIL_FROM_CONTATO',
   'FOCUS_CERT_STATUS',
   // Asaas e Focus NFe — tokens são write-only: aceitos no PUT e NUNCA
   // devolvidos no GET (o GET expõe apenas flags de presença)
@@ -46,6 +50,7 @@ const SECRET_KEYS = new Set([
   'ASAAS_API_KEY', 'ASAAS_WEBHOOK_TOKEN',
   'FOCUS_NFE_TOKEN_HOMOLOGACAO', 'FOCUS_NFE_TOKEN_PRODUCAO', 'FOCUS_WEBHOOK_TOKEN',
   'ANTHROPIC_API_KEY',
+  'SMTP_PASS', 'SMTP_CONTATO_PASS',
 ])
 
 export async function GET() {
@@ -61,7 +66,10 @@ export async function GET() {
                   'FOCUS_NFE_ENV', 'FOCUS_NFE_TOKEN_HOMOLOGACAO', 'FOCUS_NFE_TOKEN_PRODUCAO',
                   'FOCUS_NFSE_MODE', 'FOCUS_WEBHOOK_TOKEN',
                   'AI_ENABLED', 'AI_DRAFTS_ENABLED', 'AI_COMMAND_NUMBERS',
-                  'AI_AGENT_MODEL', 'AI_DRAFT_MODEL', 'ANTHROPIC_API_KEY')
+                  'AI_AGENT_MODEL', 'AI_DRAFT_MODEL', 'ANTHROPIC_API_KEY',
+                  'SMTP_HOST', 'SMTP_PORT', 'SMTP_SECURE', 'SMTP_USER', 'SMTP_PASS',
+                  'SMTP_CONTATO_USER', 'SMTP_CONTATO_PASS',
+                  'MAIL_FROM_FINANCEIRO', 'MAIL_FROM_CONTATO')
   `
 
   const result: Record<string, string> = {}

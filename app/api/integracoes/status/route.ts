@@ -13,10 +13,11 @@ export async function GET() {
   const gate = await requireAdmin()
   if (gate instanceof NextResponse) return gate
 
-  const [asaasCfg, focusCfg, smtp, syncedClients, lastAsaasEvent] = await Promise.all([
+  const [asaasCfg, focusCfg, smtp, smtpContato, syncedClients, lastAsaasEvent] = await Promise.all([
     getAsaasConfig(),
     getFocusConfig(),
-    smtpConfigured(),
+    smtpConfigured('financeiro'),
+    smtpConfigured('contato'),
     prisma.client.count({ where: { asaasSyncStatus: 'OK' } }),
     prisma.webhookEvent.findFirst({ where: { provider: 'ASAAS' }, orderBy: { createdAt: 'desc' }, select: { createdAt: true } }),
   ])
@@ -34,6 +35,6 @@ export async function GET() {
       configured: !!focusCfg.token,
       certStatus: focusCfg.certStatus, // PENDING | OK
     },
-    email: { configured: smtp },
+    email: { configured: smtp, financeiro: smtp, contato: smtpContato },
   })
 }
