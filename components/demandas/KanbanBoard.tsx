@@ -1,5 +1,6 @@
 'use client'
-import { useState, useRef } from 'react'
+import { useEffect, useState, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
 import {
   Plus, X, MessageSquare, Calendar, Pencil, Save, Paperclip, Download, Trash2,
   ImageIcon, FileText, File, Link2, Eye, CalendarCheck, Send, CheckCircle2, AlertTriangle, History, Sparkles,
@@ -286,6 +287,21 @@ export default function KanbanBoard({
         applyTaskUpdate(data)
       })
   }
+
+  // Abertura direta por link (?task=id) — o calendário abre a demanda no
+  // clique do evento. Roda uma vez por id, sem interferir na navegação.
+  const searchParams = useSearchParams()
+  const deepLinkId = searchParams.get('task')
+  const openedRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!deepLinkId || openedRef.current === deepLinkId) return
+    const task = tasks.find((t) => t.id === deepLinkId)
+    if (!task) return
+    openedRef.current = deepLinkId
+    openTask(task)
+    // openTask é estável dentro do componente; depender dele recriaria o efeito
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deepLinkId, tasks])
 
   async function uploadFile(e: React.ChangeEvent<HTMLInputElement>) {
     if (!selectedTask || !e.target.files?.[0]) return
