@@ -3,6 +3,7 @@ import { requireUser, requireAdmin } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
 import { applyAutoTier, setManualTier, Tier } from '@/lib/client-tier'
+import { missingNfseFields } from '@/lib/billing-core'
 
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const gate = await requireUser()
@@ -85,6 +86,28 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   if (serviceRows?.some((s) => s.monthlyValue != null && (!Number.isFinite(s.monthlyValue) || s.monthlyValue < 0))) {
     return NextResponse.json({ error: 'Valor de serviço deve ser maior ou igual a zero' }, { status: 400 })
+  }
+
+  // NFS-e só pode ser ativada com o cadastro fiscal do tomador completo
+  if (has('nfseEnabled') && body.nfseEnabled) {
+    const current = await prisma.client.findUnique({ where: { id } })
+    if (!current) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    const merged = {
+      ...current,
+      ...Object.fromEntries(
+        (['legalName', 'cnpj', 'billingEmail', 'email', 'zipCode', 'street', 'addressNumber',
+          'district', 'city', 'state', 'ibgeCode'] as const)
+          .filter((k) => has(k))
+          .map((k) => [k, body[k] || null]),
+      ),
+    }
+    const missing = missingNfseFields(merged)
+    if (missing.length > 0) {
+      return NextResponse.json(
+        { error: `Não é possível ativar a NFS-e: faltam ${missing.join(', ')}.` },
+        { status: 400 },
+      )
+    }
   }
 
   const client = await prisma.$transaction(async (tx) => {

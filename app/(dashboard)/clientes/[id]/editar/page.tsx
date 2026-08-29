@@ -350,6 +350,8 @@ export default function EditClientePage() {
               form={billing}
               onChange={setBillingField}
               asaas={asaasInfo}
+              cnpj={form.cnpj}
+              email={form.email}
             />
 
             {/* Observações */}

@@ -186,9 +186,27 @@ model FiscalConfig {
   inss                   Decimal? @db.Decimal(6, 4)
   ibsCbs                 String? // configuração IBS/CBS conforme regra vigente
   descricaoPadrao        String?
+  // Chave de autenticação do Web Service da prefeitura já cadastrada na Focus
+  // (a chave em si vive na Focus — aqui só o estado, nunca o segredo).
+  wsKeyConfigured        Boolean  @default(false)
   autoEmit               Boolean  @default(false)
   emitRule               String   @default("ON_CONFIRMED")
   updatedAt              DateTime @updatedAt
+}
+
+// Alíquota efetiva do ISS por competência (Simples Nacional: 2% a 5%,
+// confirmada pelo contador a cada mês). Sem registro, não há emissão.
+model FiscalAliquota {
+  id          String   @id @default(cuid())
+  year        Int
+  month       Int
+  aliquotaIss Decimal  @db.Decimal(6, 4)
+  note        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([year, month])
+  @@index([year, month])
 }
 
 // NFS-e emitida via Focus — no máximo uma por cobrança.

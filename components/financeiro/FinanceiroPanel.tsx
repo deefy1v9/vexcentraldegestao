@@ -680,6 +680,16 @@ function PaymentsTab({
 }) {
   const [busyCharge, setBusyCharge] = useState<string | null>(null)
   const [chargeMsg, setChargeMsg] = useState<string | null>(null)
+  // Prontidão fiscal: sem Inscrição Municipal, alíquota da competência e chave
+  // do Web Service, a emissão fica desabilitada aqui também (o backend recusa).
+  const [fiscal, setFiscal] = useState<{ ready: boolean; missing: string[] } | null>(null)
+
+  useEffect(() => {
+    fetch('/api/fiscal-config')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((b) => b && setFiscal({ ready: !!b.ready, missing: b.missing ?? [] }))
+      .catch(() => {})
+  }, [])
 
   // Uma linha por cliente: soma todas as parcelas/serviços do mês.
   const groups = useMemo(() => {
@@ -846,7 +856,12 @@ function PaymentsTab({
                       Sincronizar
                     </button>
                     {!charge.nfse && ['CONFIRMED', 'RECEIVED'].includes(charge.status) && (
-                      <button onClick={() => nfseAction(charge.id, 'emit', 'NFS-e enviada para processamento.')} disabled={busy} className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50 transition-colors">
+                      <button
+                        onClick={() => nfseAction(charge.id, 'emit', 'NFS-e enviada para processamento.')}
+                        disabled={busy || (fiscal != null && !fiscal.ready)}
+                        title={fiscal && !fiscal.ready ? `Configuração fiscal incompleta: ${fiscal.missing.join(', ')}` : undefined}
+                        className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
                         Emitir NFS-e
                       </button>
                     )}
@@ -867,7 +882,12 @@ function PaymentsTab({
                           </button>
                         )}
                         {charge.nfse.status === 'ERRO_AUTORIZACAO' && (
-                          <button onClick={() => nfseAction(charge.id, 'emit', 'Nova tentativa de emissão enviada.')} disabled={busy} className="text-[11px] font-semibold text-red-600 hover:underline disabled:opacity-50">
+                          <button
+                            onClick={() => nfseAction(charge.id, 'emit', 'Nova tentativa de emissão enviada.')}
+                            disabled={busy || (fiscal != null && !fiscal.ready)}
+                            title={fiscal && !fiscal.ready ? `Configuração fiscal incompleta: ${fiscal.missing.join(', ')}` : undefined}
+                            className="text-[11px] font-semibold text-red-600 hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
                             Tentar novamente
                           </button>
                         )}

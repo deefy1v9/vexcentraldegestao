@@ -3,6 +3,7 @@ import { requireAdmin } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
 import { fiscalReadiness } from '@/lib/nfse'
+import { isAliquotaIssValid, ALIQUOTA_ISS_MIN, ALIQUOTA_ISS_MAX } from '@/lib/billing-core'
 import { Prisma } from '@prisma/client'
 
 /** Configuração fiscal do prestador. Sem tokens — só dados tributários. */
@@ -10,8 +11,19 @@ export async function GET() {
   const gate = await requireAdmin()
   if (gate instanceof NextResponse) return gate
 
-  const { cfg, missing, ready } = await fiscalReadiness()
-  return NextResponse.json({ config: cfg, missing, ready })
+  const { cfg, missing, ready, competence, aliquota } = await fiscalReadiness()
+  const aliquotas = await prisma.fiscalAliquota.findMany({
+    orderBy: [{ year: 'desc' }, { month: 'desc' }],
+    take: 24,
+  })
+  return NextResponse.json({
+    config: cfg,
+    missing,
+    ready,
+    competence,
+    aliquotaAtual: aliquota,
+    aliquotas: aliquotas.map((a) => ({ ...a, aliquotaIss: Number(a.aliquotaIss) })),
+  })
 }
 
 const STR_FIELDS = [
@@ -19,7 +31,7 @@ const STR_FIELDS = [
   'naturezaOperacao', 'codigoServicoMunicipal', 'itemListaServico', 'cnae',
   'codigoTributacao', 'ibsCbs', 'descricaoPadrao', 'emitRule',
 ] as const
-const BOOL_FIELDS = ['optanteSimples', 'incentivadorCultural', 'issRetido', 'autoEmit'] as const
+const BOOL_FIELDS = ['optanteSimples', 'incentivadorCultural', 'issRetido', 'autoEmit', 'wsKeyConfigured'] as const
 const DEC_FIELDS = ['aliquotaIss', 'pis', 'cofins', 'csll', 'inss'] as const
 
 export async function PUT(req: NextRequest) {
@@ -41,6 +53,13 @@ export async function PUT(req: NextRequest) {
         if (!Number.isFinite(n) || n < 0) {
           return NextResponse.json({ error: `Valor inválido em ${f}.` }, { status: 400 })
         }
+        // A alíquota do ISS no Simples só existe entre 2% e 5%
+        if (f === 'aliquotaIss' && !isAliquotaIssValid(n)) {
+          return NextResponse.json(
+            { error: `Alíquota do ISS deve ficar entre ${ALIQUOTA_ISS_MIN}% e ${ALIQUOTA_ISS_MAX}%.` },
+            { status: 400 },
+          )
+        }
         data[f] = new Prisma.Decimal(String(n))
       }
     }
@@ -53,6 +72,24 @@ export async function PUT(req: NextRequest) {
   })
 
   await logActivity(admin.id, 'atualizou configuração fiscal', 'Financeiro', 'FiscalConfig')
-  const { cfg, missing, ready } = await fiscalReadiness()
-  return NextResponse.json({ config: cfg, missing, ready })
+  const { cfg, missing, ready, competence, aliquota } = await fiscalReadiness()
+
+  // Emissão automática só pode ficar ligada com a configuração completa
+  // (Inscrição Municipal, alíquota da competência e chave do Web Service)
+  if (cfg.autoEmit && !ready) {
+    await prisma.fiscalConfig.update({ where: { id: 'default' }, data: { autoEmit: false } })
+    return NextResponse.json(
+      {
+        config: { ...cfg, autoEmit: false },
+        missing,
+        ready,
+        competence,
+        aliquotaAtual: aliquota,
+        error: `Emissão automática não pode ser ativada: ${missing.join(', ')}.`,
+      },
+      { status: 400 },
+    )
+  }
+
+  return NextResponse.json({ config: cfg, missing, ready, competence, aliquotaAtual: aliquota })
 }

@@ -4,6 +4,7 @@ import {
   computeCompetenceCents, dueDateFor, chargeExternalRef, nfseRef,
   focusBasicAuth, shouldGenerateNow, webhookEventKey, validateEmails,
   missingBillingFields, missingFiscalConfigFields, centsToDecimalString,
+  isAliquotaIssValid, applyCompetenceToDescription,
 } from '../../lib/billing-core'
 
 const activeClient = { status: 'ATIVO', contractEnd: null }
@@ -90,12 +91,51 @@ test('campos obrigatórios de cobrança apontados claramente', () => {
 test('configuração fiscal incompleta bloqueia com lista de faltas', () => {
   const missing = missingFiscalConfigFields({})
   assert.ok(missing.includes('CNPJ do prestador'))
-  assert.ok(missing.includes('Alíquota do ISS'))
+  assert.ok(missing.includes('Inscrição Municipal'))
+  assert.ok(missing.includes('Chave de autenticação do Web Service da prefeitura'))
   assert.equal(missingFiscalConfigFields({
     cnpj: '1', razaoSocial: 'r', inscricaoMunicipal: 'i', codigoMunicipio: 'c',
     naturezaOperacao: '1', itemListaServico: '17.06', codigoServicoMunicipal: '999',
-    aliquotaIss: 2, descricaoPadrao: 'd',
+    descricaoPadrao: 'd', wsKeyConfigured: true,
   }).length, 0)
+})
+
+test('município sem código municipal do serviço não exige o campo', () => {
+  // Osasco/SP (3534401) não utiliza o código municipal do serviço
+  const osasco = missingFiscalConfigFields({
+    cnpj: '1', razaoSocial: 'r', inscricaoMunicipal: 'i', codigoMunicipio: '3534401',
+    naturezaOperacao: '1', itemListaServico: '17.06', descricaoPadrao: 'd',
+    wsKeyConfigured: true,
+  })
+  assert.equal(osasco.length, 0)
+  const outro = missingFiscalConfigFields({
+    cnpj: '1', razaoSocial: 'r', inscricaoMunicipal: 'i', codigoMunicipio: '3550308',
+    naturezaOperacao: '1', itemListaServico: '17.06', descricaoPadrao: 'd',
+    wsKeyConfigured: true,
+  })
+  assert.deepEqual(outro, ['Código municipal do serviço'])
+})
+
+test('alíquota do ISS só é válida entre 2% e 5%', () => {
+  assert.equal(isAliquotaIssValid(2), true)
+  assert.equal(isAliquotaIssValid(3.5), true)
+  assert.equal(isAliquotaIssValid(5), true)
+  assert.equal(isAliquotaIssValid(1.99), false)
+  assert.equal(isAliquotaIssValid(5.01), false)
+  assert.equal(isAliquotaIssValid(null), false)
+  assert.equal(isAliquotaIssValid('abc'), false)
+})
+
+test('descrição padrão recebe a competência no marcador [MM/AAAA]', () => {
+  assert.equal(
+    applyCompetenceToDescription('Serviços referentes à competência [MM/AAAA].', '08/2026'),
+    'Serviços referentes à competência 08/2026.',
+  )
+  // Sem marcador, a competência é anexada ao final
+  assert.equal(
+    applyCompetenceToDescription('Serviços de marketing', '08/2026'),
+    'Serviços de marketing — competência 08/2026',
+  )
 })
 
 test('centavos para decimal sem float', () => {

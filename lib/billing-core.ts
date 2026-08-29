@@ -174,6 +174,32 @@ export function missingNfseFields(c: {
   return missing
 }
 
+/**
+ * Municípios (código IBGE) que não utilizam o código municipal do serviço na
+ * NFS-e — informação confirmada com a Focus por município. Nesses casos o
+ * campo deixa de ser obrigatório e não vai no payload.
+ */
+export const MUNICIPIOS_SEM_CODIGO_SERVICO = new Set([
+  '3534401', // Osasco/SP
+])
+
+export function requiresCodigoServicoMunicipal(codigoMunicipio?: string | null): boolean {
+  const ibge = (codigoMunicipio ?? '').replace(/\D/g, '')
+  return !MUNICIPIOS_SEM_CODIGO_SERVICO.has(ibge)
+}
+
+/**
+ * Alíquota efetiva do ISS: no Simples Nacional varia por competência conforme
+ * o faturamento (2% a 5%). Nunca é presumida — o contador confirma cada uma.
+ */
+export const ALIQUOTA_ISS_MIN = 2
+export const ALIQUOTA_ISS_MAX = 5
+
+export function isAliquotaIssValid(v: unknown): boolean {
+  const n = Number(v)
+  return Number.isFinite(n) && n >= ALIQUOTA_ISS_MIN && n <= ALIQUOTA_ISS_MAX
+}
+
 export function missingFiscalConfigFields(f: {
   cnpj?: string | null
   razaoSocial?: string | null
@@ -182,18 +208,29 @@ export function missingFiscalConfigFields(f: {
   naturezaOperacao?: string | null
   itemListaServico?: string | null
   codigoServicoMunicipal?: string | null
-  aliquotaIss?: unknown
   descricaoPadrao?: string | null
+  wsKeyConfigured?: boolean | null
 }): string[] {
   const missing: string[] = []
   if (!f.cnpj?.trim()) missing.push('CNPJ do prestador')
   if (!f.razaoSocial?.trim()) missing.push('Razão social')
-  if (!f.inscricaoMunicipal?.trim()) missing.push('Inscrição municipal')
+  if (!f.inscricaoMunicipal?.trim()) missing.push('Inscrição Municipal')
   if (!f.codigoMunicipio?.trim()) missing.push('Código IBGE do município')
   if (!f.naturezaOperacao?.trim()) missing.push('Natureza da operação')
   if (!f.itemListaServico?.trim()) missing.push('Item da lista de serviço')
-  if (!f.codigoServicoMunicipal?.trim()) missing.push('Código municipal do serviço')
-  if (f.aliquotaIss == null) missing.push('Alíquota do ISS')
+  // Só onde o município exige (Osasco, por exemplo, não utiliza)
+  if (requiresCodigoServicoMunicipal(f.codigoMunicipio) && !f.codigoServicoMunicipal?.trim()) {
+    missing.push('Código municipal do serviço')
+  }
   if (!f.descricaoPadrao?.trim()) missing.push('Descrição padrão do serviço')
+  if (!f.wsKeyConfigured) missing.push('Chave de autenticação do Web Service da prefeitura')
   return missing
+}
+
+/** Substitui o marcador [MM/AAAA] da descrição padrão pela competência. */
+export function applyCompetenceToDescription(desc: string, competencia: string): string {
+  if (/\[\s*MM\s*\/\s*AAAA\s*\]/i.test(desc)) {
+    return desc.replace(/\[\s*MM\s*\/\s*AAAA\s*\]/gi, competencia)
+  }
+  return `${desc} — competência ${competencia}`
 }

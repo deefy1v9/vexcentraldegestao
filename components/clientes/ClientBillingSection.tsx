@@ -42,11 +42,16 @@ export default function ClientBillingSection({
   form,
   onChange,
   asaas,
+  cnpj,
+  email,
 }: {
   clientId: string
   form: BillingForm
   onChange: <K extends keyof BillingForm>(field: K, value: BillingForm[K]) => void
   asaas: { customerId: string | null; syncStatus: string | null; syncError: string | null; syncedAt: string | null }
+  /** CPF/CNPJ e e-mail vêm dos dados gerais do cliente (mesma tela) */
+  cnpj?: string
+  email?: string
 }) {
   const [syncing, setSyncing] = useState(false)
   const [syncMsg, setSyncMsg] = useState<string | null>(null)
@@ -56,6 +61,8 @@ export default function ClientBillingSection({
   if (!form.billingEmail.trim()) missingBilling.push('E-mail financeiro')
   const missingNfse: string[] = []
   if (!form.legalName.trim()) missingNfse.push('Razão social')
+  if (!(cnpj ?? '').trim()) missingNfse.push('CPF/CNPJ')
+  if (!(form.billingEmail || email || '').trim()) missingNfse.push('E-mail financeiro')
   if (!form.zipCode.trim()) missingNfse.push('CEP')
   if (!form.street.trim()) missingNfse.push('Logradouro')
   if (!form.addressNumber.trim()) missingNfse.push('Número')
@@ -63,6 +70,9 @@ export default function ClientBillingSection({
   if (!form.city.trim()) missingNfse.push('Cidade')
   if (!form.state.trim()) missingNfse.push('UF')
   if (!form.ibgeCode.trim()) missingNfse.push('Código IBGE')
+
+  // Só é possível ligar a emissão com o cadastro fiscal completo
+  const nfseBlocked = !form.nfseEnabled && missingNfse.length > 0
 
   async function syncNow() {
     setSyncing(true)
@@ -124,11 +134,22 @@ export default function ClientBillingSection({
           <input type="checkbox" checked={form.billingEnabled} onChange={(e) => onChange('billingEnabled', e.target.checked)} />
           Cobrança automática mensal (Asaas)
         </label>
-        <label className="flex items-center gap-2 text-sm text-gray-700">
-          <input type="checkbox" checked={form.nfseEnabled} onChange={(e) => onChange('nfseEnabled', e.target.checked)} />
+        <label className={`flex items-center gap-2 text-sm ${nfseBlocked ? 'text-gray-400' : 'text-gray-700'}`}>
+          <input
+            type="checkbox"
+            checked={form.nfseEnabled}
+            disabled={nfseBlocked}
+            onChange={(e) => onChange('nfseEnabled', e.target.checked)}
+          />
           Emissão automática de NFS-e (Focus)
         </label>
       </div>
+
+      {nfseBlocked && (
+        <p className="text-xs text-orange-700 bg-orange-50 border border-orange-100 rounded-lg px-3 py-2">
+          Para ativar a NFS-e, complete o cadastro fiscal do cliente: {missingNfse.join(', ')}.
+        </p>
+      )}
 
       {form.billingEnabled && missingBilling.length > 0 && (
         <p className="text-xs text-orange-700 bg-orange-50 border border-orange-100 rounded-lg px-3 py-2">

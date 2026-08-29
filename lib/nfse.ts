@@ -1,5 +1,8 @@
 import { prisma } from './prisma'
-import { nfseRef, missingFiscalConfigFields, missingNfseFields } from './billing-core'
+import {
+  nfseRef, missingFiscalConfigFields, missingNfseFields,
+  applyCompetenceToDescription, requiresCodigoServicoMunicipal,
+} from './billing-core'
 import * as focus from './focus-nfe'
 
 /**
@@ -21,13 +24,36 @@ export async function getFiscalConfig() {
   })
 }
 
-export async function fiscalReadiness() {
+/** Alíquota efetiva do ISS da competência (null quando não confirmada). */
+export async function aliquotaForCompetence(year: number, month: number): Promise<number | null> {
+  const row = await prisma.fiscalAliquota.findUnique({ where: { year_month: { year, month } } })
+  return row ? Number(row.aliquotaIss) : null
+}
+
+function competenceLabel(year: number, month: number) {
+  return `${String(month).padStart(2, '0')}/${year}`
+}
+
+/**
+ * Estado da configuração fiscal. Além dos campos do prestador, a alíquota
+ * efetiva do ISS da competência corrente é bloqueadora — no Simples ela muda
+ * mês a mês e o sistema nunca assume um valor.
+ */
+export async function fiscalReadiness(competence?: { year: number; month: number }) {
   const cfg = await getFiscalConfig()
-  const missing = missingFiscalConfigFields({
-    ...cfg,
-    aliquotaIss: cfg.aliquotaIss,
-  })
-  return { cfg, missing, ready: missing.length === 0 }
+  const missing = missingFiscalConfigFields(cfg)
+
+  const now = new Date()
+  const ref = competence ?? {
+    year: Number(now.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }).slice(0, 4)),
+    month: Number(now.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }).slice(5, 7)),
+  }
+  const aliquota = await aliquotaForCompetence(ref.year, ref.month)
+  if (aliquota == null) {
+    missing.push(`Alíquota efetiva do ISS da competência ${competenceLabel(ref.year, ref.month)}`)
+  }
+
+  return { cfg, missing, ready: missing.length === 0, competence: ref, aliquota }
 }
 
 function isoDateSP(d: Date): string {
@@ -55,11 +81,14 @@ export function buildNfsePayload(params: {
   }
   valueDecimal: string // "1234.56" — valor da cobrança confirmada
   competencia: string // "MM/AAAA"
+  aliquotaIss: number // alíquota efetiva confirmada para a competência
 }) {
-  const { cfg, client, valueDecimal, competencia } = params
+  const { cfg, client, valueDecimal, competencia, aliquotaIss } = params
   const doc = (client.cnpj ?? '').replace(/\D/g, '')
-  const discriminacao =
-    `${client.fiscalDescription || cfg.descricaoPadrao || 'Prestação de serviços'} — competência ${competencia}`
+  const discriminacao = applyCompetenceToDescription(
+    client.fiscalDescription || cfg.descricaoPadrao || 'Prestação de serviços',
+    competencia,
+  )
 
   return {
     data_emissao: isoDateSP(new Date()),
@@ -88,12 +117,15 @@ export function buildNfsePayload(params: {
       },
     },
     servico: {
-      aliquota: cfg.aliquotaIss != null ? Number(cfg.aliquotaIss) : undefined,
+      aliquota: aliquotaIss,
       discriminacao,
       iss_retido: cfg.issRetido,
       item_lista_servico: cfg.itemListaServico,
       ...(cfg.codigoTributacao ? { codigo_tributario_municipio: cfg.codigoTributacao } : {}),
-      ...(cfg.codigoServicoMunicipal ? { codigo_municipal_de_tributacao: cfg.codigoServicoMunicipal } : {}),
+      // Municípios que não utilizam o código municipal do serviço (Osasco)
+      // não recebem o campo no payload
+      ...(cfg.codigoServicoMunicipal && requiresCodigoServicoMunicipal(cfg.codigoMunicipio)
+        ? { codigo_municipal_de_tributacao: cfg.codigoServicoMunicipal } : {}),
       ...(cfg.cnae ? { codigo_cnae: cfg.cnae.replace(/\D/g, '') } : {}),
       valor_servicos: Number(valueDecimal),
       ...(cfg.pis != null ? { valor_pis: Number(cfg.pis) } : {}),
@@ -133,8 +165,15 @@ export async function emitForCharge(chargeId: string): Promise<{ invoiceId: stri
     return { invoiceId: charge.nfse.id, status: charge.nfse.status }
   }
 
-  const { cfg, missing, ready } = await fiscalReadiness()
-  if (!ready) throw new NfseBlockedError(`Configuração fiscal incompleta: ${missing.join(', ')}`)
+  // Prontidão avaliada na competência da própria cobrança (a alíquota efetiva
+  // do ISS muda mês a mês no Simples Nacional)
+  const { cfg, missing, ready, aliquota } = await fiscalReadiness({
+    year: charge.year,
+    month: charge.month,
+  })
+  if (!ready || aliquota == null) {
+    throw new NfseBlockedError(`Configuração fiscal incompleta: ${missing.join(', ')}`)
+  }
 
   const missingClient = missingNfseFields(charge.client)
   if (missingClient.length > 0) {
@@ -168,6 +207,7 @@ export async function emitForCharge(chargeId: string): Promise<{ invoiceId: stri
     client: charge.client,
     valueDecimal: String(charge.value),
     competencia: `${String(charge.month).padStart(2, '0')}/${charge.year}`,
+    aliquotaIss: aliquota,
   })
 
   try {
