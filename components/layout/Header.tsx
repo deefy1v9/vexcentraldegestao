@@ -74,7 +74,7 @@ export default function Header({ title, subtitle }: HeaderProps) {
   }
 
   return (
-    <header className="h-[72px] bg-white border-b border-gray-100 px-4 sm:px-6 flex items-center justify-between gap-2 shrink-0">
+    <header className="h-[72px] border-b border-gray-200/70 px-4 sm:px-6 flex items-center justify-between gap-2 shrink-0">
       <div className="flex items-center gap-2 min-w-0">
         {/* Hambúrguer: abre a sidebar como drawer no mobile. */}
         <button
