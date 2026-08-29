@@ -20,6 +20,10 @@ const nextConfig: NextConfig = {
   // execução. Empacotado no chunk, esses arquivos ficam de fora e a geração
   // do PDF quebra no container — mantendo-o externo, o tracing copia o pacote
   // inteiro para o standalone. `docx` acompanha pelo mesmo motivo (templates).
+  // pdfkit e docx ficam fora do bundle: o build CJS do pdfkit lê as métricas
+  // de fonte (.afm) do próprio diretório e resolve dependências em tempo de
+  // execução, o que o tracing estático não consegue acompanhar. A imagem
+  // instala os dois com a árvore completa (ver Dockerfile, estágio docdeps).
   serverExternalPackages: ["pdfkit", "docx"],
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];

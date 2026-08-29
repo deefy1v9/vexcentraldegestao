@@ -13,6 +13,15 @@ COPY . .
 RUN npx prisma generate
 RUN npm run build
 
+# Geracao de documentos (propostas): pdfkit e docx precisam da arvore de
+# dependencias COMPLETA em runtime — o tracing do Next copia so o que enxerga
+# estaticamente e deixa de fora arquivos exigidos em tempo de execucao
+# (metricas .afm, @noble/hashes, restructure...). Instalados a parte para a
+# imagem final continuar enxuta.
+FROM base AS docdeps
+WORKDIR /docdeps
+RUN npm init -y > /dev/null && npm install --omit=dev --no-audit --no-fund pdfkit@0.20.1 docx@9.7.1
+
 FROM node:20-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
@@ -28,6 +37,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
+# Arvore completa do pdfkit/docx sobre o que o tracing ja copiou
+COPY --from=docdeps --chown=nextjs:nodejs /docdeps/node_modules ./node_modules
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
