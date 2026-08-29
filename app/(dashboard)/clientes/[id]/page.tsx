@@ -8,6 +8,7 @@ import { ArrowLeft, Pencil } from 'lucide-react'
 import ClientCredentialsPanel from '@/components/clientes/ClientCredentialsPanel'
 import ClientServicesPanel from '@/components/clientes/ClientServicesPanel'
 import ClientProfileTabs from '@/components/clientes/ClientProfileTabs'
+import ClientEmailActions from '@/components/clientes/ClientEmailActions'
 import TierBadge from '@/components/ui/TierBadge'
 import { missingBillingFields } from '@/lib/billing-core'
 
@@ -307,14 +308,17 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
           <Link href="/clientes" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900">
             <ArrowLeft className="w-4 h-4" /> Voltar para Clientes
           </Link>
-          {isAdmin && nextCharge && (
-            <div className="text-right">
-              <p className="text-[11px] text-gray-400">Próxima cobrança</p>
-              <p className="text-sm font-bold text-gray-900">
-                {formatCurrency(Number(nextCharge.value))} · vence {formatDate(nextCharge.dueDate)}
-              </p>
-            </div>
-          )}
+          <div className="flex items-center gap-4 flex-wrap">
+            {isAdmin && nextCharge && (
+              <div className="text-right">
+                <p className="text-[11px] text-gray-400">Próxima cobrança</p>
+                <p className="text-sm font-bold text-gray-900">
+                  {formatCurrency(Number(nextCharge.value))} · vence {formatDate(nextCharge.dueDate)}
+                </p>
+              </div>
+            )}
+            {isAdmin && <ClientEmailActions clientId={id} clientName={client.name} />}
+          </div>
         </div>
 
         <ClientProfileTabs

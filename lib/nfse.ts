@@ -104,8 +104,8 @@ export function buildNfsePayload(params: {
     tomador: {
       ...(doc.length === 11 ? { cpf: doc } : { cnpj: doc }),
       razao_social: client.legalName || client.name,
-      // E-mail financeiro no tomador → a Focus envia a nota após autorização
-      email: client.billingEmail || client.email || undefined,
+      // Sem e-mail no tomador: a Focus só emite — a nota vai ao cliente pelo
+      // sistema, no layout da marca (lib/email-notify), nunca em dobro
       endereco: {
         logradouro: client.street,
         numero: client.addressNumber,
@@ -259,6 +259,12 @@ export async function applyFocusPayload(invoiceId: string, body: Record<string, 
       raw: body as object,
     },
   })
+
+  // Nota autorizada → PDF/XML para o cliente (idempotente por nota)
+  if (status === 'AUTORIZADO') {
+    const { notifyNfseIssued } = await import('./email-notify')
+    await notifyNfseIssued(invoiceId).catch(() => {})
+  }
 }
 
 /**

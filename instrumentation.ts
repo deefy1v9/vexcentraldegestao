@@ -69,6 +69,18 @@ export async function register() {
       } catch (err) {
         console.error('[asaas] billing job error:', err)
       }
+
+      // E-mails do dia: lembretes (D-3, D0), atraso (D+1/7/15), contrato a
+      // vencer e resumo aos administradores — cada um uma vez só (refId)
+      try {
+        const { runBillingEmails } = await import('./lib/email-notify')
+        const mails = await runBillingEmails()
+        if (mails.sent > 0) {
+          console.log(`[email] avisos do dia: ${mails.sent} enviados, ${mails.skipped} pulados`)
+        }
+      } catch (err) {
+        console.error('[email] billing emails error:', err)
+      }
     } catch (err) {
       console.error('[billing] scheduler error:', err)
     }

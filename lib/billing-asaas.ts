@@ -7,13 +7,15 @@ import {
 } from './billing-core'
 import * as asaas from './asaas'
 import { maybeEmitForCharge } from './nfse'
+import { notifyInvoiceIssued, notifyPaymentConfirmed, alertAdmins } from './email-notify'
 
 /**
  * Orquestração das cobranças Asaas.
  *
  * O sistema é a fonte dos valores: a cobrança de uma competência é a soma
- * dos serviços ativos válidos no mês (lib/billing-core). O Asaas cuida de
- * boleto/Pix e notificações nativas — sem segundo envio pelo sistema.
+ * dos serviços ativos válidos no mês (lib/billing-core). O Asaas só gera o
+ * boleto/Pix — as notificações nativas dele ficam desligadas e quem fala com
+ * o cliente é o sistema, no layout da marca (lib/email-notify).
  * Duplicidade é impedida em três camadas: unique (clientId, ano, mês) no
  * banco, externalReference determinística e consulta antes de repetir POST
  * após timeout.
@@ -47,8 +49,9 @@ export async function syncCustomer(clientId: string): Promise<{ asaasCustomerId:
     municipalInscription: client.municipalReg || undefined,
     // UUID interno como referência — nunca buscar só por nome
     externalReference: client.id,
-    // Notificações nativas do Asaas ativas (boleto, avisos, lembretes)
-    notificationDisabled: false,
+    // Notificações nativas do Asaas DESLIGADAS: fatura, lembretes, atraso e
+    // recibo saem pelo sistema, no layout da marca — nunca em dobro
+    notificationDisabled: true,
   }
 
   try {
@@ -165,6 +168,10 @@ export async function ensureCharge(clientId: string, year: number, month: number
         lastError: null,
       },
     })
+
+    // Fatura no e-mail do cliente (idempotente por cobrança; falha não
+    // interrompe — a cobrança já existe e o cron reenvia lembretes)
+    await notifyInvoiceIssued(charge.id).catch(() => {})
     return { chargeId: charge.id, created: true }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
@@ -305,12 +312,12 @@ export async function runAsaasBillingJob(): Promise<{ created: number; skipped: 
       }
     } catch (err) {
       errors++
+      const error = (err instanceof Error ? err.message : String(err)).slice(0, 500)
       await prisma.integrationLog.create({
-        data: {
-          provider: 'ASAAS', action: 'billingJob', refId: client.id, ok: false,
-          error: (err instanceof Error ? err.message : String(err)).slice(0, 500),
-        },
+        data: { provider: 'ASAAS', action: 'billingJob', refId: client.id, ok: false, error },
       }).catch(() => {})
+      // Aviso aos administradores (no máximo um por dia para esta operação)
+      await alertAdmins({ provider: 'ASAAS', action: 'billingJob', refId: client.name, error }).catch(() => {})
     }
   }
 
@@ -349,6 +356,8 @@ export async function processAsaasEvent(event: string, payment: asaas.AsaasPayme
       const fee = Number(charge.value) - payment.netValue
       await bookFee(charge.id, Math.round(fee * 100) / 100)
     }
+    // Recibo ao cliente — uma vez só (refId da cobrança)
+    await notifyPaymentConfirmed(charge.id).catch(() => {})
     await maybeEmitForCharge(charge.id, event === 'PAYMENT_CONFIRMED' ? 'ON_CONFIRMED' : 'ON_RECEIVED').catch(() => {})
   }
 }

@@ -101,6 +101,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cha
         where: { id: charge.nfse.id },
         data: { status: st === 'cancelado' ? 'CANCELADO' : 'ERRO_CANCELAMENTO' },
       })
+      if (st === 'cancelado') {
+        const { notifyNfseCancelled } = await import('@/lib/email-notify')
+        await notifyNfseCancelled(charge.nfse.id, justificativa).catch(() => {})
+      }
       await logActivity(admin.id, 'cancelou NFS-e', 'Financeiro', `${charge.externalRef} — ${justificativa.slice(0, 80)}`)
       const nfse = await prisma.nfseInvoice.findUnique({ where: { id: charge.nfse.id } })
       return NextResponse.json({ ok: true, nfse })

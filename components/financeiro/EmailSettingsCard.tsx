@@ -48,6 +48,29 @@ export default function EmailSettingsCard() {
   const [to, setTo] = useState('')
   const [testing, setTesting] = useState<string | null>(null)
   const [result, setResult] = useState<TestResult | null>(null)
+  const [previewMsg, setPreviewMsg] = useState<string | null>(null)
+
+  /** Manda os 15 modelos com dados fictícios para revisão visual. */
+  async function sendPreviews() {
+    setTesting('preview')
+    setPreviewMsg(null)
+    try {
+      const res = await fetch('/api/integracoes/email-preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) { setPreviewMsg(body.error || 'Falha ao enviar os modelos.'); return }
+      const ok = (body.results ?? []).filter((r: { sent: boolean }) => r.sent).length
+      const fail = (body.results ?? []).filter((r: { sent: boolean }) => !r.sent)
+      setPreviewMsg(`${ok} modelo(s) enviados para ${body.to}${fail.length ? ` · falhas: ${fail.map((f: { kind: string }) => f.kind).join(', ')}` : ''}`)
+    } catch {
+      setPreviewMsg('Falha de conexão.')
+    } finally {
+      setTesting(null)
+    }
+  }
 
   function set<K extends keyof typeof EMPTY>(k: K, v: string) {
     setForm((p) => ({ ...p, [k]: v }))
@@ -218,6 +241,17 @@ export default function EmailSettingsCard() {
           >
             <Send className="w-3.5 h-3.5" /> {testing === 'financeiro' ? 'Enviando...' : 'Testar financeiro'}
           </button>
+        </div>
+
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+          <button
+            onClick={sendPreviews}
+            disabled={!to || testing != null}
+            className="text-xs font-semibold text-[#030A8C] hover:underline disabled:opacity-50 text-left"
+          >
+            {testing === 'preview' ? 'Enviando modelos...' : 'Enviar todos os modelos de e-mail (fatura, lembretes, nota, boas-vindas…) para revisão'}
+          </button>
+          {previewMsg && <span className="text-xs text-gray-600">{previewMsg}</span>}
         </div>
 
         {result && (
