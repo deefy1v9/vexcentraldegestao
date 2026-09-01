@@ -12,6 +12,7 @@ import ClientEmailActions from '@/components/clientes/ClientEmailActions'
 import ProposalsList from '@/components/propostas/ProposalsList'
 import TierBadge from '@/components/ui/TierBadge'
 import { missingBillingFields } from '@/lib/billing-core'
+import { decryptSecret } from '@/lib/crypto'
 
 const TIER_PT: Record<string, string> = { START: 'Start', GROWTH: 'Growth', SCALE: 'Scale' }
 const TIER_PRIORITY_PT: Record<string, string> = {
@@ -71,6 +72,13 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
   const sanitizedServices = isAdmin
     ? client.services
     : client.services.map((s) => ({ ...s, monthlyValue: null, totalContractValue: null, payments: [] }))
+
+  // O cofre guarda a senha cifrada em repouso, mas serve justamente para o
+  // administrador consultar o acesso — aqui ela é aberta para exibição.
+  // Colaborador não recebe nada: a aba inteira é exclusiva de admin.
+  const decryptedCredentials = isAdmin
+    ? client.credentials.map((c) => ({ ...c, password: decryptSecret(c.password) }))
+    : []
 
   /* ------------------------------ seções (server) ------------------------------ */
 
@@ -398,7 +406,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
               </div>
             ) : null,
             credenciais: isAdmin ? (
-              <ClientCredentialsPanel clientId={id} initialCredentials={client.credentials} />
+              <ClientCredentialsPanel clientId={id} initialCredentials={decryptedCredentials} />
             ) : null,
             historico: historySection,
           }}
