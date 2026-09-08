@@ -1,52 +1,55 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
-  Plus, Search, LayoutGrid, List, X, Loader2, AlertTriangle, Clock, FileText, User as UserIcon,
+  Plus, Search, LayoutGrid, List, X, Loader2, AlertTriangle, Clock, FileText,
+  MoreVertical, ArrowRight, CalendarClock,
 } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import CurrencyInput from '@/components/ui/CurrencyInput'
 import TierBadge from '@/components/ui/TierBadge'
 import {
-  STAGES, STAGE_LABEL, opportunityTotals, daysBetween, isFollowUpLate,
-  type Stage,
+  STAGES, STAGE_LABEL, opportunityTotals, daysBetween, isFollowUpLate, type Stage,
 } from '@/lib/pipeline-core'
 import OpportunityDrawer, { type Opportunity, type CatalogOption } from '@/components/pipeline/OpportunityDrawer'
+import {
+  EMPTY_FILTERS, FilterChips, FiltersButton, OwnerSelect,
+  type PipelineFilterState,
+} from '@/components/pipeline/PipelineFilters'
 
 interface Owner { id: string; name: string }
 
 const STAGE_COLOR: Record<Stage, string> = {
-  NOVO: 'bg-gray-100 text-gray-700',
+  NOVO: 'bg-gray-100 text-gray-600',
   EM_CONTATO: 'bg-blue-50 text-blue-700',
   QUALIFICADO: 'bg-indigo-50 text-indigo-700',
   PROPOSTA_ENVIADA: 'bg-[#030A8C]/10 text-[#030A8C]',
-  EM_NEGOCIACAO: 'bg-amber-50 text-amber-700',
+  EM_NEGOCIACAO: 'bg-[#F74A13]/10 text-[#F74A13]',
   GANHO: 'bg-green-100 text-green-700',
-  PERDIDO: 'bg-red-50 text-red-700',
+  PERDIDO: 'bg-red-50 text-red-600',
 }
 
 const brl = (cents: number) => formatCurrency(cents / 100)
+const iniciais = (nome: string) => nome.trim().split(/\s+/).slice(0, 2).map((p) => p[0]).join('').toUpperCase()
 
 /**
- * Quadro comercial: Kanban com arrastar e soltar, lista, filtros e o seletor
- * de etapa que funciona no celular. Toda mudança passa pelo servidor, que roda
- * as mesmas validações — inclusive a conversão em cliente no "ganho".
+ * Quadro comercial: barra compacta de busca e filtros, Kanban com arrastar e
+ * soltar e a ação "Mover para" como alternativa acessível por teclado e no
+ * celular. Filtros e visualização vivem na URL. Toda mudança de etapa passa
+ * pelo servidor, com as mesmas validações — inclusive a conversão no ganho.
  */
 export default function PipelineBoard({ isAdmin, currentUserId }: { isAdmin: boolean; currentUserId: string }) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const params = useSearchParams()
+
   const [opportunities, setOpportunities] = useState<Opportunity[]>([])
   const [owners, setOwners] = useState<Owner[]>([])
   const [catalog, setCatalog] = useState<CatalogOption[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [flash, setFlash] = useState<string | null>(null)
-  const [view, setView] = useState<'kanban' | 'lista'>('kanban')
-  const [search, setSearch] = useState('')
-  const [ownerFilter, setOwnerFilter] = useState('')
-  const [sourceFilter, setSourceFilter] = useState('')
-  const [serviceFilter, setServiceFilter] = useState('')
-  const [stageFilter, setStageFilter] = useState('')
-  const [pendingOnly, setPendingOnly] = useState(false)
-  const [dueFilter, setDueFilter] = useState('')
   const [dragging, setDragging] = useState<string | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
   const [showNew, setShowNew] = useState(false)
@@ -54,6 +57,49 @@ export default function PipelineBoard({ isAdmin, currentUserId }: { isAdmin: boo
   const [busy, setBusy] = useState<string | null>(null)
   const [mobileStage, setMobileStage] = useState<Stage>('NOVO')
 
+  /* ------------------------- estado que vive na URL ------------------------- */
+  const view = params.get('visao') === 'lista' ? 'lista' : 'kanban'
+  const filters: PipelineFilterState = useMemo(() => ({
+    q: params.get('q') ?? '',
+    owner: params.get('responsavel') ?? '',
+    source: params.get('origem') ?? '',
+    service: params.get('servico') ?? '',
+    stage: params.get('etapa') ?? '',
+    dueUntil: params.get('ate') ?? '',
+    lateOnly: params.get('atrasadas') === '1',
+    noActionOnly: params.get('semAcao') === '1',
+    noForecastOnly: params.get('semPrevisao') === '1',
+  }), [params])
+
+  // Busca digitada acompanha a URL sem efeito: ajuste no próprio render
+  const [searchDraft, setSearchDraft] = useState(filters.q)
+  const [urlQ, setUrlQ] = useState(filters.q)
+  if (urlQ !== filters.q) { setUrlQ(filters.q); setSearchDraft(filters.q) }
+
+  const push = useCallback((next: Partial<PipelineFilterState> & { view?: 'kanban' | 'lista' }) => {
+    const merged = { ...filters, ...next }
+    const q = new URLSearchParams()
+    q.set('visao', next.view ?? view)
+    if (merged.q) q.set('q', merged.q)
+    if (merged.owner) q.set('responsavel', merged.owner)
+    if (merged.source) q.set('origem', merged.source)
+    if (merged.service) q.set('servico', merged.service)
+    if (merged.stage) q.set('etapa', merged.stage)
+    if (merged.dueUntil) q.set('ate', merged.dueUntil)
+    if (merged.lateOnly) q.set('atrasadas', '1')
+    if (merged.noActionOnly) q.set('semAcao', '1')
+    if (merged.noForecastOnly) q.set('semPrevisao', '1')
+    router.replace(`${pathname}?${q.toString()}`, { scroll: false })
+  }, [filters, view, router, pathname])
+
+  // A busca digitada entra na URL com um respiro, para não navegar a cada tecla
+  useEffect(() => {
+    if (searchDraft === filters.q) return
+    const t = setTimeout(() => push({ q: searchDraft }), 350)
+    return () => clearTimeout(t)
+  }, [searchDraft, filters.q, push])
+
+  /* ------------------------------- dados ------------------------------- */
   const load = useCallback(() => {
     fetch('/api/pipeline')
       .then((r) => (r.ok ? r.json() : Promise.reject()))
@@ -86,20 +132,21 @@ export default function PipelineBoard({ isAdmin, currentUserId }: { isAdmin: boo
   )
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
+    const q = filters.q.trim().toLowerCase()
     return opportunities.filter((o) => {
       const nome = o.client?.name ?? o.prospect?.tradeName ?? o.prospect?.name ?? ''
-      if (q && !(`${o.title} ${nome}`.toLowerCase().includes(q))) return false
-      if (ownerFilter && o.ownerId !== ownerFilter) return false
-      if (sourceFilter && o.source !== sourceFilter) return false
-      if (stageFilter && o.stage !== stageFilter) return false
-      if (serviceFilter && !o.items.some((i) => i.name === serviceFilter)) return false
-      // Só as que precisam de atenção: sem próxima ação ou com prazo vencido
-      if (pendingOnly && o.nextAction && !isFollowUpLate(o.nextActionAt, hoje)) return false
-      if (dueFilter && (!o.expectedCloseDate || String(o.expectedCloseDate).slice(0, 10) > dueFilter)) return false
+      if (q && !`${o.title} ${nome}`.toLowerCase().includes(q)) return false
+      if (filters.owner && o.ownerId !== filters.owner) return false
+      if (filters.source && o.source !== filters.source) return false
+      if (filters.stage && o.stage !== filters.stage) return false
+      if (filters.service && !o.items.some((i) => i.name === filters.service)) return false
+      if (filters.dueUntil && (!o.expectedCloseDate || String(o.expectedCloseDate).slice(0, 10) > filters.dueUntil)) return false
+      if (filters.lateOnly && !isFollowUpLate(o.nextActionAt, hoje)) return false
+      if (filters.noActionOnly && o.nextAction) return false
+      if (filters.noForecastOnly && o.expectedCloseDate) return false
       return true
     })
-  }, [opportunities, search, ownerFilter, sourceFilter, stageFilter, serviceFilter, pendingOnly, dueFilter, hoje])
+  }, [opportunities, filters, hoje])
 
   const byStage = useMemo(() => {
     const map = new Map<string, Opportunity[]>()
@@ -108,6 +155,7 @@ export default function PipelineBoard({ isAdmin, currentUserId }: { isAdmin: boo
     return map
   }, [filtered])
 
+  /* ------------------------------- ações ------------------------------- */
   async function moveTo(opp: Opportunity, stage: Stage) {
     if (opp.stage === stage) return
     if (stage === 'PERDIDO') { setLoss(opp); return }
@@ -126,83 +174,117 @@ export default function PipelineBoard({ isAdmin, currentUserId }: { isAdmin: boo
   }
 
   function columnTotals(list: Opportunity[]) {
-    let rec = 0, av = 0
+    let rec = 0, pontual = 0
     for (const o of list) {
       const t = opportunityTotals(o.items, o.estimateCents)
       rec += t.recorrenteCents
-      av += t.avulsoCents
+      pontual += t.avulsoCents + t.projetoMensalCents
     }
-    return { rec, av }
+    return { rec, pontual }
   }
 
-  const colunas = stageFilter ? STAGES.filter((s) => s === stageFilter) : STAGES
+  const colunas = filters.stage ? STAGES.filter((s) => s === filters.stage) : STAGES
+  const etapaCelular = colunas.includes(mobileStage) ? mobileStage : colunas[0]
+  const ownerName = owners.find((o) => o.id === filters.owner)?.name ?? null
 
   return (
-    <div className="space-y-4">
-      {/* Ações e filtros */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-[180px]">
-          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar negociação ou cliente" className="input" style={{ paddingLeft: '2.25rem' }} />
-        </div>
-        <select value={ownerFilter} onChange={(e) => setOwnerFilter(e.target.value)} className="input text-xs w-auto">
-          <option value="">Todos os responsáveis</option>
-          {owners.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-        </select>
-        <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)} className="input text-xs w-auto">
-          <option value="">Todas as origens</option>
-          {sources.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
-        <select value={serviceFilter} onChange={(e) => setServiceFilter(e.target.value)} className="input text-xs w-auto">
-          <option value="">Todos os serviços</option>
-          {services.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
-        <select value={stageFilter} onChange={(e) => setStageFilter(e.target.value)} className="input text-xs w-auto">
-          <option value="">Todas as etapas</option>
-          {STAGES.map((s) => <option key={s} value={s}>{STAGE_LABEL[s]}</option>)}
-        </select>
-        <label className="flex items-center gap-1.5 text-[11px] font-medium text-gray-600 whitespace-nowrap">
-          <input type="checkbox" checked={pendingOnly} onChange={(e) => setPendingOnly(e.target.checked)} />
-          Atrasadas ou sem próxima ação
-        </label>
-        <label className="flex items-center gap-1.5 text-[11px] text-gray-600 whitespace-nowrap">
-          Fecha até
-          <input type="date" value={dueFilter} onChange={(e) => setDueFilter(e.target.value)} className="input text-xs w-auto" />
-        </label>
-        <div className="flex items-center gap-0.5 bg-gray-100 rounded-lg p-0.5">
-          <button onClick={() => setView('kanban')} aria-label="Kanban" className={`p-1.5 rounded-md ${view === 'kanban' ? 'bg-white text-[#030A8C] shadow-sm' : 'text-gray-500'}`}><LayoutGrid className="w-4 h-4" /></button>
-          <button onClick={() => setView('lista')} aria-label="Lista" className={`p-1.5 rounded-md ${view === 'lista' ? 'bg-white text-[#030A8C] shadow-sm' : 'text-gray-500'}`}><List className="w-4 h-4" /></button>
-        </div>
-        <button onClick={() => setShowNew(true)} className="flex items-center gap-1.5 bg-[#030A8C] text-white px-3 py-2 rounded-lg text-xs font-semibold hover:bg-[#02077a] transition-colors">
-          <Plus className="w-3.5 h-3.5" /> Novo lead
+    <div className="space-y-3">
+      {/* Cabeçalho: contexto à esquerda, ação principal à direita */}
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-sm text-gray-500">
+          {loading ? 'Carregando negociações…' : `${filtered.length} negociação(ões) no funil comercial.`}
+        </p>
+        <button
+          onClick={() => setShowNew(true)}
+          className="shrink-0 h-10 px-4 inline-flex items-center gap-1.5 bg-[#030A8C] text-white rounded-lg text-xs font-semibold hover:bg-[#02077a] transition-colors"
+        >
+          <Plus className="w-4 h-4" /> Novo lead
         </button>
       </div>
+
+      {/* Barra compacta */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[240px] max-w-[400px]">
+          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            value={searchDraft}
+            onChange={(e) => setSearchDraft(e.target.value)}
+            placeholder="Buscar negociação ou cliente"
+            aria-label="Buscar negociação ou cliente"
+            className="w-full h-10 pl-9 pr-8 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#030A8C]"
+          />
+          {searchDraft && (
+            <button
+              onClick={() => { setSearchDraft(''); push({ q: '' }) }}
+              aria-label="Limpar busca"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-gray-100"
+            >
+              <X className="w-3.5 h-3.5 text-gray-400" />
+            </button>
+          )}
+        </div>
+
+        <OwnerSelect owners={owners} value={filters.owner} onChange={(id) => push({ owner: id })} />
+        <FiltersButton filters={filters} sources={sources} services={services} onApply={(next) => push(next)} />
+
+        <div className="ml-auto flex items-center gap-0.5 bg-gray-100 rounded-lg p-0.5 h-10">
+          <button
+            onClick={() => push({ view: 'kanban' })}
+            aria-label="Ver como Kanban"
+            aria-pressed={view === 'kanban'}
+            className={`px-2.5 h-9 rounded-md flex items-center ${view === 'kanban' ? 'bg-white text-[#030A8C] shadow-sm' : 'text-gray-500'}`}
+          >
+            <LayoutGrid className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => push({ view: 'lista' })}
+            aria-label="Ver como lista"
+            aria-pressed={view === 'lista'}
+            className={`px-2.5 h-9 rounded-md flex items-center ${view === 'lista' ? 'bg-white text-[#030A8C] shadow-sm' : 'text-gray-500'}`}
+          >
+            <List className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      <FilterChips
+        filters={filters}
+        ownerName={ownerName}
+        onRemove={(key) => push({ [key]: typeof filters[key] === 'boolean' ? false : '' } as Partial<PipelineFilterState>)}
+        onClear={() => push({ ...EMPTY_FILTERS })}
+      />
 
       {flash && <p className="text-xs font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">{flash}</p>}
       {error && <p className="text-xs font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
 
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-3 xl:grid-cols-5 gap-3 animate-pulse">
-          {[...Array(5)].map((_, i) => <div key={i} className="h-56 bg-gray-100 rounded-xl" />)}
+        <div className="flex gap-3 overflow-hidden">
+          {[...Array(4)].map((_, i) => <div key={i} className="h-64 w-[300px] shrink-0 bg-gray-100 rounded-xl animate-pulse" />)}
         </div>
       ) : view === 'lista' ? (
         <ListView list={filtered} onOpen={setOpenId} />
       ) : (
         <>
-          {/* Celular: uma etapa por vez, sem depender de arrastar */}
+          {/* Celular e tablet: uma etapa por vez, sem depender de arrastar */}
           <div className="lg:hidden space-y-3">
             <div className="flex gap-1.5 overflow-x-auto pb-1">
               {colunas.map((s) => (
-                <button key={s} onClick={() => setMobileStage(s)}
-                  className={`text-[11px] font-semibold px-2.5 py-1.5 rounded-full whitespace-nowrap border ${mobileStage === s ? 'bg-[#030A8C] text-white border-[#030A8C]' : 'bg-white text-gray-600 border-gray-200'}`}>
+                <button
+                  key={s}
+                  onClick={() => setMobileStage(s)}
+                  aria-pressed={etapaCelular === s}
+                  className={`text-[11px] font-semibold px-2.5 h-8 rounded-full whitespace-nowrap border ${
+                    etapaCelular === s ? 'bg-[#030A8C] text-white border-[#030A8C]' : 'bg-white text-gray-600 border-gray-200'
+                  }`}
+                >
                   {STAGE_LABEL[s]} · {byStage.get(s)?.length ?? 0}
                 </button>
               ))}
             </div>
             <Column
-              stage={mobileStage}
-              list={byStage.get(mobileStage) ?? []}
-              totals={columnTotals(byStage.get(mobileStage) ?? [])}
+              stage={etapaCelular}
+              list={byStage.get(etapaCelular) ?? []}
+              totals={columnTotals(byStage.get(etapaCelular) ?? [])}
               onOpen={setOpenId}
               onMove={moveTo}
               busy={busy}
@@ -211,8 +293,8 @@ export default function PipelineBoard({ isAdmin, currentUserId }: { isAdmin: boo
             />
           </div>
 
-          {/* Desktop: colunas com arrastar e soltar */}
-          <div className="hidden lg:flex gap-3 overflow-x-auto pb-2">
+          {/* Desktop: rolagem horizontal apenas dentro do quadro */}
+          <div className="hidden lg:flex gap-3 overflow-x-auto pb-2 -mx-1 px-1">
             {colunas.map((stage) => {
               const list = byStage.get(stage) ?? []
               return (
@@ -224,7 +306,7 @@ export default function PipelineBoard({ isAdmin, currentUserId }: { isAdmin: boo
                     setDragging(null)
                     if (opp) moveTo(opp, stage)
                   }}
-                  className="min-w-[260px] flex-1"
+                  className="w-[300px] shrink-0"
                 >
                   <Column
                     stage={stage}
@@ -282,7 +364,7 @@ function Column({
 }: {
   stage: Stage
   list: Opportunity[]
-  totals: { rec: number; av: number }
+  totals: { rec: number; pontual: number }
   onOpen: (id: string) => void
   onMove: (opp: Opportunity, stage: Stage) => void
   busy: string | null
@@ -291,20 +373,20 @@ function Column({
   onDragStart?: (id: string) => void
 }) {
   return (
-    <div className="bg-gray-50 rounded-xl border border-gray-200 flex flex-col max-h-[70vh]">
-      <div className="px-3 py-2.5 border-b border-gray-200 sticky top-0 bg-gray-50 rounded-t-xl">
+    <div className="bg-gray-50 rounded-xl border border-gray-200 flex flex-col max-h-[calc(100dvh-330px)] min-h-[180px]">
+      <div className="px-3 py-2.5 border-b border-gray-200 bg-gray-50 rounded-t-xl">
         <div className="flex items-center justify-between gap-2">
-          <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${STAGE_COLOR[stage]}`}>{STAGE_LABEL[stage]}</span>
+          <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${STAGE_COLOR[stage]}`}>{STAGE_LABEL[stage]}</span>
           <span className="text-[11px] font-semibold text-gray-500">{list.length}</span>
         </div>
         <p className="text-[10px] text-gray-500 mt-1">
           {brl(totals.rec)}<span className="text-gray-400">/mês</span>
-          {totals.av > 0 && <> · {brl(totals.av)} avulso</>}
+          {totals.pontual > 0 && <span className="text-purple-700"> · {brl(totals.pontual)} pontual</span>}
         </p>
       </div>
       <div className="p-2 space-y-2 overflow-y-auto">
         {list.length === 0 ? (
-          <p className="text-[11px] text-gray-400 text-center py-6">Nenhuma negociação</p>
+          <p className="text-[11px] text-gray-400 text-center py-4">Nenhuma negociação</p>
         ) : list.map((o) => (
           <Card key={o.id} opp={o} onOpen={onOpen} onMove={onMove} busy={busy === o.id} today={today} draggable={draggable} onDragStart={onDragStart} />
         ))}
@@ -312,6 +394,8 @@ function Column({
     </div>
   )
 }
+
+/* ---------------------------------- card ---------------------------------- */
 
 function Card({
   opp, onOpen, onMove, busy, today, draggable, onDragStart,
@@ -324,63 +408,120 @@ function Card({
   draggable: boolean
   onDragStart?: (id: string) => void
 }) {
+  const [menu, setMenu] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
   const totals = opportunityTotals(opp.items, opp.estimateCents)
   const nome = opp.client?.name ?? opp.prospect?.tradeName ?? opp.prospect?.name ?? 'Sem contato'
   const atrasado = isFollowUpLate(opp.nextActionAt, today)
-  const semAcao = !opp.nextAction
+  const pontual = totals.avulsoCents + totals.projetoMensalCents
+  const semValor = totals.itemCount === 0 && !totals.usandoEstimativa
+
+  useEffect(() => {
+    if (!menu) return
+    const fora = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setMenu(false) }
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenu(false) }
+    document.addEventListener('mousedown', fora)
+    document.addEventListener('keydown', esc)
+    return () => { document.removeEventListener('mousedown', fora); document.removeEventListener('keydown', esc) }
+  }, [menu])
 
   return (
     <div
+      ref={ref}
       draggable={draggable}
       onDragStart={() => onDragStart?.(opp.id)}
-      className={`bg-white border rounded-lg p-3 space-y-2 ${busy ? 'opacity-50' : ''} ${atrasado ? 'border-red-200' : 'border-gray-200'} ${draggable ? 'cursor-grab active:cursor-grabbing' : ''}`}
+      className={`relative bg-white border rounded-lg p-3 ${busy ? 'opacity-50' : ''} ${atrasado ? 'border-red-200' : 'border-gray-200'} ${draggable ? 'cursor-grab active:cursor-grabbing' : ''}`}
     >
-      <button onClick={() => onOpen(opp.id)} className="text-left w-full">
-        <p className="text-sm font-semibold text-gray-900 leading-tight">{opp.title}</p>
-        <p className="text-[11px] text-gray-500 flex items-center gap-1 mt-0.5">
-          {nome}
-          {opp.client && <TierBadge tier={opp.client.tier} />}
-        </p>
-      </button>
+      <div className="flex items-start justify-between gap-1">
+        <button onClick={() => onOpen(opp.id)} className="text-left min-w-0 flex-1">
+          <p className="text-sm font-semibold text-gray-900 leading-snug line-clamp-2">{opp.title}</p>
+          <p className="text-[11px] text-gray-500 truncate flex items-center gap-1 mt-0.5">
+            {nome}
+            {opp.client && <TierBadge tier={opp.client.tier} />}
+          </p>
+        </button>
+        <button
+          onClick={() => setMenu((v) => !v)}
+          aria-label="Ações da negociação"
+          aria-haspopup="menu"
+          aria-expanded={menu}
+          className="p-1 -mr-1 rounded hover:bg-gray-100 text-gray-400 shrink-0"
+        >
+          <MoreVertical className="w-4 h-4" />
+        </button>
+      </div>
 
-      <div className="text-xs">
+      {menu && (
+        <div className="absolute right-2 top-9 z-30 w-52 bg-white border border-gray-200 rounded-lg shadow-lg py-1" role="menu">
+          <button
+            onClick={() => { setMenu(false); onOpen(opp.id) }}
+            className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
+            role="menuitem"
+          >
+            Abrir detalhes
+          </button>
+          <p className="px-3 pt-2 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Mover para</p>
+          {STAGES.filter((s) => s !== opp.stage).map((s) => (
+            <button
+              key={s}
+              onClick={() => { setMenu(false); onMove(opp, s) }}
+              className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-1.5"
+              role="menuitem"
+            >
+              <ArrowRight className="w-3 h-3 text-gray-300" /> {STAGE_LABEL[s]}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="mt-2 text-xs">
         {totals.usandoEstimativa ? (
           <p className="font-bold text-gray-700">{brl(totals.totalContratoCents)} <span className="text-[10px] font-medium text-gray-400">estimado</span></p>
+        ) : semValor ? (
+          <p className="text-[11px] font-medium text-amber-700">Sem valor informado</p>
         ) : (
-          <>
-            <p className="font-bold text-[#030A8C]">{brl(totals.recorrenteCents)}<span className="text-[10px] font-medium text-gray-400">/mês</span></p>
-            {totals.avulsoCents > 0 && <p className="text-[11px] text-purple-700">{brl(totals.avulsoCents)} avulso</p>}
-            {totals.projetoMensalCents > 0 && <p className="text-[11px] text-amber-700">{brl(totals.projetoMensalCents)} projeto</p>}
-          </>
+          <div className="flex flex-wrap items-baseline gap-x-2">
+            {totals.recorrenteCents > 0 && (
+              <p className="font-bold text-[#030A8C]">{brl(totals.recorrenteCents)}<span className="text-[10px] font-medium text-gray-400">/mês</span></p>
+            )}
+            {pontual > 0 && (
+              <p className={totals.recorrenteCents > 0 ? 'text-[11px] font-semibold text-purple-700' : 'text-sm font-bold text-purple-700'}>
+                {brl(pontual)} <span className="text-[10px] font-medium text-gray-400">pontual</span>
+              </p>
+            )}
+          </div>
         )}
       </div>
 
-      <div className="space-y-1 text-[10px] text-gray-500">
-        <p className="flex items-center gap-1"><UserIcon className="w-3 h-3" /> {opp.owner?.name ?? '—'}</p>
-        {opp.nextAction ? (
-          <p className={atrasado ? 'text-red-600 font-semibold' : ''}>
-            {opp.nextAction}{opp.nextActionAt ? ` · ${formatDate(opp.nextActionAt)}` : ''}
-          </p>
+      <div className="mt-2 flex items-center gap-2 text-[10px] text-gray-500">
+        <span
+          title={opp.owner?.name ?? ''}
+          className="w-5 h-5 rounded-full bg-[#030A8C] text-white text-[9px] font-bold flex items-center justify-center shrink-0"
+        >
+          {iniciais(opp.owner?.name ?? '?')}
+        </span>
+        <span className="inline-flex items-center gap-1 whitespace-nowrap">
+          <Clock className="w-3 h-3" /> {daysBetween(opp.stageChangedAt, today)}d
+        </span>
+        {opp.expectedCloseDate ? (
+          <span className="inline-flex items-center gap-1 whitespace-nowrap">
+            <CalendarClock className="w-3 h-3" /> {formatDate(opp.expectedCloseDate)}
+          </span>
         ) : (
-          <p className="text-amber-700 flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Sem próxima ação</p>
+          <span className="text-gray-400">sem previsão</span>
         )}
-        {semAcao ? null : null}
-        {opp.expectedCloseDate && <p>Previsão: {formatDate(opp.expectedCloseDate)}</p>}
-        <p className="flex items-center gap-1"><Clock className="w-3 h-3" /> {daysBetween(opp.stageChangedAt, today)} dia(s) nesta etapa</p>
-        {opp.proposal && (
-          <p className="flex items-center gap-1 text-[#030A8C] font-medium"><FileText className="w-3 h-3" /> {opp.proposal.number}</p>
-        )}
+        {opp.proposal && <FileText className="w-3 h-3 text-[#030A8C]" aria-label="Proposta vinculada" />}
       </div>
 
-      <select
-        value={opp.stage}
-        onChange={(e) => onMove(opp, e.target.value as Stage)}
-        disabled={busy}
-        aria-label="Mudar etapa"
-        className="w-full text-[11px] border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-700"
-      >
-        {STAGES.map((s) => <option key={s} value={s}>{STAGE_LABEL[s]}</option>)}
-      </select>
+      {opp.nextAction ? (
+        <p className={`mt-1.5 text-[11px] truncate ${atrasado ? 'text-red-600 font-semibold' : 'text-gray-500'}`}>
+          {opp.nextAction}{opp.nextActionAt ? ` · ${formatDate(opp.nextActionAt)}` : ''}
+        </p>
+      ) : (
+        <p className="mt-1.5 text-[11px] text-amber-700 inline-flex items-center gap-1">
+          <AlertTriangle className="w-3 h-3" /> Sem próxima ação
+        </p>
+      )}
     </div>
   )
 }
@@ -397,28 +538,29 @@ function ListView({ list, onOpen }: { list: Opportunity[]; onOpen: (id: string) 
             <th className="px-4 py-2.5">Etapa</th>
             <th className="px-4 py-2.5">Responsável</th>
             <th className="px-4 py-2.5">Recorrente</th>
-            <th className="px-4 py-2.5">Avulso</th>
+            <th className="px-4 py-2.5">Pontual</th>
             <th className="px-4 py-2.5">Próxima ação</th>
             <th className="px-4 py-2.5">Previsão</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
           {list.length === 0 ? (
-            <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400 text-xs">Nenhuma negociação</td></tr>
+            <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-400 text-xs">Nenhuma negociação</td></tr>
           ) : list.map((o) => {
             const t = opportunityTotals(o.items, o.estimateCents)
             const nome = o.client?.name ?? o.prospect?.tradeName ?? o.prospect?.name ?? '—'
+            const pontual = t.avulsoCents + t.projetoMensalCents
             return (
               <tr key={o.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3">
                   <button onClick={() => onOpen(o.id)} className="font-semibold text-gray-900 hover:text-[#030A8C] text-left">{o.title}</button>
                   <p className="text-[11px] text-gray-400">{nome}</p>
                 </td>
-                <td className="px-4 py-3"><span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${STAGE_COLOR[o.stage as Stage]}`}>{STAGE_LABEL[o.stage as Stage]}</span></td>
+                <td className="px-4 py-3"><span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${STAGE_COLOR[o.stage as Stage]}`}>{STAGE_LABEL[o.stage as Stage]}</span></td>
                 <td className="px-4 py-3 text-gray-600">{o.owner?.name ?? '—'}</td>
-                <td className="px-4 py-3 text-gray-900">{t.usandoEstimativa ? '—' : `${brl(t.recorrenteCents)}/mês`}</td>
-                <td className="px-4 py-3 text-gray-900">{t.avulsoCents > 0 ? brl(t.avulsoCents) : '—'}</td>
-                <td className="px-4 py-3 text-gray-600">{o.nextAction ?? '—'}</td>
+                <td className="px-4 py-3 text-gray-900">{t.recorrenteCents > 0 ? `${brl(t.recorrenteCents)}/mês` : '—'}</td>
+                <td className="px-4 py-3 text-gray-900">{pontual > 0 ? brl(pontual) : '—'}</td>
+                <td className="px-4 py-3 text-gray-600 max-w-[220px] truncate">{o.nextAction ?? '—'}</td>
                 <td className="px-4 py-3 text-gray-600">{o.expectedCloseDate ? formatDate(o.expectedCloseDate) : 'sem previsão'}</td>
               </tr>
             )

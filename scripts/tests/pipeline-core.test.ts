@@ -139,26 +139,52 @@ test('competência só aceita AAAA-MM', () => {
 const JAN = new Date('2026-09-01T00:00:00Z')
 const FIM = new Date('2026-09-30T23:59:59Z')
 
-test('cada oportunidade entra uma única vez no resumo', () => {
+test('carteira aberta conta toda negociação em aberto, com ou sem previsão', () => {
   const resumo = pipelineSummary([
     {
       id: 'a', stage: 'EM_NEGOCIACAO', expectedCloseDate: '2026-09-20',
       items: [{ contractType: 'RECORRENTE', unitCents: 200000 }, { contractType: 'AVULSO', unitCents: 80000, competence: '2026-09' }],
     },
     { id: 'b', stage: 'QUALIFICADO', expectedCloseDate: '2026-09-10', items: [{ contractType: 'RECORRENTE', unitCents: 100000 }] },
-    { id: 'c', stage: 'NOVO', expectedCloseDate: null, items: [{ contractType: 'RECORRENTE', unitCents: 999999 }] },
-    { id: 'd', stage: 'GANHO', closedAt: '2026-09-05', items: [{ contractType: 'RECORRENTE', unitCents: 150000 }] },
-    { id: 'e', stage: 'PERDIDO', closedAt: '2026-09-07', lossReason: 'preço', items: [] } as never,
-    { id: 'f', stage: 'EM_CONTATO', expectedCloseDate: '2026-10-15', items: [{ contractType: 'RECORRENTE', unitCents: 700000 }] },
+    // Sem previsão: continua no potencial e aparece no complemento
+    { id: 'c', stage: 'NOVO', expectedCloseDate: null, items: [{ contractType: 'AVULSO', unitCents: 345000 }] },
+    // Previsão em outro mês: também é carteira aberta de hoje
+    { id: 'd', stage: 'EM_CONTATO', expectedCloseDate: '2026-12-15', items: [{ contractType: 'RECORRENTE', unitCents: 50000 }] },
+    { id: 'e', stage: 'GANHO', closedAt: '2026-09-05', items: [{ contractType: 'RECORRENTE', unitCents: 150000 }] },
+    { id: 'f', stage: 'PERDIDO', closedAt: '2026-09-07', items: [] },
   ], JAN, FIM)
 
-  assert.equal(resumo.abertas, 2)
-  assert.equal(resumo.mrrPotencialCents, 300000)
-  assert.equal(resumo.avulsoPotencialCents, 80000)
+  assert.equal(resumo.abertas, 4)
+  assert.equal(resumo.mrrPotencialCents, 350000)
+  assert.equal(resumo.avulsoPotencialCents, 425000)
   assert.equal(resumo.semPrevisao, 1)
   assert.equal(resumo.ganhas, 1)
   assert.equal(resumo.ganhasRecorrenteCents, 150000)
   assert.equal(resumo.perdidas, 1)
+})
+
+test('os dois leads reais somam a carteira esperada', () => {
+  // Abraham Capital: 900 + 700 recorrentes e 450 avulso.
+  // Yamas: 3.000 + 450, os dois avulsos. Nenhum tem previsão de fechamento.
+  const resumo = pipelineSummary([
+    {
+      id: 'abraham', stage: 'NOVO', expectedCloseDate: null,
+      items: [
+        { contractType: 'RECORRENTE', unitCents: 90000 },
+        { contractType: 'RECORRENTE', unitCents: 70000 },
+        { contractType: 'AVULSO', unitCents: 45000 },
+      ],
+    },
+    {
+      id: 'yamas', stage: 'NOVO', expectedCloseDate: null,
+      items: [{ contractType: 'AVULSO', unitCents: 300000 }, { contractType: 'AVULSO', unitCents: 45000 }],
+    },
+  ], JAN, FIM)
+
+  assert.equal(resumo.abertas, 2)
+  assert.equal(resumo.mrrPotencialCents, 160000)
+  assert.equal(resumo.avulsoPotencialCents + resumo.projetoPotencialCents, 390000)
+  assert.equal(resumo.semPrevisao, 2)
 })
 
 test('ganhas e perdidas saem do potencial em aberto', () => {
@@ -172,13 +198,21 @@ test('ganhas e perdidas saem do potencial em aberto', () => {
   assert.equal(resumo.perdidas, 1)
 })
 
-test('oportunidade fora do período não entra', () => {
+test('fechamento fora do período não entra no resultado', () => {
   const resumo = pipelineSummary([
-    { id: 'a', stage: 'EM_NEGOCIACAO', expectedCloseDate: '2026-12-01', items: [{ contractType: 'RECORRENTE', unitCents: 500000 }] },
     { id: 'b', stage: 'GANHO', closedAt: '2026-08-30', items: [{ contractType: 'RECORRENTE', unitCents: 400000 }] },
   ], JAN, FIM)
-  assert.equal(resumo.abertas, 0)
   assert.equal(resumo.ganhas, 0)
+  assert.equal(resumo.abertas, 0)
+})
+
+test('oportunidade sem valor informado continua na contagem', () => {
+  const resumo = pipelineSummary([
+    { id: 'a', stage: 'NOVO', expectedCloseDate: null, items: [] },
+  ], JAN, FIM)
+  assert.equal(resumo.abertas, 1)
+  assert.equal(resumo.semValor, 1)
+  assert.equal(resumo.mrrPotencialCents, 0)
 })
 
 /* ------------------------------ grupo previsto ------------------------------ */

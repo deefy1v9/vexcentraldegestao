@@ -128,10 +128,8 @@ export default async function DashboardPage({
             />
             <DashboardIndicators
               s={summary}
-              totalClients={op.totalClients}
               inProgressTasks={op.inProgressTasks}
               pendingTasks={op.pendingTasks}
-              totalUsers={op.totalUsers}
               financeiroHref={financeiroHref}
             />
             {pipeline && (
@@ -173,14 +171,19 @@ export default async function DashboardPage({
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
           <div className={`${isAdmin ? 'lg:col-span-3' : 'lg:col-span-5'} bg-white border border-gray-100 rounded-xl overflow-hidden`}>
-            <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
-              <p className="font-semibold text-gray-900 text-sm">Demandas em Aberto</p>
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+              <p className="font-semibold text-gray-900 text-sm">
+                Demandas em aberto
+                <span className="ml-2 text-[11px] font-normal text-gray-400">
+                  {op.inProgressTasks} em andamento · {op.pendingTasks} a fazer
+                </span>
+              </p>
               <Link href="/demandas" className="text-[10px] text-gray-400 hover:text-gray-600 transition-colors flex items-center gap-1">
                 Ver todas <ArrowUpRight className="w-3 h-3" />
               </Link>
             </div>
             {op.recentTasks.length === 0 ? (
-              <p className="text-xs text-gray-400 text-center py-8">Nenhuma demanda em aberto</p>
+              <p className="text-xs text-gray-400 text-center py-4">Nenhuma demanda em aberto</p>
             ) : (
               <div className="divide-y divide-gray-100">
                 {op.recentTasks.map((task) => (
@@ -207,14 +210,14 @@ export default async function DashboardPage({
           {isAdmin && (
             <div className="lg:col-span-2 space-y-4">
               <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
-                <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
+                <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
                   <p className="font-semibold text-gray-900 text-sm">Custos por categoria</p>
                   <Link href={financeiroHref} className="text-gray-400 hover:text-gray-600 transition-colors">
                     <ArrowUpRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>
                 {!summary || summary.custosPorCategoria.length === 0 ? (
-                  <p className="text-xs text-gray-400 text-center py-5">Nenhum custo no período</p>
+                  <p className="text-xs text-gray-400 text-center py-3">Nenhum custo no período</p>
                 ) : (
                   <div className="divide-y divide-gray-100">
                     {summary.custosPorCategoria.slice(0, 6).map((c) => (
@@ -228,14 +231,14 @@ export default async function DashboardPage({
               </div>
 
               <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
-                <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
+                <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
                   <p className="font-semibold text-gray-900 text-sm">Próximas Entregas</p>
                   <Link href="/calendario" className="text-gray-400 hover:text-gray-600 transition-colors">
                     <ArrowUpRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>
                 {op.upcomingEvents.length === 0 ? (
-                  <p className="text-xs text-gray-400 text-center py-5">Nenhuma entrega próxima</p>
+                  <p className="text-xs text-gray-400 text-center py-3">Nenhuma entrega próxima</p>
                 ) : (
                   <div className="divide-y divide-gray-100">
                     {op.upcomingEvents.map((ev) => (
@@ -259,8 +262,11 @@ export default async function DashboardPage({
 
         {isAdmin && (
           <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
-              <p className="font-semibold text-gray-900 text-sm">Atividade Recente</p>
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+              <p className="font-semibold text-gray-900 text-sm">
+                Atividade recente
+                <span className="ml-2 text-[11px] font-normal text-gray-400">{op.totalUsers} colaborador(es) ativo(s)</span>
+              </p>
               <Link href="/logs" className="text-[10px] text-gray-400 hover:text-gray-600 flex items-center gap-1">
                 Ver logs <ArrowUpRight className="w-3 h-3" />
               </Link>

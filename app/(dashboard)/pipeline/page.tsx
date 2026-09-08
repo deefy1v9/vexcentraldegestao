@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
 import { getSessionUser } from '@/lib/api-auth'
 import Header from '@/components/layout/Header'
@@ -16,7 +17,10 @@ export default async function PipelinePage() {
     <div className="flex flex-col h-full overflow-hidden">
       <Header title="Pipeline" subtitle="Leads, negociações e fechamento comercial" />
       <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-        <PipelineBoard isAdmin={viewer.role === 'ADMIN'} currentUserId={viewer.id} />
+        {/* O quadro guarda filtros e visualização na URL (useSearchParams) */}
+        <Suspense fallback={<p className="text-sm text-gray-400">Carregando pipeline…</p>}>
+          <PipelineBoard isAdmin={viewer.role === 'ADMIN'} currentUserId={viewer.id} />
+        </Suspense>
       </div>
     </div>
   )

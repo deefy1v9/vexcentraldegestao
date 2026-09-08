@@ -224,12 +224,18 @@ export interface OpportunityLike {
 }
 
 export interface PipelineSummary {
+  /** Carteira aberta ATUAL — todas as etapas abertas, de qualquer período. */
   abertas: number
-  semPrevisao: number
   mrrPotencialCents: number
   avulsoPotencialCents: number
   projetoPotencialCents: number
+  /** Complemento clicável: quantas abertas não têm data prevista. */
+  semPrevisao: number
+  /** Abertas sem valor informado (sem itens e sem estimativa). */
+  semValor: number
+  /** Soma das estimativas provisórias, sem composição de serviços. */
   estimativaCents: number
+  /** Resultado do período selecionado, pela data real do fechamento. */
   ganhas: number
   ganhasRecorrenteCents: number
   ganhasAvulsoCents: number
@@ -243,30 +249,34 @@ function inRange(value: Date | string | null | undefined, from: Date, to: Date):
 }
 
 /**
- * Números comerciais do período. Cada oportunidade entra uma única vez:
- * abertas pela data prevista de fechamento, ganhas e perdidas pela data real.
+ * Números comerciais. A carteira aberta é uma FOTO do agora: toda negociação
+ * em etapa aberta entra, com ou sem previsão de fechamento, porque potencial
+ * não some só por faltar data. Ganhas e perdidas, sim, pertencem ao período
+ * selecionado e usam a data real do fechamento. Cada oportunidade conta uma
+ * única vez, inclusive na visão anual.
  */
 export function pipelineSummary(opportunities: OpportunityLike[], from: Date, to: Date): PipelineSummary {
   const out: PipelineSummary = {
-    abertas: 0, semPrevisao: 0, mrrPotencialCents: 0, avulsoPotencialCents: 0,
-    projetoPotencialCents: 0, estimativaCents: 0, ganhas: 0, ganhasRecorrenteCents: 0,
-    ganhasAvulsoCents: 0, perdidas: 0,
+    abertas: 0, mrrPotencialCents: 0, avulsoPotencialCents: 0, projetoPotencialCents: 0,
+    semPrevisao: 0, semValor: 0, estimativaCents: 0,
+    ganhas: 0, ganhasRecorrenteCents: 0, ganhasAvulsoCents: 0, perdidas: 0,
   }
 
   for (const opp of opportunities) {
     const totals = opportunityTotals(opp.items, opp.estimateCents ?? 0)
 
     if (isOpenStage(opp.stage)) {
-      if (!opp.expectedCloseDate) { out.semPrevisao += 1; continue }
-      if (!inRange(opp.expectedCloseDate, from, to)) continue
       out.abertas += 1
       out.mrrPotencialCents += totals.recorrenteCents
       out.avulsoPotencialCents += totals.avulsoCents
       out.projetoPotencialCents += totals.projetoMensalCents
+      if (!opp.expectedCloseDate) out.semPrevisao += 1
       if (totals.usandoEstimativa) out.estimativaCents += totals.totalContratoCents
+      if (totals.itemCount === 0 && !totals.usandoEstimativa) out.semValor += 1
       continue
     }
 
+    // Fechadas: só entram se o fechamento aconteceu no período selecionado
     if (!inRange(opp.closedAt, from, to)) continue
     if (opp.stage === 'GANHO') {
       out.ganhas += 1
