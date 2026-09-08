@@ -256,6 +256,8 @@ export interface PeriodSummary {
   mrrCents: number
   arrCents: number
   activeClients: number
+  /** Clientes que compõem o MRR (ticket recorrente maior que zero). */
+  clientsWithRecurring: number
   segments: Array<{ tier: string | null; count: number; recurringCents: number; share: number }>
   custosPorCategoria: Array<{ category: string; previstoCents: number; pagoCents: number }>
   novosClientes: number
@@ -264,6 +266,7 @@ export interface PeriodSummary {
     label: string
     previstaCents: number
     recebidaCents: number
+    atrasadaCents: number
     custosPrevistosCents: number
     resultadoPrevistoCents: number
     lucroRealizadoCents: number
@@ -311,10 +314,12 @@ async function positionAt(referenceISO: string) {
   ])
 
   let mrr = 0
+  let comRecorrencia = 0
   const segMap = new Map<string | null, { count: number; recurringCents: number }>()
   for (const c of clients) {
     const ticket = recurringTicketCents(c.services, referenceISO)
     mrr += ticket
+    if (ticket > 0) comRecorrencia += 1
     // Classificação manual é preservada; a automática vem do ticket da data
     const tier = c.tierManual
       ? c.tier
@@ -336,7 +341,7 @@ async function positionAt(referenceISO: string) {
       share: mrr > 0 ? Math.round((s.recurringCents / mrr) * 1000) / 10 : 0,
     }
   })
-  return { mrrCents: mrr, activeClients: clients.length, segments }
+  return { mrrCents: mrr, activeClients: clients.length, clientsWithRecurring: comRecorrencia, segments }
 }
 
 /**
@@ -413,10 +418,11 @@ export async function getPeriodSummary(view: PeriodView, year: number, month?: n
   const somaAnt = parciaisAnt.filter(Boolean).reduce((acc, m) => ({
     previstaCents: acc.previstaCents + (m?.previstaCents ?? 0),
     recebidaCents: acc.recebidaCents + (m?.recebidaCents ?? 0),
+    atrasadaCents: acc.atrasadaCents + (m?.atrasadaCents ?? 0),
     custosPrevistosCents: acc.custosPrevistosCents + (m?.custosPrevistosCents ?? 0),
     resultadoPrevistoCents: acc.resultadoPrevistoCents + (m?.resultadoPrevistoCents ?? 0),
     lucroRealizadoCents: acc.lucroRealizadoCents + (m?.lucroRealizadoCents ?? 0),
-  }), { previstaCents: 0, recebidaCents: 0, custosPrevistosCents: 0, resultadoPrevistoCents: 0, lucroRealizadoCents: 0 })
+  }), { previstaCents: 0, recebidaCents: 0, atrasadaCents: 0, custosPrevistosCents: 0, resultadoPrevistoCents: 0, lucroRealizadoCents: 0 })
 
   const inicioAnt = anterior.month
     ? new Date(Date.UTC(anterior.year, anterior.month - 1, 1))
@@ -442,6 +448,7 @@ export async function getPeriodSummary(view: PeriodView, year: number, month?: n
     mrrCents: posicao.mrrCents,
     arrCents: posicao.mrrCents * 12,
     activeClients: posicao.activeClients,
+    clientsWithRecurring: posicao.clientsWithRecurring,
     segments: posicao.segments,
     custosPorCategoria: [...catMap.entries()].map(([category, v]) => ({ category, ...v })).sort((a, b) => b.previstoCents - a.previstoCents),
     novosClientes,

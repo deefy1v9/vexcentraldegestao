@@ -32,13 +32,16 @@ async function getOperationalData(viewer: { id: string; isAdmin: boolean }) {
   const now = new Date()
   const taskScope = viewer.isAdmin ? {} : { assigneeId: viewer.id }
 
-  const [totalClients, activeClients, totalUsers, pendingTasks, inProgressTasks, upcomingEvents, recentLogs, recentTasks] =
+  const hojeInicio = new Date(new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }) + 'T00:00:00Z')
+  const [totalClients, activeClients, totalUsers, pendingTasks, inProgressTasks, lateTasks, upcomingEvents, recentLogs, recentTasks] =
     await Promise.all([
       prisma.client.count(),
       prisma.client.count({ where: { status: 'ATIVO' } }),
       prisma.user.count({ where: { isActive: true } }),
       prisma.task.count({ where: { status: 'TODO', ...taskScope } }),
       prisma.task.count({ where: { status: 'EM_ANDAMENTO', ...taskScope } }),
+      // Demandas atrasadas: prazo vencido e ainda não concluídas
+      prisma.task.count({ where: { status: { not: 'CONCLUIDO' }, dueDate: { lt: hojeInicio }, ...taskScope } }),
       prisma.calendarEvent.findMany({
         where: { startDate: { gte: now }, status: 'PENDENTE' },
         include: { client: { select: { name: true } } },
@@ -58,7 +61,7 @@ async function getOperationalData(viewer: { id: string; isAdmin: boolean }) {
       }),
     ])
 
-  return { totalClients, activeClients, totalUsers, pendingTasks, inProgressTasks, upcomingEvents, recentLogs, recentTasks }
+  return { totalClients, activeClients, totalUsers, pendingTasks, inProgressTasks, lateTasks, upcomingEvents, recentLogs, recentTasks }
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -130,6 +133,8 @@ export default async function DashboardPage({
               s={summary}
               inProgressTasks={op.inProgressTasks}
               pendingTasks={op.pendingTasks}
+              lateTasks={op.lateTasks}
+              totalUsers={op.totalUsers}
               financeiroHref={financeiroHref}
             />
             {pipeline && (
