@@ -19,15 +19,24 @@ export default function PipelineSection({
   novosLeads: number
 }) {
   const pontuais = summary.avulsoPotencialCents + summary.projetoPotencialCents
-  // O total junta a PRIMEIRA mensalidade com os pontuais: é o que entra no
-  // primeiro período se tudo fechar, não o valor de contratos inteiros.
-  const totalPotencial = summary.mrrPotencialCents + pontuais
+  // O total junta a PRIMEIRA mensalidade, os pontuais e as estimativas ainda
+  // sem composição: é o que entra no primeiro período se tudo fechar, não o
+  // valor de contratos inteiros.
+  const totalPotencial = summary.mrrPotencialCents + pontuais + summary.estimativaCents
 
   const carteira = [
     { label: 'Oportunidades abertas', value: String(summary.abertas), sub: 'todas as etapas em aberto', href: '/pipeline', destaque: false },
     { label: 'MRR potencial', value: `${brl(summary.mrrPotencialCents)}/mês`, sub: 'mensalidades propostas', href: '/pipeline', destaque: false },
     { label: 'Projetos e avulsos', value: brl(pontuais), sub: 'cobrança única em negociação', href: '/pipeline', destaque: false },
-    { label: 'Total potencial', value: brl(totalPotencial), sub: '1ª mensalidade + pontuais', href: '/pipeline', destaque: true },
+    {
+      label: 'Total potencial',
+      value: brl(totalPotencial),
+      sub: summary.estimativaCents > 0
+        ? `1ª mensalidade + pontuais + ${brl(summary.estimativaCents)} estimados`
+        : '1ª mensalidade + pontuais',
+      href: '/pipeline',
+      destaque: true,
+    },
   ]
 
   const resultado = [
@@ -77,6 +86,12 @@ export default function PipelineSection({
               <HelpCircle className="w-3 h-3" />
               {summary.semValor} sem valor informado
             </Link>
+          )}
+          {summary.estimativaCents > 0 && (
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-100 rounded-full px-2.5 py-1">
+              <HelpCircle className="w-3 h-3" />
+              {brl(summary.estimativaCents)} em estimativas sem composição de serviços
+            </span>
           )}
         </div>
       )}
