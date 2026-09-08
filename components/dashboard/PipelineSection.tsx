@@ -19,11 +19,15 @@ export default function PipelineSection({
   novosLeads: number
 }) {
   const pontuais = summary.avulsoPotencialCents + summary.projetoPotencialCents
+  // O total junta a PRIMEIRA mensalidade com os pontuais: é o que entra no
+  // primeiro período se tudo fechar, não o valor de contratos inteiros.
+  const totalPotencial = summary.mrrPotencialCents + pontuais
 
   const carteira = [
-    { label: 'Oportunidades abertas', value: String(summary.abertas), sub: 'todas as etapas em aberto', href: '/pipeline' },
-    { label: 'MRR potencial', value: `${brl(summary.mrrPotencialCents)}/mês`, sub: 'mensalidades propostas', href: '/pipeline?filtro=recorrente' },
-    { label: 'Projetos e avulsos', value: brl(pontuais), sub: 'cobrança única em negociação', href: '/pipeline?filtro=pontual' },
+    { label: 'Oportunidades abertas', value: String(summary.abertas), sub: 'todas as etapas em aberto', href: '/pipeline', destaque: false },
+    { label: 'MRR potencial', value: `${brl(summary.mrrPotencialCents)}/mês`, sub: 'mensalidades propostas', href: '/pipeline', destaque: false },
+    { label: 'Projetos e avulsos', value: brl(pontuais), sub: 'cobrança única em negociação', href: '/pipeline', destaque: false },
+    { label: 'Total potencial', value: brl(totalPotencial), sub: '1ª mensalidade + pontuais', href: '/pipeline', destaque: true },
   ]
 
   const resultado = [
@@ -44,11 +48,11 @@ export default function PipelineSection({
         </Link>
       </div>
 
-      <div className="grid grid-cols-3 divide-x divide-gray-100">
+      <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-y lg:divide-y-0 divide-gray-100">
         {carteira.map((c) => (
-          <Link key={c.label} href={c.href} className="p-4 hover:bg-gray-50 transition-colors">
+          <Link key={c.label} href={c.href} className={`p-4 hover:bg-gray-50 transition-colors ${c.destaque ? 'bg-[#030A8C]/[0.03]' : ''}`}>
             <p className="text-[10px] text-gray-500 uppercase tracking-wide">{c.label}</p>
-            <p className="text-lg font-bold text-[#030A8C] mt-0.5">{c.value}</p>
+            <p className={`text-lg font-bold mt-0.5 ${c.destaque ? 'text-[#F74A13]' : 'text-[#030A8C]'}`}>{c.value}</p>
             <p className="text-[10px] text-gray-400">{c.sub}</p>
           </Link>
         ))}
