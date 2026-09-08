@@ -55,7 +55,7 @@ export interface Opportunity {
   items: OpportunityItem[]
   owner?: { id: string; name: string } | null
   client?: { id: string; name: string; tier: string | null; cnpj: string | null } | null
-  prospect?: { id: string; name: string; tradeName: string | null; document: string | null; email: string | null; phone: string | null } | null
+  prospect?: { id: string; name: string; tradeName: string | null; document: string | null; email: string | null; phone: string | null; interestServices?: string[] } | null
   proposal?: { id: string; number: string; status: string; monthlyCents: number; setupCents: number; totalCents: number } | null
   events?: Array<{ id: string; type: string; message: string; createdAt: string; user?: { name: string } | null }>
 }
@@ -163,6 +163,17 @@ export default function OpportunityDrawer({
                   {opp.client && <TierBadge tier={opp.client.tier} />}
                   {opp.source && <span className="text-gray-400">· {opp.source}</span>}
                 </p>
+                {/* Serviços que o lead pediu, antes de existir orçamento */}
+                {(opp.prospect?.interestServices?.length ?? 0) > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    <span className="text-[10px] text-gray-400 mr-0.5">Interesse:</span>
+                    {opp.prospect!.interestServices!.map((s) => (
+                      <span key={s} className="text-[10px] font-medium text-[#030A8C] bg-[#030A8C]/5 border border-[#030A8C]/15 rounded-full px-2 py-0.5">
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
               <button onClick={onClose} aria-label="Fechar" className="p-1.5 hover:bg-gray-100 rounded-lg shrink-0"><X className="w-4 h-4 text-gray-400" /></button>
             </div>

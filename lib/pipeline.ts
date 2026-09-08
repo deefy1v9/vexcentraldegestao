@@ -16,7 +16,7 @@ type Db = Prisma.TransactionClient | typeof prisma
 
 export const OPPORTUNITY_INCLUDE = {
   items: { orderBy: { order: 'asc' as const }, include: { catalog: { select: { id: true, name: true, category: true, minCents: true, maxCents: true, billingType: true } } } },
-  prospect: { select: { id: true, name: true, tradeName: true, document: true, email: true, phone: true, convertedClientId: true, crmContactId: true } },
+  prospect: { select: { id: true, name: true, tradeName: true, document: true, email: true, phone: true, convertedClientId: true, crmContactId: true, interestServices: true } },
   client: { select: { id: true, name: true, tier: true, cnpj: true } },
   owner: { select: { id: true, name: true } },
   proposal: { select: { id: true, number: true, status: true, monthlyCents: true, setupCents: true, totalCents: true, currentVersion: true } },
