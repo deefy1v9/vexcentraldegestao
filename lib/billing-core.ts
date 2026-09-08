@@ -2,6 +2,49 @@
  * Regras puras do faturamento — sem Prisma, sem rede — para serem testáveis
  * isoladamente (scripts/tests). Timezone de referência: America/Sao_Paulo.
  */
+import { brazilHolidays } from './planner-core'
+
+/**
+ * Regra de vencimento da parcela:
+ * - DIA_FIXO: dia do mês (o padrão; 31 vira o último dia de fevereiro).
+ * - DIA_UTIL: enésimo dia útil do mês, pulando fim de semana e feriado
+ *   nacional. Contrato que diz "5º dia útil" nunca vira "dia 5".
+ */
+export const DUE_RULES = ['DIA_FIXO', 'DIA_UTIL'] as const
+export type DueRule = (typeof DUE_RULES)[number]
+
+export function isDueRule(v: unknown): v is DueRule {
+  return typeof v === 'string' && (DUE_RULES as readonly string[]).includes(v)
+}
+
+/**
+ * Enésimo dia útil do mês (1 = primeiro). Se o mês não tiver dias úteis
+ * suficientes, devolve o último dia útil disponível.
+ */
+export function nthBusinessDayISO(year: number, month: number, nth: number): string {
+  const feriados = new Set(brazilHolidays(year))
+  const ultimo = new Date(Date.UTC(year, month, 0)).getUTCDate()
+  const alvo = Math.max(1, Math.round(nth || 1))
+  let uteis = 0
+  let ultimoUtil = 1
+  for (let dia = 1; dia <= ultimo; dia++) {
+    const d = new Date(Date.UTC(year, month - 1, dia))
+    const semana = d.getUTCDay() // 0 = domingo, 6 = sábado
+    if (semana === 0 || semana === 6) continue
+    const iso = `${year}-${String(month).padStart(2, '0')}-${String(dia).padStart(2, '0')}`
+    if (feriados.has(iso)) continue
+    uteis++
+    ultimoUtil = dia
+    if (uteis === alvo) return iso
+  }
+  return `${year}-${String(month).padStart(2, '0')}-${String(ultimoUtil).padStart(2, '0')}`
+}
+
+/** Vencimento da competência conforme a regra contratada. */
+export function dueDateForRule(year: number, month: number, day: number, rule?: string | null): string {
+  if (rule === 'DIA_UTIL') return nthBusinessDayISO(year, month, day)
+  return dueDateFor(year, month, day)
+}
 
 export interface ServiceLike {
   monthlyValue?: number | null

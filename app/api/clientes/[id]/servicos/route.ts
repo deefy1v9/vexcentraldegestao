@@ -5,7 +5,7 @@ import { logActivity } from '@/lib/activity'
 import { recalcClientMonthlyValue } from '@/lib/client-value'
 import { isContractType } from '@/lib/services-catalog'
 import { seedServicePayments, repricePendingFrom, dropPendingPaymentsFrom } from '@/lib/receivables'
-import { serviceCents } from '@/lib/billing-core'
+import { isDueRule, serviceCents } from '@/lib/billing-core'
 
 /**
  * Serviços contratados por um cliente — sempre a partir do catálogo.
@@ -95,7 +95,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (endDate && endDate < startDate) {
     return NextResponse.json({ error: 'A data de término não pode ser anterior ao início.' }, { status: 400 })
   }
-  const dueDay = body.dueDay ? Math.min(31, Math.max(1, Math.round(Number(body.dueDay)))) : null
+  const dueRule = isDueRule(body.dueRule) ? body.dueRule : 'DIA_FIXO'
+  const limiteDia = dueRule === 'DIA_UTIL' ? 23 : 31
+  const dueDay = body.dueDay ? Math.min(limiteDia, Math.max(1, Math.round(Number(body.dueDay)))) : null
   if (contractType === 'AVULSO' && !dueDay && !client.paymentDay) {
     return NextResponse.json({ error: 'Informe o dia de vencimento do serviço avulso.' }, { status: 400 })
   }
@@ -124,6 +126,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         startDate,
         endDate,
         dueDay,
+        dueRule,
         generateCharge: body.generateCharge !== false,
         emitNfse: !!body.emitNfse,
         billingDescription: body.billingDescription ? String(body.billingDescription).slice(0, 300) : null,
@@ -179,7 +182,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (has('billingDescription')) data.billingDescription = body.billingDescription ? String(body.billingDescription).slice(0, 300) : null
   if (has('generateCharge')) data.generateCharge = !!body.generateCharge
   if (has('emitNfse')) data.emitNfse = !!body.emitNfse
-  if (has('dueDay')) data.dueDay = body.dueDay ? Math.min(31, Math.max(1, Math.round(Number(body.dueDay)))) : null
+  if (has('dueRule')) data.dueRule = isDueRule(body.dueRule) ? body.dueRule : 'DIA_FIXO'
+  if (has('dueDay')) {
+    const limite = (data.dueRule ?? existing.dueRule) === 'DIA_UTIL' ? 23 : 31
+    data.dueDay = body.dueDay ? Math.min(limite, Math.max(1, Math.round(Number(body.dueDay)))) : null
+  }
   if (has('quantity')) data.quantity = Math.max(1, Math.round(Number(body.quantity) || 1))
   if (has('discountCents')) data.discountCents = parseCents(body.discountCents) ?? 0
   if (has('endDate')) data.endDate = parseDate(body.endDate)

@@ -1,7 +1,7 @@
 import { Prisma } from '@prisma/client'
 import { prisma } from './prisma'
 import {
-  competenceKey, competenceRange, isRecurringType, serviceCents, serviceInCompetence,
+  competenceKey, competenceRange, dueDateForRule, isRecurringType, serviceCents, serviceInCompetence,
 } from './billing-core'
 
 type Db = Prisma.TransactionClient | typeof prisma
@@ -14,10 +14,8 @@ type Db = Prisma.TransactionClient | typeof prisma
  * tocadas; pendentes acompanham o valor vigente do serviço.
  */
 
-function dueDateFor(year: number, month: number, day: number): Date {
-  const last = new Date(Date.UTC(year, month, 0)).getUTCDate()
-  const d = Math.min(Math.max(day || 1, 1), last)
-  return new Date(Date.UTC(year, month - 1, d))
+function dueDateFor(year: number, month: number, day: number, rule?: string | null): Date {
+  return new Date(`${dueDateForRule(year, month, day, rule)}T00:00:00Z`)
 }
 
 type ServiceRow = {
@@ -33,6 +31,7 @@ type ServiceRow = {
   discountCents: number
   competence: string | null
   dueDay: number | null
+  dueRule: string
   generateCharge: boolean
   client: { status: string; contractEnd: Date | null; paymentDay: number | null }
 }
@@ -69,7 +68,7 @@ export async function ensureServicePayment(db: Db, s: ServiceRow, year: number, 
       serviceId: s.id,
       year, month,
       amount: cents / 100,
-      dueDate: dueDateFor(year, month, dueDay),
+      dueDate: dueDateFor(year, month, dueDay, s.dueRule),
       status: 'PENDENTE',
       kind,
     },
@@ -91,7 +90,7 @@ export async function materializeReceivables(year: number, month: number, db: Db
     select: {
       id: true, clientId: true, status: true, monthlyValue: true, startDate: true, endDate: true,
       contractType: true, priceCents: true, quantity: true, discountCents: true, competence: true,
-      dueDay: true, generateCharge: true,
+      dueDay: true, dueRule: true, generateCharge: true,
       client: { select: { status: true, contractEnd: true, paymentDay: true } },
     },
   })
@@ -113,7 +112,7 @@ export async function seedServicePayments(db: Db, serviceId: string): Promise<nu
     select: {
       id: true, clientId: true, status: true, monthlyValue: true, startDate: true, endDate: true,
       contractType: true, priceCents: true, quantity: true, discountCents: true, competence: true,
-      dueDay: true, generateCharge: true,
+      dueDay: true, dueRule: true, generateCharge: true,
       client: { select: { status: true, contractEnd: true, paymentDay: true } },
     },
   })

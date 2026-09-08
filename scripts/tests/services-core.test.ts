@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   serviceCents, serviceInCompetence, competenceBreakdown, computeCompetenceCents,
   recurringTicketCents, recommendTierCents, isRecurringType, countsForMrr,
+  nthBusinessDayISO, dueDateForRule, isDueRule, DUE_RULES,
   DEFAULT_TIER_RANGES,
 } from '../../lib/billing-core'
 import { isContractType, CONTRACT_TYPES } from '../../lib/services-catalog'
@@ -153,4 +154,39 @@ test('mesma competência calculada duas vezes dá o mesmo valor', () => {
   assert.deepEqual(first, second)
   // e o avulso não se repete no mês seguinte
   assert.equal(competenceBreakdown(client, services, 2026, 10).totalCents, 150000)
+})
+
+/* ------------------------------ dia útil ------------------------------ */
+
+test('5º dia útil pula fim de semana e feriado nacional', () => {
+  // set/2026: 1,2,3,4 úteis; 5 e 6 fim de semana; 7 é a Independência
+  assert.equal(nthBusinessDayISO(2026, 9, 5), '2026-09-08')
+  // out/2026: 1,2 úteis; 3 e 4 fim de semana; 5,6,7 úteis
+  assert.equal(nthBusinessDayISO(2026, 10, 5), '2026-10-07')
+  // nov/2026: dia 2 é Finados (segunda), então 3,4,5,6 e 9
+  assert.equal(nthBusinessDayISO(2026, 11, 5), '2026-11-09')
+  // jan/2027: dia 1 é feriado e cai numa sexta
+  assert.equal(nthBusinessDayISO(2027, 1, 5), '2027-01-08')
+  // fev/2027: começa numa segunda, sem feriado antes do 5º dia útil
+  assert.equal(nthBusinessDayISO(2027, 2, 5), '2027-02-05')
+})
+
+test('1º dia útil e ordinal alto continuam dentro do mês', () => {
+  assert.equal(nthBusinessDayISO(2026, 11, 1), '2026-11-03')
+  // dez/2026 tem 22 dias úteis (25 é Natal): pedir 30 devolve o último
+  assert.equal(nthBusinessDayISO(2026, 12, 30), '2026-12-31')
+})
+
+test('regra de vencimento: dia fixo continua sendo dia fixo', () => {
+  assert.equal(dueDateForRule(2026, 9, 5, 'DIA_FIXO'), '2026-09-05')
+  assert.equal(dueDateForRule(2026, 9, 5, null), '2026-09-05')
+  assert.equal(dueDateForRule(2026, 9, 5, 'DIA_UTIL'), '2026-09-08')
+  // dia 31 em mês curto vira o último dia
+  assert.equal(dueDateForRule(2027, 2, 31, 'DIA_FIXO'), '2027-02-28')
+})
+
+test('DUE_RULES aceita só as duas regras conhecidas', () => {
+  assert.deepEqual([...DUE_RULES], ['DIA_FIXO', 'DIA_UTIL'])
+  assert.ok(isDueRule('DIA_UTIL'))
+  assert.equal(isDueRule('QUINTO_DIA'), false)
 })

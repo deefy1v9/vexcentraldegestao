@@ -112,7 +112,16 @@ export async function ensureCharge(clientId: string, year: number, month: number
   if (!client.asaasCustomerId) await syncCustomer(clientId)
   const fresh = await prisma.client.findUniqueOrThrow({ where: { id: clientId } })
 
-  const dueDate = dueDateFor(year, month, fresh.paymentDay ?? 1)
+  // O vencimento sai das parcelas da competência, que já respeitam a regra de
+  // cada serviço (dia fixo ou enésimo dia útil). Sem parcela, cai no dia do cliente.
+  const primeiraParcela = await prisma.clientPayment.findFirst({
+    where: { clientId, year, month, status: { not: 'CANCELADO' } },
+    orderBy: { dueDate: 'asc' },
+    select: { dueDate: true },
+  })
+  const dueDate = primeiraParcela
+    ? primeiraParcela.dueDate.toISOString().slice(0, 10)
+    : dueDateFor(year, month, fresh.paymentDay ?? 1)
   const billingType = fresh.billingType === 'PIX' ? 'PIX' : fresh.billingType === 'BOLETO' ? 'BOLETO' : 'UNDEFINED'
   const competencia = `${String(month).padStart(2, '0')}/${year}`
   const value = Number(centsToDecimalString(cents))

@@ -42,6 +42,7 @@ interface Service {
   contractType?: string
   competence?: string | null
   dueDay?: number | null
+  dueRule?: string | null
   generateCharge?: boolean
   emitNfse?: boolean
   billingDescription?: string | null
@@ -87,6 +88,12 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.
   PENDENTE: { label: 'Pendente', color: 'bg-orange-100 text-orange-700', icon: Clock },
   CANCELADO: { label: 'Cancelado', color: 'bg-red-100 text-red-700', icon: XCircle },
   FINALIZADO: { label: 'Finalizado', color: 'bg-gray-100 text-gray-600', icon: AlertCircle },
+}
+
+const ORDINAL = ['', '1º', '2º', '3º', '4º', '5º', '6º', '7º', '8º', '9º', '10º']
+const vencimentoLabel = (dueDay?: number | null, rule?: string | null) => {
+  if (!dueDay) return null
+  return rule === 'DIA_UTIL' ? `${ORDINAL[dueDay] ?? `${dueDay}º`} dia útil` : `dia ${dueDay}`
 }
 
 const todayISO = () => new Date().toISOString().slice(0, 10)
@@ -322,7 +329,7 @@ export default function ClientServicesPanel({
                     <div><span className="text-gray-400">Pausado em: </span><span className="font-medium text-gray-700">{formatDate(svc.pausedAt)}</span></div>
                   )}
                   {svc.dueDay && (
-                    <div><span className="text-gray-400">Vencimento: </span><span className="font-medium text-gray-700">dia {svc.dueDay}</span></div>
+                    <div><span className="text-gray-400">Vencimento: </span><span className="font-medium text-gray-700">{vencimentoLabel(svc.dueDay, svc.dueRule)}</span></div>
                   )}
                   {isAdmin && (
                     <div>
@@ -418,6 +425,7 @@ function ContractForm({ clientId, catalog, onClose, onCreated }: {
   const [startDate, setStartDate] = useState(todayISO())
   const [endDate, setEndDate] = useState('')
   const [dueDay, setDueDay] = useState('')
+  const [dueRule, setDueRule] = useState('DIA_FIXO')
   const [generateCharge, setGenerateCharge] = useState(true)
   const [emitNfse, setEmitNfse] = useState(false)
   const [customName, setCustomName] = useState('')
@@ -467,6 +475,7 @@ function ContractForm({ clientId, catalog, onClose, onCreated }: {
           startDate: avulso ? undefined : startDate,
           endDate: endDate || undefined,
           dueDay: dueDay || undefined,
+          dueRule,
           generateCharge, emitNfse,
           customName: customName || undefined,
           billingDescription: billingDescription || undefined,
@@ -549,8 +558,16 @@ function ContractForm({ clientId, catalog, onClose, onCreated }: {
             </>
           )}
           <div>
-            <label className="text-xs font-medium text-gray-600 mb-1 block">Dia de vencimento</label>
-            <input type="number" min={1} max={31} value={dueDay} onChange={(e) => setDueDay(e.target.value)} className="input text-sm" placeholder="Padrão: dia de pagamento do cliente" />
+            <label className="text-xs font-medium text-gray-600 mb-1 block">Regra de vencimento</label>
+            <select value={dueRule} onChange={(e) => setDueRule(e.target.value)} className="input text-sm">
+              <option value="DIA_FIXO">Dia fixo do mês</option>
+              <option value="DIA_UTIL">Enésimo dia útil</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-600 mb-1 block">{dueRule === 'DIA_UTIL' ? 'Vence no dia útil nº' : 'Dia de vencimento'}</label>
+            <input type="number" min={1} max={dueRule === 'DIA_UTIL' ? 23 : 31} value={dueDay} onChange={(e) => setDueDay(e.target.value)} className="input text-sm" placeholder={dueRule === 'DIA_UTIL' ? 'Ex: 5 para o 5º dia útil' : 'Padrão: dia de pagamento do cliente'} />
+            {dueRule === 'DIA_UTIL' && <p className="text-[11px] text-gray-400 mt-1">Pula fim de semana e feriado nacional.</p>}
           </div>
           <div>
             <label className="text-xs font-medium text-gray-600 mb-1 block">Nome customizado (opcional)</label>
@@ -604,6 +621,7 @@ function EditForm({ clientId, service, onClose, onSaved }: {
   const [competence, setCompetence] = useState(service.competence ?? thisCompetence())
   const [endDate, setEndDate] = useState(service.endDate ? new Date(service.endDate).toISOString().slice(0, 10) : '')
   const [dueDay, setDueDay] = useState(service.dueDay ? String(service.dueDay) : '')
+  const [dueRule, setDueRule] = useState(service.dueRule ?? 'DIA_FIXO')
   const [generateCharge, setGenerateCharge] = useState(service.generateCharge !== false)
   const [emitNfse, setEmitNfse] = useState(!!service.emitNfse)
   const [customName, setCustomName] = useState(service.customName ?? '')
@@ -630,6 +648,7 @@ function EditForm({ clientId, service, onClose, onSaved }: {
           discountCents: discount != null ? Math.round(discount * 100) : 0,
           ...(recurring ? { endDate: endDate || null } : { competence }),
           dueDay: dueDay || null,
+          dueRule,
           generateCharge, emitNfse,
           customName: customName || null,
           description: description || null,
@@ -693,8 +712,15 @@ function EditForm({ clientId, service, onClose, onSaved }: {
             </div>
           )}
           <div>
-            <label className="text-xs font-medium text-gray-600 mb-1 block">Dia de vencimento</label>
-            <input type="number" min={1} max={31} value={dueDay} onChange={(e) => setDueDay(e.target.value)} className="input text-sm" />
+            <label className="text-xs font-medium text-gray-600 mb-1 block">Regra de vencimento</label>
+            <select value={dueRule} onChange={(e) => setDueRule(e.target.value)} className="input text-sm">
+              <option value="DIA_FIXO">Dia fixo do mês</option>
+              <option value="DIA_UTIL">Enésimo dia útil</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-600 mb-1 block">{dueRule === 'DIA_UTIL' ? 'Vence no dia útil nº' : 'Dia de vencimento'}</label>
+            <input type="number" min={1} max={dueRule === 'DIA_UTIL' ? 23 : 31} value={dueDay} onChange={(e) => setDueDay(e.target.value)} className="input text-sm" />
           </div>
           <div>
             <label className="text-xs font-medium text-gray-600 mb-1 block">Nome customizado</label>

@@ -445,6 +445,8 @@ model ClientService {
   discountCents      Int       @default(0)
   competence         String? // YYYY-MM — só para AVULSO
   dueDay             Int? // vencimento próprio; sem valor usa o do cliente
+  // DIA_FIXO (padrão) | DIA_UTIL — "5º dia útil" nunca vira "dia 5"
+  dueRule            String    @default("DIA_FIXO")
   generateCharge     Boolean   @default(true)
   emitNfse           Boolean   @default(false)
   billingDescription String? // descrição na cobrança e na NFS-e
