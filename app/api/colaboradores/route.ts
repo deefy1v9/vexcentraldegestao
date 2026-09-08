@@ -53,6 +53,6 @@ export async function POST(req: NextRequest) {
 
   await logActivity(user.id, 'cadastrou colaborador', 'Colaboradores', created.name)
 
-  const { password: _, ...safe } = created
+  const { password: _senha, ...safe } = created
   return NextResponse.json(safe, { status: 201 })
 }

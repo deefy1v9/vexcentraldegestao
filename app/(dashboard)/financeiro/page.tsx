@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
 import { getSessionUser } from '@/lib/api-auth'
 import Header from '@/components/layout/Header'
@@ -13,7 +14,10 @@ export default async function FinanceiroPage() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <Header title="Financeiro" subtitle="Controle financeiro por mês" />
-      <FinanceiroPanel />
+      {/* O painel lê a competência da URL (useSearchParams) */}
+      <Suspense fallback={<div className="flex-1 p-6 text-sm text-gray-400">Carregando financeiro…</div>}>
+        <FinanceiroPanel />
+      </Suspense>
     </div>
   )
 }

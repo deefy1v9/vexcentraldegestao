@@ -13,6 +13,19 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
+  {
+    rules: {
+      // Descartar um campo com rest ({ password: _senha, ...safe }) e prefixar
+      // com "_" o que é intencionalmente ignorado não é código morto.
+      "@typescript-eslint/no-unused-vars": ["error", {
+        args: "after-used",
+        argsIgnorePattern: "^_",
+        varsIgnorePattern: "^_",
+        caughtErrorsIgnorePattern: "^_",
+        ignoreRestSiblings: true,
+      }],
+    },
+  },
 ]);
 
 export default eslintConfig;

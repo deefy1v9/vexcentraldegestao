@@ -47,7 +47,6 @@ export default function IntegrationsDiagnostics() {
   const [busy, setBusy] = useState<string | null>(null)
 
   const load = useCallback(() => {
-    setLoading(true)
     fetch('/api/integracoes/diagnostico')
       .then((r) => (r.ok ? r.json() : null))
       .then(setDiag)

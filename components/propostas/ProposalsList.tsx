@@ -59,7 +59,6 @@ export default function ProposalsList({ clientId, compact = false }: { clientId?
   const [filters, setFilters] = useState({ q: '', status: '', kind: '', from: '', to: '', validity: '' })
 
   const load = useCallback(() => {
-    setLoading(true)
     const params = new URLSearchParams()
     if (clientId) params.set('clientId', clientId)
     if (filters.q) params.set('q', filters.q)

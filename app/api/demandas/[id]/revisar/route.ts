@@ -13,9 +13,9 @@ import { TIER_LABEL, Tier } from '@/lib/client-tier'
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const userId = (session.user as any).id as string
-  const userName = (session.user as any).name ?? 'Revisor'
-  const isAdmin = (session.user as any).role === 'ADMIN'
+  const userId = session.user.id as string
+  const userName = session.user.name ?? 'Revisor'
+  const isAdmin = session.user.role === 'ADMIN'
 
   const { id } = await params
   const body = await req.json().catch(() => ({}))

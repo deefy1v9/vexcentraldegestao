@@ -157,7 +157,7 @@ export class NfseBlockedError extends Error {}
 export async function emitForCharge(chargeId: string): Promise<{ invoiceId: string; status: string }> {
   const charge = await prisma.asaasCharge.findUniqueOrThrow({
     where: { id: chargeId },
-    include: { client: true, nfse: true },
+    include: { client: true, nfse: true, items: true },
   })
 
   // Nota única por cobrança
@@ -202,9 +202,19 @@ export async function emitForCharge(chargeId: string): Promise<{ invoiceId: stri
     // 404/erro na consulta: segue para a emissão
   }
 
+  // Discriminação: descrição fiscal do cliente + itens que compuseram a
+  // cobrança (recorrentes e avulsos daquela competência)
+  const itemsLine = charge.items.length > 0
+    ? charge.items.map((i) => `${i.description} — ${(i.cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`).join('; ')
+    : ''
   const payload = buildNfsePayload({
     cfg,
-    client: charge.client,
+    client: {
+      ...charge.client,
+      fiscalDescription: itemsLine
+        ? `${charge.client.fiscalDescription || cfg.descricaoPadrao || 'Prestação de serviços'}. Itens: ${itemsLine}`
+        : charge.client.fiscalDescription,
+    },
     valueDecimal: String(charge.value),
     competencia: `${String(charge.month).padStart(2, '0')}/${charge.year}`,
     aliquotaIss: aliquota,

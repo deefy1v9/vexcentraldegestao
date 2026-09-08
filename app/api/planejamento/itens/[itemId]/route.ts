@@ -12,7 +12,6 @@ import { getPlannerConfig, refreshConflicts } from '@/lib/planner'
  * melhorar as próximas propostas (sem treinar modelo nesta versão).
  */
 
-const EDITABLE = ['title', 'description', 'publishAt', 'assigneeId', 'reviewerId', 'schedulerId', 'priority', 'platform', 'contentType', 'weekGroup'] as const
 const PRIORITIES = new Set(['BAIXA', 'MEDIA', 'ALTA', 'URGENTE'])
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ itemId: string }> }) {

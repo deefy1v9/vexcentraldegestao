@@ -6,7 +6,7 @@ import { logActivity } from '@/lib/activity'
 export async function GET(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if ((session.user as any).role !== 'ADMIN') {
+  if (session.user.role !== 'ADMIN') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if ((session.user as any).role !== 'ADMIN') {
+  if (session.user.role !== 'ADMIN') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -58,6 +58,6 @@ export async function POST(req: NextRequest) {
     },
   })
 
-  await logActivity((session.user as any).id, 'criou evento', 'Calendário', body.title)
+  await logActivity(session.user.id, 'criou evento', 'Calendário', body.title)
   return NextResponse.json(event, { status: 201 })
 }

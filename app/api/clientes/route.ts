@@ -91,8 +91,8 @@ export async function POST(req: NextRequest) {
   })
 
   // Classifica o grupo automático pelo ticket inicial (faixas configuradas)
-  await applyAutoTier(prisma, client.id, client.monthlyValue ?? 0)
+  await applyAutoTier(prisma, client.id)
 
-  await logActivity((session.user as any).id, 'cadastrou cliente', 'Clientes', client.name)
+  await logActivity(session.user.id, 'cadastrou cliente', 'Clientes', client.name)
   return NextResponse.json(client, { status: 201 })
 }

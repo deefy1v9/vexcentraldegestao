@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client'
 import { prisma } from './prisma'
 import { spNow } from './billing-whatsapp'
 import {
-  chargeExternalRef, computeCompetenceCents, dueDateFor, shouldGenerateNow,
+  chargeExternalRef, competenceBreakdown, dueDateFor, shouldGenerateNow,
   centsToDecimalString, missingBillingFields,
 } from './billing-core'
 import * as asaas from './asaas'
@@ -105,7 +105,8 @@ export async function ensureCharge(clientId: string, year: number, month: number
   const existing = await prisma.asaasCharge.findUnique({ where: { externalRef } })
   if (existing && existing.status !== 'ERROR') return { chargeId: existing.id, created: false }
 
-  const cents = computeCompetenceCents(client, client.services, year, month)
+  const breakdown = competenceBreakdown(client, client.services, year, month)
+  const cents = breakdown.totalCents
   if (cents <= 0) throw new Error('Nenhum serviço ativo válido nesta competência.')
 
   if (!client.asaasCustomerId) await syncCustomer(clientId)
@@ -131,6 +132,17 @@ export async function ensureCharge(clientId: string, year: number, month: number
   }))
   if (charge.asaasId) return { chargeId: charge.id, created: false }
 
+  // Composição da cobrança (base da NFS-e e dos relatórios). Idempotente:
+  // itens só são gravados uma vez por cobrança.
+  const itemCount = await prisma.asaasChargeItem.count({ where: { chargeId: charge.id } })
+  if (itemCount === 0 && breakdown.items.length > 0) {
+    await prisma.asaasChargeItem.createMany({
+      data: breakdown.items.map((i) => ({
+        chargeId: charge.id, serviceId: i.serviceId ?? null, description: i.description, cents: i.cents, kind: i.kind,
+      })),
+    })
+  }
+
   try {
     // Resposta inconclusiva anterior? Consulta antes de repetir o POST
     let payment = await asaas.findPaymentByExternalRef(externalRef)
@@ -140,7 +152,7 @@ export async function ensureCharge(clientId: string, year: number, month: number
         billingType,
         value,
         dueDate,
-        description: `${fresh.fiscalDescription || 'Serviços de marketing'} — competência ${competencia}`,
+        description: `${fresh.fiscalDescription || 'Serviços de marketing'} — competência ${competencia}${breakdown.items.length > 0 ? ` (${breakdown.items.map((i) => i.description).join(', ').slice(0, 300)})` : ''}`,
         externalReference: externalRef,
       })
     }
@@ -296,7 +308,7 @@ export async function runAsaasBillingJob(): Promise<{ created: number; skipped: 
     try {
       // Competência do mês corrente e do próximo (antecedência pode cruzar o mês)
       for (const [yy, mm] of [[y, m], m === 12 ? [y + 1, 1] : [y, m + 1]] as Array<[number, number]>) {
-        const cents = computeCompetenceCents(client, client.services, yy, mm)
+        const cents = competenceBreakdown(client, client.services, yy, mm).totalCents
         if (cents <= 0) { skipped++; continue }
 
         const due = dueDateFor(yy, mm, client.paymentDay ?? 1)

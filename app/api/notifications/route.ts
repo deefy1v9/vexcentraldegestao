@@ -6,8 +6,8 @@ export async function GET() {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const isAdmin = (session.user as any).role === 'ADMIN'
-  const userId = (session.user as any).id
+  const isAdmin = session.user.role === 'ADMIN'
+  const userId = session.user.id
   const now = new Date()
   const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000)
 
@@ -134,7 +134,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const userId = (session.user as any).id
+  const userId = session.user.id
 
   const body = await req.json().catch(() => ({}))
   const ids: string[] = Array.isArray(body.ids)

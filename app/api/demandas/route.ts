@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   // Quem distribui demanda é administrador; colaborador só executa a sua.
-  if ((session.user as any).role !== 'ADMIN') {
+  if (session.user.role !== 'ADMIN') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
       reviewerId: reviewerId || null,
       schedulerId: schedulerId || null,
       platform: platform || null,
-      creatorId: (session.user as any).id,
+      creatorId: session.user.id,
       tags: tags || [],
     },
     include: {
@@ -97,14 +97,14 @@ export async function POST(req: NextRequest) {
     },
   })
 
-  await logTaskEvent(task.id, 'CRIACAO', `Demanda criada por ${(session.user as any).name}`, (session.user as any).id)
+  await logTaskEvent(task.id, 'CRIACAO', `Demanda criada por ${session.user.name}`, session.user.id)
   // Criada já dentro da janela D-2? Um único lembrete imediato ao produtor.
   maybeImmediateReminder(task.id).catch(() => {})
 
-  await logActivity((session.user as any).id, 'criou demanda', 'Demandas', task.title)
+  await logActivity(session.user.id, 'criou demanda', 'Demandas', task.title)
 
   // Fire WhatsApp notification in background — don't block the response
-  const assigneePhone = (task.assignee as any)?.phone as string | null | undefined
+  const assigneePhone = task.assignee?.phone
   if (assigneePhone) {
     isConfigured().then(async (configured) => {
       if (!configured) return
@@ -119,8 +119,8 @@ export async function POST(req: NextRequest) {
         ``,
         `• Prioridade: ${PRIORITY[task.priority] ?? task.priority}`,
         task.dueDate ? `• Prazo: ${new Date(task.dueDate).toLocaleDateString('pt-BR')}` : null,
-        task.client ? `• Cliente: ${(task.client as any).name}` : null,
-        `• Criado por: ${(task.creator as any)?.name ?? 'Sistema'}`,
+        task.client ? `• Cliente: ${task.client.name}` : null,
+        `• Criado por: ${task.creator?.name ?? 'Sistema'}`,
       ]
       const text = lines.filter(Boolean).join('\n')
       await uazSendText(assigneePhone, text)

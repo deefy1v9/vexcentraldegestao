@@ -58,7 +58,6 @@ export default function ProposalDetail({ id }: { id: string }) {
   const [sendMessage, setSendMessage] = useState('')
 
   const load = useCallback(() => {
-    setLoading(true)
     fetch(`/api/propostas/${id}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((b) => {

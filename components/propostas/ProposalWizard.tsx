@@ -103,7 +103,7 @@ export default function ProposalWizard({
   const [clientId, setClientId] = useState(initialClientId ?? '')
   const [prospect, setProspect] = useState({ ...EMPTY_PROSPECT })
   const [prospectId, setProspectId] = useState<string | null>(null)
-  const [docCheck, setDocCheck] = useState<{ valid?: boolean; clientId?: string; clientName?: string; prospectId?: string } | null>(null)
+  const [docCheckRaw, setDocCheck] = useState<{ document?: string; valid?: boolean; clientId?: string; clientName?: string; prospectId?: string } | null>(null)
   const [catalog, setCatalog] = useState<CatalogItem[]>([])
   const [items, setItems] = useState<ItemForm[]>([])
   const [search, setSearch] = useState('')
@@ -161,11 +161,12 @@ export default function ProposalWizard({
   // Verifica o documento enquanto o admin digita (evita cadastro duplicado)
   useEffect(() => {
     const digits = prospect.document.replace(/\D/g, '')
-    if (mode !== 'prospect' || digits.length < 11) { setDocCheck(null); return }
+    if (mode !== 'prospect' || digits.length < 11) return
     const t = setTimeout(() => {
       fetch(`/api/prospects?document=${digits}`)
         .then((r) => (r.ok ? r.json() : null))
         .then((b) => b && setDocCheck({
+          document: digits,
           valid: b.valid,
           clientId: b.client?.id,
           clientName: b.client?.name,
@@ -175,6 +176,11 @@ export default function ProposalWizard({
     }, 400)
     return () => clearTimeout(t)
   }, [prospect.document, mode])
+
+  // Vale só enquanto o documento na tela for o mesmo que foi consultado
+  const docCheck = docCheckRaw && docCheckRaw.document === prospect.document.replace(/\D/g, '')
+    ? docCheckRaw
+    : null
 
   /* --------------------------------- itens --------------------------------- */
 

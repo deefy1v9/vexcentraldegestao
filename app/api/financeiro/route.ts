@@ -3,6 +3,8 @@ import { requireAdmin } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
 import { materializeMonth } from '@/lib/financeiro'
+import { materializeReceivables } from '@/lib/receivables'
+import { getMonthSummary } from '@/lib/finance-summary'
 
 /**
  * Dados financeiros de um mês (competência).
@@ -22,12 +24,14 @@ export async function GET(req: NextRequest) {
   }
 
   await materializeMonth(year, month)
+  // Parcelas previstas dos serviços (recorrentes da competência + avulsos do mês)
+  await materializeReceivables(year, month)
 
   const now = new Date()
   const start = new Date(year, month - 1, 1)
   const end = new Date(year, month, 0, 23, 59, 59)
 
-  const [entries, clientPayments, users, serviceRevenueAgg, upcoming, recentEntries, recentReceipts, asaasCharges] =
+  const [entries, clientPayments, users, upcoming, recentEntries, recentReceipts, asaasCharges] =
     await Promise.all([
       // Lançamentos do mês (custos, salários e receitas extras); lápides ficam de fora
       prisma.financialEntry.findMany({
@@ -43,19 +47,17 @@ export async function GET(req: NextRequest) {
         orderBy: { dueDate: 'asc' },
       }),
       prisma.clientPayment.findMany({
-        where: { month, year },
-        include: { client: { select: { id: true, name: true, tier: true } } },
+        where: { month, year, status: { not: 'CANCELADO' } },
+        include: {
+          client: { select: { id: true, name: true, tier: true } },
+          service: { select: { id: true, serviceName: true, contractType: true, billingDescription: true } },
+        },
         orderBy: { dueDate: 'asc' },
       }),
       prisma.user.findMany({
         where: { isActive: true },
         select: { id: true, name: true, position: true, salary: true },
         orderBy: { name: 'asc' },
-      }),
-      // Receita prevista: mensalidade dos serviços ativos (previsão, não recebido)
-      prisma.clientService.aggregate({
-        _sum: { monthlyValue: true },
-        where: { status: 'ATIVO', client: { status: 'ATIVO' } },
       }),
       // Próximos vencimentos (salários e custos pendentes, qualquer mês)
       prisma.financialEntry.findMany({
@@ -81,16 +83,20 @@ export async function GET(req: NextRequest) {
       // Cobranças Asaas da competência (com a NFS-e vinculada)
       prisma.asaasCharge.findMany({
         where: { year, month },
-        include: { nfse: true, client: { select: { id: true, name: true } } },
+        include: { nfse: true, items: true, client: { select: { id: true, name: true } } },
       }),
     ])
+
+  // Resumo único da competência (mesma fonte do Dashboard)
+  const summary = await getMonthSummary(year, month)
 
   return NextResponse.json({
     entries,
     clientPayments,
     users,
     asaasCharges,
-    previstoServicos: serviceRevenueAgg._sum.monthlyValue ?? 0,
+    summary,
+    previstoServicos: summary.previstaCents / 100,
     upcoming,
     recent: [
       ...recentEntries.map((e) => ({

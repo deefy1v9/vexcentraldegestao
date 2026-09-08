@@ -4,7 +4,7 @@ import { requireAdmin } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
 import {
-  addDaysISO, isValidDocument, onlyDigits, personTypeOf, spTodayISO, toCents,
+  addDaysISO, isValidDocument, onlyDigits, spTodayISO, toCents,
 } from '@/lib/proposal-core'
 import {
   ensureDefaultTemplate, logEvent, nextNumber, recalcProposal, snapshotFromClient,

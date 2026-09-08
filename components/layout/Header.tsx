@@ -33,6 +33,9 @@ export default function Header({ title, subtitle }: HeaderProps) {
   // sem escolha salva, respeita prefers-color-scheme (script no layout)
   const [dark, setDark] = useState(false)
   useEffect(() => {
+    // Sincroniza uma vez com o que o script do layout já aplicou no <html>.
+    // Ler no useState quebraria a hidratação (o servidor não vê a classe).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDark(document.documentElement.classList.contains('dark'))
   }, [])
   function toggleTheme() {

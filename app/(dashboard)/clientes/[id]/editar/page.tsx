@@ -57,6 +57,7 @@ export default function EditClientePage() {
     paymentDay: '',
     notes: '',
     tier: 'AUTO',
+    tierReason: '',
   })
 
   // Valor total mensal: soma automática dos serviços, somente leitura
@@ -92,6 +93,7 @@ export default function EditClientePage() {
           paymentDay: data.paymentDay?.toString() || '',
           notes: data.notes || '',
           tier: data.tierManual && data.tier ? data.tier : 'AUTO',
+          tierReason: '',
         })
         setServices(data.services.map((s) => ({
           id: s.id,
@@ -254,6 +256,17 @@ export default function EditClientePage() {
                   <p className="text-xs text-gray-400 mt-1">
                     {client?.tier ? `Atual: ${client.tier === 'START' ? 'Start' : client.tier === 'GROWTH' ? 'Growth' : 'Scale'}${client.tierManual ? ' (manual)' : ' (automático)'}` : 'Ainda não classificado'}
                   </p>
+                  {/* Grupo manual prevalece sobre o automático até ser devolvido
+                      para "Automático"; o motivo entra no histórico do cliente. */}
+                  {form.tier !== 'AUTO' && (
+                    <input
+                      value={form.tierReason}
+                      onChange={(e) => setField('tierReason', e.target.value)}
+                      className="input mt-2 text-sm"
+                      placeholder="Motivo da classificação manual (opcional)"
+                      maxLength={300}
+                    />
+                  )}
                 </div>
               </div>
             </div>

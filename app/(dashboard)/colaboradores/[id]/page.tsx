@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Header from '@/components/layout/Header'
 import Link from 'next/link'
-import { ArrowLeft, Save, Trash2, Mail, Phone, Briefcase, DollarSign, Shield } from 'lucide-react'
+import { ArrowLeft, Save, Trash2, Mail, DollarSign, Shield } from 'lucide-react'
 import { formatCurrency, formatDateTime } from '@/lib/utils'
 
 interface User {

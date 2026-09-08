@@ -3,7 +3,7 @@ import { requireAdmin } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
 import { normalizeTitle, PRIORITY_MAP } from '@/lib/ai-import'
-import { logTaskEvent, notifyWhatsApp, taskShortId } from '@/lib/task-flow'
+import { logTaskEvent, notifyWhatsApp } from '@/lib/task-flow'
 
 /**
  * Confirmação da importação: cria em lote (transação) as demandas que o

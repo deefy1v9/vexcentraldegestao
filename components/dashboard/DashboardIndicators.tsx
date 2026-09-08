@@ -19,6 +19,11 @@ interface Indicators {
   recebida: number
   atrasada: number
   prevista: number
+  previstaAvulsa: number
+  recebidaAvulsa: number
+  custos: number
+  resultadoPrevisto: number
+  lucroRealizado: number
   pendente: number
   ticketMedio: number
   inadimplencia: number
@@ -81,7 +86,7 @@ export default function DashboardIndicators({ d }: { d: Indicators }) {
 
   const primary: CardDef[] = [
     { label: 'Clientes Ativos', value: String(d.activeClients), sub: clientesTrend, icon: Building2, color: '#030A8C', href: '/clientes' },
-    { label: 'Faturamento mensal (MRR)', value: formatCurrency(d.mrr), sub: 'soma dos serviços ativos', icon: DollarSign, color: '#10b981', href: '/financeiro' },
+    { label: 'Faturamento mensal (MRR)', value: formatCurrency(d.mrr), sub: 'serviços recorrentes ativos', icon: DollarSign, color: '#10b981', href: '/financeiro' },
     { label: 'Receita Recebida', value: formatCurrency(d.recebida), sub: recebidaTrend, icon: TrendingUp, color: '#6366f1', href: '/financeiro' },
     { label: 'Receita Atrasada', value: formatCurrency(d.atrasada), sub: 'vencida não paga', icon: AlertTriangle, color: '#ef4444', href: '/financeiro' },
   ]
@@ -89,7 +94,11 @@ export default function DashboardIndicators({ d }: { d: Indicators }) {
   const secondary: CardDef[] = [
     { label: 'Demandas em Andamento', value: String(d.inProgressTasks), sub: `${d.pendingTasks} a fazer`, icon: Kanban, color: '#f59e0b', href: '/demandas' },
     { label: 'Colaboradores', value: String(d.totalUsers), sub: 'ativos', icon: Users, color: '#8b5cf6', href: '/colaboradores' },
-    { label: 'Receita Prevista', value: formatCurrency(d.prevista), sub: 'mês corrente', icon: BarChart3, color: '#6366f1' },
+    { label: 'Receita Prevista', value: formatCurrency(d.prevista), sub: 'recorrente + avulso do mês', icon: BarChart3, color: '#6366f1' },
+    { label: 'Receita Avulsa', value: formatCurrency(d.previstaAvulsa), sub: `${formatCurrency(d.recebidaAvulsa)} já recebida`, icon: DollarSign, color: '#7c3aed' },
+    { label: 'Custos do Mês', value: formatCurrency(d.custos), sub: 'previstos na competência', icon: TrendingDown, color: '#ef4444', href: '/financeiro' },
+    { label: 'Resultado Previsto', value: formatCurrency(d.resultadoPrevisto), sub: 'receita prevista − custos', icon: BarChart3, color: d.resultadoPrevisto >= 0 ? '#030A8C' : '#ef4444' },
+    { label: 'Lucro Realizado', value: formatCurrency(d.lucroRealizado), sub: 'recebido − custos pagos', icon: DollarSign, color: d.lucroRealizado >= 0 ? '#10b981' : '#ef4444' },
     { label: 'Receita Pendente', value: formatCurrency(d.pendente), sub: 'dentro do prazo', icon: DollarSign, color: '#f59e0b' },
     { label: 'ARR', value: formatCurrency(d.arr), sub: 'receita recorrente anual', icon: BarChart3, color: '#030A8C' },
     { label: 'Ticket Médio', value: formatCurrency(d.ticketMedio), sub: `${d.clientsWithServices} cliente(s) com serviços`, icon: DollarSign, color: '#10b981' },

@@ -13,8 +13,8 @@ import { TIER_LABEL, Tier } from '@/lib/client-tier'
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const userId = (session.user as any).id as string
-  const isAdmin = (session.user as any).role === 'ADMIN'
+  const userId = session.user.id as string
+  const isAdmin = session.user.role === 'ADMIN'
 
   const { id } = await params
   const body = await req.json().catch(() => ({}))
@@ -68,7 +68,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     },
   })
 
-  const senderName = (session.user as any).name ?? 'Usuário'
+  const senderName = session.user.name ?? 'Usuário'
   await logTaskEvent(id, 'ENVIO_REVISAO', `${senderName} enviou para revisão com link do Drive${note ? ` — obs.: ${note}` : ''}`, userId)
   if (note) {
     await prisma.taskComment.create({ data: { taskId: id, userId, content: `[Para o revisor] ${note}` } }).catch(() => {})

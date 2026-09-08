@@ -8,7 +8,7 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   // Ficha do colaborador inclui salário e contato — só administradores.
-  if ((session.user as any).role !== 'ADMIN') {
+  if (session.user.role !== 'ADMIN') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -36,7 +36,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   // O corpo pode conter `role` e `salary`: sem esta trava, um colaborador
   // se promoveria a ADMIN editando o próprio cadastro.
-  if ((session.user as any).role !== 'ADMIN') {
+  if (session.user.role !== 'ADMIN') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -54,9 +54,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 
   const user = await prisma.user.update({ where: { id }, data })
-  await logActivity((session.user as any).id, 'atualizou colaborador', 'Colaboradores', user.name)
+  await logActivity(session.user.id, 'atualizou colaborador', 'Colaboradores', user.name)
 
-  const { password: _, ...safe } = user
+  const { password: _senha, ...safe } = user
   return NextResponse.json(safe)
 }
 
@@ -64,7 +64,7 @@ export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id:
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  if ((session.user as any).role !== 'ADMIN') {
+  if (session.user.role !== 'ADMIN') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -73,6 +73,6 @@ export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id:
     where: { id },
     data: { isActive: false },
   })
-  await logActivity((session.user as any).id, 'desativou colaborador', 'Colaboradores', user.name)
+  await logActivity(session.user.id, 'desativou colaborador', 'Colaboradores', user.name)
   return NextResponse.json({ ok: true })
 }

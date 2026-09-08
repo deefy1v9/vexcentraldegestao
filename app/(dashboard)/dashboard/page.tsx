@@ -5,6 +5,7 @@ import DashboardIndicators from '@/components/dashboard/DashboardIndicators'
 import RevenueChart from '@/components/dashboard/RevenueChart'
 import PortfolioSegmentation from '@/components/dashboard/PortfolioSegmentation'
 import { formatCurrency, formatDate } from '@/lib/utils'
+import { getMonthSummary } from '@/lib/finance-summary'
 import { Building2, Kanban, ArrowUpRight } from 'lucide-react'
 import Link from 'next/link'
 
@@ -12,7 +13,6 @@ async function getDashboardData(viewer: { id: string; isAdmin: boolean }) {
   const now = new Date()
   const month = now.getMonth() + 1
   const year = now.getFullYear()
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   // Admin vê os números da agência inteira; colaborador, só o que é dele.
   const taskScope = viewer.isAdmin ? {} : { assigneeId: viewer.id }
 
@@ -27,10 +27,6 @@ async function getDashboardData(viewer: { id: string; isAdmin: boolean }) {
     upcomingEvents,
     recentLogs,
     recentTasks,
-    serviceRevenueAgg,
-    recebidaAgg,
-    pendenteAgg,
-    atrasadaAgg,
     activeClients,
     clientsWithServices,
   ] = await Promise.all([
@@ -66,28 +62,6 @@ async function getDashboardData(viewer: { id: string; isAdmin: boolean }) {
       orderBy: { createdAt: 'desc' },
       take: 6,
     }),
-    // Faturamento mensal (MRR): soma dos serviços ativos de clientes ativos.
-    // Client.monthlyValue é mantido em sincronia com esta soma, então o
-    // número bate com a coluna "Valor Mensal" da tela Clientes.
-    prisma.clientService.aggregate({
-      _sum: { monthlyValue: true },
-      where: { status: 'ATIVO', client: { status: 'ATIVO' } },
-    }),
-    // Receita recebida (mês corrente)
-    prisma.clientPayment.aggregate({
-      _sum: { amount: true },
-      where: { status: 'PAGO', month, year },
-    }),
-    // Receita pendente (dentro do prazo)
-    prisma.clientPayment.aggregate({
-      _sum: { amount: true },
-      where: { status: 'PENDENTE', dueDate: { gte: startOfToday } },
-    }),
-    // Receita atrasada (vencida e não paga)
-    prisma.clientPayment.aggregate({
-      _sum: { amount: true },
-      where: { status: 'PENDENTE', dueDate: { lt: startOfToday } },
-    }),
     prisma.client.count({ where: { status: 'ATIVO' } }),
     // Ticket médio considera só clientes ativos que têm serviço ativo
     prisma.client.count({
@@ -95,12 +69,20 @@ async function getDashboardData(viewer: { id: string; isAdmin: boolean }) {
     }),
   ])
 
-  const mrr = serviceRevenueAgg._sum.monthlyValue ?? 0
+  // Números financeiros: fonte única compartilhada com o Financeiro
+  // (lib/finance-summary) — MRR só de recorrentes, avulso só na competência.
+  const summary = await getMonthSummary(year, month)
+  const mrr = summary.mrrCents / 100
   const arr = mrr * 12
-  const recebida = recebidaAgg._sum.amount ?? 0
-  const pendente = pendenteAgg._sum.amount ?? 0
-  const atrasada = atrasadaAgg._sum.amount ?? 0
-  const prevista = recebida + pendente + atrasada
+  const recebida = summary.recebidaCents / 100
+  const pendente = summary.pendenteCents / 100
+  const atrasada = summary.atrasadaCents / 100
+  const prevista = summary.previstaCents / 100
+  const previstaAvulsa = summary.previstaAvulsaCents / 100
+  const recebidaAvulsa = summary.recebidaAvulsaCents / 100
+  const custos = summary.custosPrevistosCents / 100
+  const resultadoPrevisto = summary.resultadoPrevistoCents / 100
+  const lucroRealizado = summary.lucroRealizadoCents / 100
   const ticketMedio = clientsWithServices > 0 ? mrr / clientsWithServices : 0
   const inadimplencia = prevista > 0 ? (atrasada / prevista) * 100 : 0
 
@@ -112,29 +94,21 @@ async function getDashboardData(viewer: { id: string; isAdmin: boolean }) {
   // por competência e clientes novos por data de cadastro
   const prevMonth = month === 1 ? 12 : month - 1
   const prevYear = month === 1 ? year - 1 : year
-  const [prevRecebidaAgg, newClientsNow, newClientsPrev] = await Promise.all([
-    prisma.clientPayment.aggregate({
-      _sum: { amount: true },
-      where: { status: 'PAGO', month: prevMonth, year: prevYear },
-    }),
+  const [newClientsNow, newClientsPrev] = await Promise.all([
     prisma.client.count({ where: { createdAt: { gte: new Date(year, month - 1, 1) } } }),
     prisma.client.count({
       where: { createdAt: { gte: new Date(prevYear, prevMonth - 1, 1), lt: new Date(year, month - 1, 1) } },
     }),
   ])
-  const recebidaPrev = prevRecebidaAgg._sum.amount ?? 0
+  const recebidaPrev = (summary.previous?.recebidaCents ?? 0) / 100
 
-  // Segmentação da carteira: clientes ativos por grupo + receita mensal
-  const tierAgg = await prisma.client.groupBy({
-    by: ['tier'],
-    where: { status: 'ATIVO' },
-    _count: { _all: true },
-    _sum: { monthlyValue: true },
-  })
-  const segments = (['SCALE', 'GROWTH', 'START'] as const).map((t) => {
-    const row = tierAgg.find((r) => r.tier === t)
-    return { tier: t, count: row?._count._all ?? 0, revenue: row?._sum.monthlyValue ?? 0 }
-  })
+  // Segmentação da carteira pela receita RECORRENTE ativa de cada grupo
+  const segments = summary.segments.map((seg) => ({
+    tier: seg.tier,
+    count: seg.count,
+    revenue: seg.recurringCents / 100,
+    share: seg.share,
+  }))
 
   return {
     segments,
@@ -154,6 +128,11 @@ async function getDashboardData(viewer: { id: string; isAdmin: boolean }) {
     pendente,
     atrasada,
     prevista,
+    previstaAvulsa,
+    recebidaAvulsa,
+    custos,
+    resultadoPrevisto,
+    lucroRealizado,
     ticketMedio,
     inadimplencia,
     clientsWithServices,
@@ -183,8 +162,8 @@ const STATUS_DOT: Record<string, string> = {
 
 export default async function DashboardPage() {
   const session = await auth()
-  const isAdmin = (session?.user as any)?.role === 'ADMIN'
-  const d = await getDashboardData({ id: (session?.user as any)?.id, isAdmin })
+  const isAdmin = session?.user?.role === 'ADMIN'
+  const d = await getDashboardData({ id: session?.user?.id ?? '', isAdmin })
   const firstName = session?.user?.name?.split(' ')[0]
   const now = new Date()
   const timeStr = now.toLocaleString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })

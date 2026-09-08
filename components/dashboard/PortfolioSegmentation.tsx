@@ -6,9 +6,10 @@ import { formatCurrency } from '@/lib/utils'
 import TierBadge from '@/components/ui/TierBadge'
 
 interface Segment {
-  tier: string
+  tier: string | null
   count: number
   revenue: number
+  share?: number
 }
 
 /**
@@ -33,8 +34,8 @@ export default function PortfolioSegmentation({ segments, total }: { segments: S
         <span className="flex items-center gap-3">
           <span className="hidden sm:flex items-center gap-2">
             {segments.filter((s) => s.count > 0).map((s) => (
-              <span key={s.tier} className="flex items-center gap-1">
-                <TierBadge tier={s.tier} />
+              <span key={s.tier ?? 'sem'} className="flex items-center gap-1">
+                {s.tier ? <TierBadge tier={s.tier} /> : <span className="text-[10px] font-semibold text-gray-400">Não classificado</span>}
                 <span className="text-[11px] text-gray-500 font-semibold">{s.count}</span>
               </span>
             ))}
@@ -44,20 +45,20 @@ export default function PortfolioSegmentation({ segments, total }: { segments: S
       </button>
 
       {open && (
-        <div className="border-t border-gray-100 grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
+        <div className="border-t border-gray-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
           {segments.map((s) => {
-            const share = total > 0 ? (s.revenue / total) * 100 : 0
+            const share = s.share ?? (total > 0 ? (s.revenue / total) * 100 : 0)
             return (
-              <div key={s.tier} className="p-4">
+              <div key={s.tier ?? 'sem'} className="p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <TierBadge tier={s.tier} size="sm" />
+                  {s.tier ? <TierBadge tier={s.tier} size="sm" /> : <span className="text-xs font-semibold text-gray-500">Não classificado</span>}
                   <span className="text-xs text-gray-400">{s.count} cliente(s)</span>
                 </div>
                 <p className="text-lg font-bold text-gray-900">{formatCurrency(s.revenue)}</p>
                 <div className="flex items-center gap-2 mt-1.5">
                   <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                     <div
-                      className={`h-full rounded-full ${s.tier === 'SCALE' ? 'bg-[#F74A13]' : 'bg-[#030A8C]'}`}
+                      className={`h-full rounded-full ${s.tier === 'SCALE' ? 'bg-[#F74A13]' : s.tier ? 'bg-[#030A8C]' : 'bg-gray-300'}`}
                       style={{ width: `${Math.min(share, 100)}%` }}
                     />
                   </div>

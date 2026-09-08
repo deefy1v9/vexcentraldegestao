@@ -5,7 +5,7 @@ import PlannerConfigPanel from '@/components/calendario/PlannerConfigPanel'
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  ChevronLeft, ChevronRight, Plus, X, Calendar, Filter, Sparkles, Settings2, AlertTriangle,
+  ChevronLeft, ChevronRight, Plus, X, Calendar, Filter, Sparkles, AlertTriangle,
 } from 'lucide-react'
 
 interface CalEvent {

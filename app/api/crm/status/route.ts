@@ -5,7 +5,7 @@ import { isConfigured, uazStatus } from '@/lib/uazapi'
 export async function GET() {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if ((session.user as any).role !== 'ADMIN') {
+  if (session.user.role !== 'ADMIN') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -15,7 +15,8 @@ export async function GET() {
 
   try {
     const data = await uazStatus()
-    const s = (data as any).status ?? (data as any).instance ?? data
+    const raw = data as Record<string, unknown>
+    const s = (raw.status ?? raw.instance ?? data) as Record<string, unknown> | null
     const connected = !!(
       s?.connected ||
       s?.loggedIn ||

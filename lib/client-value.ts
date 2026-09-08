@@ -1,25 +1,22 @@
 import { Prisma } from '@prisma/client'
 import { prisma } from './prisma'
-import { applyAutoTier } from './client-tier'
+import { applyAutoTier, clientTicketCents } from './client-tier'
 
 type Db = Prisma.TransactionClient | typeof prisma
 
 /**
- * Recalcula o valor mensal total do cliente a partir dos serviços ativos.
+ * Recalcula o ticket mensal recorrente do cliente a partir dos serviços.
  *
- * `Client.monthlyValue` é um campo derivado: nunca deve ser gravado
- * manualmente. Toda rota que cria, edita ou remove um serviço chama esta
- * função para manter a listagem de clientes e os agregados do dashboard
- * consistentes com a soma dos serviços. O grupo (Start/Growth/Scale)
- * automático é reavaliado junto — sem tocar em classificação manual.
+ * `Client.monthlyValue` é derivado (reais) e espelha o ticket recorrente em
+ * centavos — só serviços ATIVOS de tipo recorrente, já iniciados e não
+ * encerrados. Avulsos, pausados e início futuro não entram. Toda rota que
+ * cria, edita, pausa, reativa, encerra ou remove serviço chama isto, e o
+ * grupo automático é reavaliado junto (sem tocar em classificação manual).
  */
 export async function recalcClientMonthlyValue(db: Db, clientId: string): Promise<number> {
-  const agg = await db.clientService.aggregate({
-    _sum: { monthlyValue: true },
-    where: { clientId, status: 'ATIVO' },
-  })
-  const total = agg._sum.monthlyValue ?? 0
+  const ticketCents = await clientTicketCents(db, clientId)
+  const total = ticketCents / 100
   await db.client.update({ where: { id: clientId }, data: { monthlyValue: total } })
-  await applyAutoTier(db, clientId, total)
+  await applyAutoTier(db, clientId)
   return total
 }

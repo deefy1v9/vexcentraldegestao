@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireUser, requireAdmin } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
-import { applyAutoTier, setManualTier, Tier } from '@/lib/client-tier'
+import { applyAutoTier, clientTicketCents, setManualTier, Tier } from '@/lib/client-tier'
 import { missingNfseFields } from '@/lib/billing-core'
 
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -188,18 +188,15 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       }
     }
 
-    // Valor mensal do cliente = soma dos serviços ativos
-    const agg = await tx.clientService.aggregate({
-      _sum: { monthlyValue: true },
-      where: { clientId: id, status: 'ATIVO' },
-    })
-    const total = agg._sum.monthlyValue ?? 0
+    // Ticket recorrente do cliente = serviços recorrentes ativos (centavos);
+    // avulsos/pausados/encerrados/início futuro ficam de fora
+    const ticketCents = await clientTicketCents(tx, id)
     const result = await tx.client.update({
       where: { id },
-      data: { monthlyValue: total },
+      data: { monthlyValue: ticketCents / 100 },
     })
-    // Reavalia o grupo automático com o ticket novo (manual é preservado)
-    await applyAutoTier(tx, id, total)
+    // Reavalia o grupo automático (manual é preservado)
+    await applyAutoTier(tx, id)
     return result
   })
 
@@ -208,14 +205,15 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   // marca manual e volta ao cálculo pela faixa de ticket.
   if (Object.prototype.hasOwnProperty.call(body, 'tier')) {
     const t = body.tier
+    const reason = body.tierReason ? String(body.tierReason).slice(0, 300) : undefined
     if (t === 'AUTO') {
-      await setManualTier(id, null, (session.user as any).id)
+      await setManualTier(id, null, session.user.id, reason)
     } else if (['START', 'GROWTH', 'SCALE'].includes(t)) {
-      await setManualTier(id, t as Tier, (session.user as any).id)
+      await setManualTier(id, t as Tier, session.user.id, reason)
     }
   }
 
-  await logActivity((session.user as any).id, 'atualizou cliente', 'Clientes', client.name)
+  await logActivity(session.user.id, 'atualizou cliente', 'Clientes', client.name)
   return NextResponse.json(client)
 }
 
@@ -253,6 +251,6 @@ export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id:
     return tx.client.delete({ where: { id } })
   })
 
-  await logActivity((session.user as any).id, 'removeu cliente', 'Clientes', client.name)
+  await logActivity(session.user.id, 'removeu cliente', 'Clientes', client.name)
   return NextResponse.json({ ok: true })
 }

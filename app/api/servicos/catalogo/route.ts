@@ -17,6 +17,9 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const clientId = searchParams.get('clientId')
 
+  // Catálogo oficial (ServiceCatalog) — fonte principal
+  const official = await prisma.serviceCatalog.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } })
+
   const services = await prisma.clientService.findMany({
     where: { status: 'ATIVO' },
     orderBy: { updatedAt: 'desc' },
@@ -33,6 +36,18 @@ export async function GET(req: NextRequest) {
   for (const s of services) {
     const key = s.serviceName.trim().toLowerCase()
     if (!byName.has(key)) byName.set(key, s)
+  }
+
+  for (const o of official) {
+    // Entrada oficial sobrepõe a derivada dos clientes
+    byName.set(o.name.trim().toLowerCase(), {
+      id: o.id, clientId: '', serviceName: o.name, description: o.summary, monthlyValue: null,
+      contractDuration: null, totalContractValue: null, proposalDescription: o.summary,
+      defaultScope: o.scope, defaultDeliverables: o.deliverables,
+      defaultMonthlyCents: o.billingType === 'AVULSO' ? null : (o.defaultCents ?? o.maxCents ?? null),
+      defaultSetupCents: o.billingType === 'AVULSO' ? (o.defaultCents ?? o.maxCents ?? null) : null,
+      defaultMonths: null, billingKind: o.billingType === 'AVULSO' ? 'UNICO' : 'RECORRENTE',
+    })
   }
 
   const catalog = [...byName.values()].map((s) => ({

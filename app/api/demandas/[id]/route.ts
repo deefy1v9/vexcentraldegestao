@@ -54,8 +54,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   // Colaborador só mexe no andamento das demandas atribuídas a ele; todo o
   // resto (título, prazo, cliente, responsável) é decisão de administrador.
-  const isAdmin = (session.user as any).role === 'ADMIN'
-  if (!isAdmin && previous.assigneeId !== (session.user as any).id) {
+  const isAdmin = session.user.role === 'ADMIN'
+  if (!isAdmin && previous.assigneeId !== session.user.id) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -81,11 +81,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       await logTaskEvent(
         id,
         'JUSTIFICATIVA',
-        `${(session.user as any).name} moveu ${previous.status} → ${body.status} fora do fluxo. Justificativa: ${String(body.overrideReason).trim()}`,
-        (session.user as any).id,
+        `${session.user.name} moveu ${previous.status} → ${body.status} fora do fluxo. Justificativa: ${String(body.overrideReason).trim()}`,
+        session.user.id,
       )
     } else {
-      await logTaskEvent(id, 'STATUS', `Status: ${previous.status} → ${body.status}`, (session.user as any).id)
+      await logTaskEvent(id, 'STATUS', `Status: ${previous.status} → ${body.status}`, session.user.id)
     }
   }
   if (has('position')) data.position = body.position
@@ -104,10 +104,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (has('schedulerId')) data.schedulerId = body.schedulerId || null
   }
   // O produtor pode salvar/atualizar o link do Drive sem mudar o status
-  if (has('driveLink') && (isAdmin || previous.assigneeId === (session.user as any).id)) {
+  if (has('driveLink') && (isAdmin || previous.assigneeId === session.user.id)) {
     data.driveLink = body.driveLink || null
     if (body.driveLink) {
-      await logTaskEvent(id, 'LINK_DRIVE', `Link do Drive atualizado`, (session.user as any).id)
+      await logTaskEvent(id, 'LINK_DRIVE', `Link do Drive atualizado`, session.user.id)
     }
   }
 
@@ -130,12 +130,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     await logTaskEvent(
       id,
       'RESPONSAVEL',
-      `${(session.user as any).name} alterou o responsável para ${task.assignee?.name ?? 'ninguém'}`,
-      (session.user as any).id,
+      `${session.user.name} alterou o responsável para ${task.assignee?.name ?? 'ninguém'}`,
+      session.user.id,
     )
   }
 
-  await logActivity((session.user as any).id, 'atualizou demanda', 'Demandas', task.title)
+  await logActivity(session.user.id, 'atualizou demanda', 'Demandas', task.title)
 
   // Notificar admins quando tarefa for concluída
   if (previous?.status !== 'CONCLUIDO' && task.status === 'CONCLUIDO') {
@@ -145,12 +145,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         where: { role: 'ADMIN', isActive: true, NOT: { phone: '' } },
         select: { phone: true, name: true },
       })
-      const collaboratorName = (session.user as any)?.name ?? 'Colaborador'
+      const collaboratorName = session.user?.name ?? 'Colaborador'
       const lines = [
         `✅ *Demanda concluída!*`,
         ``,
         `*${task.title}*`,
-        task.client ? `• Cliente: ${(task.client as any).name}` : null,
+        task.client ? `• Cliente: ${task.client.name}` : null,
         `• Concluído por: ${collaboratorName}`,
         task.dueDate ? `• Prazo era: ${new Date(task.dueDate).toLocaleDateString('pt-BR')}` : null,
       ]
@@ -168,12 +168,12 @@ export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id:
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   // Apagar demanda é ação de administrador.
-  if ((session.user as any).role !== 'ADMIN') {
+  if (session.user.role !== 'ADMIN') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
   const { id } = await params
   const task = await prisma.task.delete({ where: { id } })
-  await logActivity((session.user as any).id, 'removeu demanda', 'Demandas', task.title)
+  await logActivity(session.user.id, 'removeu demanda', 'Demandas', task.title)
   return NextResponse.json({ ok: true })
 }

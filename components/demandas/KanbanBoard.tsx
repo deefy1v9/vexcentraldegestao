@@ -298,6 +298,9 @@ export default function KanbanBoard({
     const task = tasks.find((t) => t.id === deepLinkId)
     if (!task) return
     openedRef.current = deepLinkId
+    // Abrir a demanda do link é o efeito colateral pretendido — acontece uma
+    // única vez por id, protegido pelo ref acima.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     openTask(task)
     // openTask é estável dentro do componente; depender dele recriaria o efeito
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1510,6 +1513,7 @@ export default function KanbanBoard({
                           <div key={att.id} className="group flex items-center gap-3 p-2.5 bg-gray-50 border border-gray-100 rounded-xl hover:border-gray-200 transition-colors">
                             {isImage ? (
                               <a href={att.fileUrl} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-lg overflow-hidden shrink-0 border border-gray-200">
+                                {/* eslint-disable-next-line @next/next/no-img-element -- anexo enviado pelo time, servido fora do otimizador */}
                                 <img src={att.fileUrl} alt={att.fileName} className="w-full h-full object-cover" />
                               </a>
                             ) : (

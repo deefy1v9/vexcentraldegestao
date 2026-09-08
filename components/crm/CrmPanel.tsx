@@ -6,7 +6,6 @@ import {
   Settings, Paperclip, Loader2, Wifi, WifiOff,
   RefreshCw, Copy, Check, PanelRight, ChevronLeft,
 } from 'lucide-react'
-import { useSession } from 'next-auth/react'
 import ContactSidePanel from './ContactSidePanel'
 import DraftBanner from './DraftBanner'
 import AiSettingsSection from './AiSettingsSection'
@@ -88,7 +87,6 @@ export default function CrmPanel({
   initialContacts: Contact[]
   availableClients: AvailableClient[]
 }) {
-  const { data: session } = useSession()
   const [contacts, setContacts] = useState(initialContacts)
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null)
   const [activeConvId, setActiveConvId] = useState<string | null>(null)
@@ -611,6 +609,7 @@ export default function CrmPanel({
               {qrCode && (
                 <div className="flex flex-col items-center gap-3 bg-gray-50 rounded-xl p-4 border border-gray-100">
                   <p className="text-xs text-gray-500 text-center">Escaneie o QR code no WhatsApp</p>
+                  {/* eslint-disable-next-line @next/next/no-img-element -- QR em data URL, gerado na hora */}
                   <img src={qrCode} alt="QR Code WhatsApp" className="w-48 h-48 rounded-lg" />
                   <p className="text-[10px] text-gray-400 text-center">WhatsApp → Aparelhos conectados → Conectar aparelho</p>
                 </div>

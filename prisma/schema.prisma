@@ -69,25 +69,25 @@ model User {
 }
 
 model Client {
-  id             String    @id @default(cuid())
-  name           String
-  cnpj           String?   @unique
-  email          String?
-  phone          String?
-  niche          String?
-  contractStart  DateTime?
-  contractEnd    DateTime?
-  contractMonths Int?
-  monthlyValue   Float?
-  paymentDay     Int?
-  status         String    @default("ATIVO")
-  notes          String?
+  id               String    @id @default(cuid())
+  name             String
+  cnpj             String?   @unique
+  email            String?
+  phone            String?
+  niche            String?
+  contractStart    DateTime?
+  contractEnd      DateTime?
+  contractMonths   Int?
+  monthlyValue     Float?
+  paymentDay       Int?
+  status           String    @default("ATIVO")
+  notes            String?
   // Segmentação da carteira: START | GROWTH | SCALE.
   // Automática pela faixa de ticket (configurável) ou manual por admin —
   // classificação manual nunca é sobrescrita pelo recálculo.
-  tier           String?
-  tierManual     Boolean   @default(false)
-  tierChangedAt  DateTime?
+  tier             String?
+  tierManual       Boolean   @default(false)
+  tierChangedAt    DateTime?
   // Grupo operacional de publicação (A: seg/qua/sex, B: ter/qui/sáb).
   // Definido pelo planejamento e reutilizado nas próximas análises.
   operationalGroup String?
@@ -195,42 +195,42 @@ model PlanProposal {
 // (plan:{clientId}:{servico}:{competencia}:{seq}) — reexecutar a análise
 // reaproveita o item em vez de duplicar a demanda.
 model PlanItem {
-  id           String    @id @default(cuid())
-  planId       String
-  ref          String
-  clientId     String
-  serviceId    String?
-  serviceKey   String
-  title        String
-  description  String?
-  contentType  String?
-  platform     String?
-  competence   String // YYYY-MM
-  sequence     Int       @default(1)
-  publishAt    DateTime
-  productionAt DateTime?
-  reviewAt     DateTime?
-  approvalAt   DateTime?
-  scheduleAt   DateTime?
-  assigneeId   String?
-  reviewerId   String?
-  schedulerId  String?
-  priority     String    @default("MEDIA")
-  weekGroup    String? // A | B
+  id            String    @id @default(cuid())
+  planId        String
+  ref           String
+  clientId      String
+  serviceId     String?
+  serviceKey    String
+  title         String
+  description   String?
+  contentType   String?
+  platform      String?
+  competence    String // YYYY-MM
+  sequence      Int       @default(1)
+  publishAt     DateTime
+  productionAt  DateTime?
+  reviewAt      DateTime?
+  approvalAt    DateTime?
+  scheduleAt    DateTime?
+  assigneeId    String?
+  reviewerId    String?
+  schedulerId   String?
+  priority      String    @default("MEDIA")
+  weekGroup     String? // A | B
   // CONTRATO (dado explícito) | IA (sugestão) | MANUAL (editado pelo admin)
-  origin       String    @default("IA")
-  sourceRef    String? // trecho/página do contrato que originou o item
-  confidence   Float?
-  conflicts    Json? // conflitos detectados na prévia
-  notes        String[]  @default([])
+  origin        String    @default("IA")
+  sourceRef     String? // trecho/página do contrato que originou o item
+  confidence    Float?
+  conflicts     Json? // conflitos detectados na prévia
+  notes         String[]  @default([])
   // PENDENTE | APROVADO | DESCARTADO | CRIADO
-  status       String    @default("PENDENTE")
-  createdTaskId String?  @unique
-  editedFields String[]  @default([]) // auditoria do que o admin mudou
-  editNote     String?
-  suggested    Json? // sugestão original da IA, preservada após edição
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  status        String    @default("PENDENTE")
+  createdTaskId String?   @unique
+  editedFields  String[]  @default([]) // auditoria do que o admin mudou
+  editNote      String?
+  suggested     Json? // sugestão original da IA, preservada após edição
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   plan PlanProposal @relation(fields: [planId], references: [id], onDelete: Cascade)
 
@@ -272,8 +272,9 @@ model AsaasCharge {
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
-  client Client       @relation(fields: [clientId], references: [id])
+  client Client            @relation(fields: [clientId], references: [id])
   nfse   NfseInvoice?
+  items  AsaasChargeItem[]
 
   @@unique([clientId, year, month])
 }
@@ -376,14 +377,18 @@ model IntegrationLog {
 
 // Histórico de mudanças de grupo do cliente — nunca é apagado.
 model ClientTierHistory {
-  id        String   @id @default(cuid())
-  clientId  String
-  fromTier  String?
-  toTier    String?
-  ticket    Float // ticket mensal no momento da mudança
-  manual    Boolean // true = definido por admin; false = recálculo automático
-  userId    String? // quem alterou (null nas automáticas)
-  createdAt DateTime @default(now())
+  id          String   @id @default(cuid())
+  clientId    String
+  fromTier    String?
+  toTier      String?
+  ticket      Float // ticket mensal no momento da mudança
+  manual      Boolean // true = definido por admin; false = recálculo automático
+  userId      String? // quem alterou (null nas automáticas)
+  // AUTO | MANUAL | MANUAL_REMOVIDA — origem da mudança
+  source      String?
+  recommended String? // grupo que a regra automática indicava no momento
+  reason      String? // justificativa opcional (manual)
+  createdAt   DateTime @default(now())
 
   client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 }
@@ -404,34 +409,128 @@ model ClientCredential {
 }
 
 model ClientService {
-  id                 String    @id @default(cuid())
-  clientId           String
-  serviceName        String
-  customName         String?
-  description        String?
-  monthlyValue       Float?
+  id                  String    @id @default(cuid())
+  clientId            String
+  serviceName         String
+  customName          String?
+  description         String?
+  monthlyValue        Float?
   // ---- Dados comerciais para propostas (opcionais, aditivos ao cadastro) ----
   // Nada aqui substitui os campos acima: servem de padrão ao montar proposta.
   proposalDescription String? // descrição comercial exibida na proposta
   defaultScope        String? // escopo padrão do serviço
-  defaultDeliverables String[] @default([]) // entregáveis padrão
+  defaultDeliverables String[]  @default([]) // entregáveis padrão
   defaultMonthlyCents Int? // valor mensal padrão em centavos
   defaultSetupCents   Int? // valor único/setup padrão em centavos
   defaultMonths       Int? // duração padrão em meses
   billingKind         String? // RECORRENTE | UNICO
-  paymentType        String?
-  contractDuration   Int?
-  firstPaymentDate   DateTime?
-  totalContractValue Float?
-  observations       String?
-  startDate          DateTime?
-  endDate            DateTime?
-  status             String    @default("ATIVO")
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @default(now()) @updatedAt
+  paymentType         String?
+  contractDuration    Int?
+  firstPaymentDate    DateTime?
+  totalContractValue  Float?
+  observations        String?
+  startDate           DateTime?
+  endDate             DateTime?
+  // ATIVO | PAUSADO | ENCERRADO (legado: CANCELADO/FINALIZADO = encerrado)
+  status              String    @default("ATIVO")
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @default(now()) @updatedAt
 
-  client   Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  payments ClientPayment[]
+  // ---- Contratação a partir do catálogo (valores em CENTAVOS) ----
+  catalogId          String?
+  // RECORRENTE | AVULSO | PROJETO | QUANTIDADE | PERSONALIZADO
+  contractType       String    @default("RECORRENTE")
+  priceCents         Int? // valor negociado (fonte de verdade; monthlyValue espelha)
+  quantity           Int       @default(1)
+  discountCents      Int       @default(0)
+  competence         String? // YYYY-MM — só para AVULSO
+  dueDay             Int? // vencimento próprio; sem valor usa o do cliente
+  generateCharge     Boolean   @default(true)
+  emitNfse           Boolean   @default(false)
+  billingDescription String? // descrição na cobrança e na NFS-e
+  pausedAt           DateTime?
+  endedAt            DateTime?
+
+  client        Client                       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  catalog       ServiceCatalog?              @relation(fields: [catalogId], references: [id], onDelete: SetNull)
+  payments      ClientPayment[]
+  valueHistory  ClientServiceValueHistory[]
+  statusHistory ClientServiceStatusHistory[]
+  chargeItems   AsaasChargeItem[]
+
+  @@index([clientId, status])
+  @@index([catalogId])
+}
+
+// Catálogo do que a VEX oferece. A contratação por cliente vive em
+// ClientService e aponta para cá — mesma origem de dados nas duas telas.
+model ServiceCatalog {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  category      String?
+  summary       String?
+  scope         String?
+  deliverables  String[] @default([])
+  exclusions    String[] @default([])
+  leadTimeDays  Int?
+  periodicity   String? // MENSAL | UNICO | PROJETO
+  // RECORRENTE | AVULSO | PROJETO | QUANTIDADE | PERSONALIZADO
+  billingType   String   @default("RECORRENTE")
+  minCents      Int?
+  maxCents      Int?
+  defaultCents  Int?
+  isActive      Boolean  @default(true)
+  internalNotes String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  clientServices ClientService[]
+}
+
+// Vigência de valor: alterar o negociado nunca reescreve o passado.
+model ClientServiceValueHistory {
+  id            String   @id @default(cuid())
+  serviceId     String
+  cents         Int
+  effectiveFrom DateTime
+  userId        String?
+  note          String?
+  createdAt     DateTime @default(now())
+
+  service ClientService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@index([serviceId, effectiveFrom])
+}
+
+model ClientServiceStatusHistory {
+  id         String   @id @default(cuid())
+  serviceId  String
+  fromStatus String?
+  toStatus   String
+  userId     String?
+  reason     String?
+  createdAt  DateTime @default(now())
+
+  service ClientService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@index([serviceId, createdAt])
+}
+
+// Composição da cobrança: cada serviço (recorrente ou avulso) que entrou no
+// valor daquela competência — base da discriminação da NFS-e.
+model AsaasChargeItem {
+  id          String   @id @default(cuid())
+  chargeId    String
+  serviceId   String?
+  description String
+  cents       Int
+  kind        String   @default("RECORRENTE") // RECORRENTE | AVULSO
+  createdAt   DateTime @default(now())
+
+  charge  AsaasCharge    @relation(fields: [chargeId], references: [id], onDelete: Cascade)
+  service ClientService? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+
+  @@index([chargeId])
 }
 
 model CalendarEvent {
@@ -646,10 +745,16 @@ model ClientPayment {
   status          String    @default("PENDENTE")
   // Conta em que o valor entrou (confirmações via WhatsApp)
   receivedAccount String?
+  // RECORRENTE | AVULSO — separa a receita avulsa nos relatórios
+  kind            String    @default("RECORRENTE")
   createdAt       DateTime  @default(now())
 
   client  Client         @relation(fields: [clientId], references: [id])
   service ClientService? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+
+  // Uma parcela por serviço e competência: gerar duas vezes não duplica
+  @@unique([serviceId, year, month])
+  @@index([clientId, year, month])
 }
 
 // Ciclo de confirmação de recebimento via WhatsApp: uma cobrança por
@@ -905,28 +1010,28 @@ model AiJob {
 // Interessado que ainda não é cliente. Criar proposta para um prospect NÃO o
 // transforma em cliente: a conversão é um passo explícito depois da aprovação.
 model Prospect {
-  id            String  @id @default(cuid())
-  personType    String  @default("PF") // PF | PJ
-  document      String  @unique // CPF/CNPJ apenas dígitos
-  name          String // nome completo ou razão social
-  tradeName     String?
-  contactName   String?
-  email         String?
-  phone         String?
-  zipCode       String?
-  street        String?
-  addressNumber String?
-  complement    String?
-  district      String?
-  city          String?
-  state         String?
-  notes         String?
+  id                String    @id @default(cuid())
+  personType        String    @default("PF") // PF | PJ
+  document          String    @unique // CPF/CNPJ apenas dígitos
+  name              String // nome completo ou razão social
+  tradeName         String?
+  contactName       String?
+  email             String?
+  phone             String?
+  zipCode           String?
+  street            String?
+  addressNumber     String?
+  complement        String?
+  district          String?
+  city              String?
+  state             String?
+  notes             String?
   // Preenchido quando o prospect vira cliente — impede conversão em dobro
-  convertedClientId String?  @unique
+  convertedClientId String?   @unique
   convertedAt       DateTime?
   createdById       String
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   createdBy User       @relation(fields: [createdById], references: [id])
   proposals Proposal[]
@@ -1026,13 +1131,13 @@ model ProposalItem {
   scope        String?
   deliverables String[] @default([])
 
-  quantity        Int      @default(1)
-  monthlyCents    Int      @default(0)
-  setupCents      Int      @default(0)
-  discountCents   Int      @default(0)
-  discountPercent Decimal? @db.Decimal(5, 2)
-  months          Int      @default(0)
-  periodicity     String   @default("MENSAL") // MENSAL | UNICO
+  quantity        Int       @default(1)
+  monthlyCents    Int       @default(0)
+  setupCents      Int       @default(0)
+  discountCents   Int       @default(0)
+  discountPercent Decimal?  @db.Decimal(5, 2)
+  months          Int       @default(0)
+  periodicity     String    @default("MENSAL") // MENSAL | UNICO
   startDate       DateTime?
   notes           String?
 

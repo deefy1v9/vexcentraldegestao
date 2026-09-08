@@ -1,9 +1,12 @@
 import { Prisma } from '@prisma/client'
 import { prisma } from './prisma'
+import {
+  DEFAULT_TIER_RANGES, recommendTierCents, recurringTicketCents, type TierName,
+} from './billing-core'
 
 type Db = Prisma.TransactionClient | typeof prisma
 
-export type Tier = 'START' | 'GROWTH' | 'SCALE'
+export type Tier = TierName
 
 export const TIER_LABEL: Record<Tier, string> = {
   START: 'Start',
@@ -11,56 +14,81 @@ export const TIER_LABEL: Record<Tier, string> = {
   SCALE: 'Scale',
 }
 
+function todayISO(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+}
+
 /**
- * Faixas de ticket configuráveis pelos administradores (SystemSettings):
- *   Start  → ticket ≤ TIER_START_MAX
- *   Growth → TIER_START_MAX < ticket ≤ TIER_GROWTH_MAX
- *   Scale  → ticket > TIER_GROWTH_MAX
- * Sem faixas configuradas o sistema não recomenda grupo (nada de valores
- * arbitrários) — a classificação manual continua disponível.
+ * Faixas de ticket (centavos). Configuráveis em SystemSettings
+ * (TIER_START_MAX / TIER_GROWTH_MAX, em reais); sem configuração válida
+ * valem os padrões da operação: Start ≤ 1.500,00 · Growth ≤ 3.000,00.
+ * Nunca devolve null — cliente com serviço recorrente ativo sempre recebe
+ * grupo (era isto que deixava clientes "Não classificados").
  */
-export async function getTierRanges(db: Db = prisma): Promise<{ startMax: number; growthMax: number } | null> {
+export async function getTierRanges(db: Db = prisma): Promise<{ startMax: number; growthMax: number; startMaxCents: number; growthMaxCents: number }> {
   const rows = await db.$queryRaw<Array<{ key: string; value: string }>>`
     SELECT key, value FROM "SystemSettings" WHERE key IN ('TIER_START_MAX', 'TIER_GROWTH_MAX')
   `
   const map = Object.fromEntries(rows.map((r) => [r.key, Number(r.value)]))
-  const startMax = map['TIER_START_MAX']
-  const growthMax = map['TIER_GROWTH_MAX']
-  if (!Number.isFinite(startMax) || !Number.isFinite(growthMax) || startMax <= 0 || growthMax <= startMax) {
-    return null
+  let startMaxCents = Math.round((map['TIER_START_MAX'] ?? 0) * 100)
+  let growthMaxCents = Math.round((map['TIER_GROWTH_MAX'] ?? 0) * 100)
+  if (!Number.isFinite(startMaxCents) || !Number.isFinite(growthMaxCents) || startMaxCents <= 0 || growthMaxCents <= startMaxCents) {
+    startMaxCents = DEFAULT_TIER_RANGES.startMaxCents
+    growthMaxCents = DEFAULT_TIER_RANGES.growthMaxCents
   }
-  return { startMax, growthMax }
+  return { startMax: startMaxCents / 100, growthMax: growthMaxCents / 100, startMaxCents, growthMaxCents }
 }
 
-export function recommendTier(ticket: number, ranges: { startMax: number; growthMax: number }): Tier {
-  if (ticket <= ranges.startMax) return 'START'
-  if (ticket <= ranges.growthMax) return 'GROWTH'
-  return 'SCALE'
+/** Compatibilidade: grupo a partir do ticket em reais. */
+export function recommendTier(ticket: number, ranges: { startMax: number; growthMax: number }): Tier | null {
+  return recommendTierCents(Math.round(ticket * 100), {
+    startMaxCents: Math.round(ranges.startMax * 100),
+    growthMaxCents: Math.round(ranges.growthMax * 100),
+  })
 }
 
 /**
- * Reclassifica o cliente pela faixa de ticket após mudança nos serviços.
- * Classificação manual nunca é sobrescrita. Toda mudança vai pro histórico.
+ * Ticket recorrente atual do cliente, em centavos, direto dos serviços —
+ * nunca do campo derivado Client.monthlyValue.
  */
-export async function applyAutoTier(db: Db, clientId: string, ticket: number) {
+export async function clientTicketCents(db: Db, clientId: string): Promise<number> {
+  const services = await db.clientService.findMany({
+    where: { clientId },
+    select: {
+      status: true, monthlyValue: true, startDate: true, endDate: true,
+      contractType: true, priceCents: true, quantity: true, discountCents: true, competence: true,
+    },
+  })
+  return recurringTicketCents(services, todayISO())
+}
+
+/**
+ * Reclassifica o cliente pela faixa. Classificação manual nunca é
+ * sobrescrita; toda mudança vai para o histórico com ticket, origem e a
+ * recomendação da regra. Ticket zero → sem grupo ("Não classificado").
+ */
+export async function applyAutoTier(db: Db, clientId: string, ticketOverride?: number) {
   const client = await db.client.findUnique({
     where: { id: clientId },
     select: { tier: true, tierManual: true },
   })
-  if (!client || client.tierManual) return
-
+  if (!client) return
+  const ticketCents = ticketOverride != null ? Math.round(ticketOverride * 100) : await clientTicketCents(db, clientId)
   const ranges = await getTierRanges(db)
-  if (!ranges) return
+  const next = recommendTierCents(ticketCents, ranges)
 
-  const next = recommendTier(ticket, ranges)
-  if (client.tier === next) return
+  if (client.tierManual) return // manual manda; a recomendação é só informativa
+  if ((client.tier ?? null) === next) return
 
   await db.client.update({
     where: { id: clientId },
     data: { tier: next, tierChangedAt: new Date() },
   })
   await db.clientTierHistory.create({
-    data: { clientId, fromTier: client.tier, toTier: next, ticket, manual: false },
+    data: {
+      clientId, fromTier: client.tier, toTier: next, ticket: ticketCents / 100,
+      manual: false, source: 'AUTO', recommended: next,
+    },
   })
 }
 
@@ -68,23 +96,27 @@ export async function applyAutoTier(db: Db, clientId: string, ticket: number) {
  * Classificação manual por admin (ou remoção dela — volta ao automático).
  * `tier === null` limpa a marca manual e reclassifica pela faixa.
  */
-export async function setManualTier(clientId: string, tier: Tier | null, userId: string) {
+export async function setManualTier(clientId: string, tier: Tier | null, userId: string, reason?: string) {
   const client = await prisma.client.findUnique({
     where: { id: clientId },
-    select: { tier: true, tierManual: true, monthlyValue: true },
+    select: { tier: true, tierManual: true },
   })
   if (!client) return
 
-  const ticket = client.monthlyValue ?? 0
+  const ticketCents = await clientTicketCents(prisma, clientId)
+  const recommended = recommendTierCents(ticketCents, await getTierRanges(prisma))
+  const ticket = ticketCents / 100
 
   if (tier === null) {
-    // Remove a classificação manual e volta ao automático
     if (!client.tierManual) return
     await prisma.client.update({ where: { id: clientId }, data: { tierManual: false } })
     await prisma.clientTierHistory.create({
-      data: { clientId, fromTier: client.tier, toTier: client.tier, ticket, manual: true, userId },
+      data: {
+        clientId, fromTier: client.tier, toTier: client.tier, ticket, manual: true, userId,
+        source: 'MANUAL_REMOVIDA', recommended, reason: reason?.slice(0, 300) ?? null,
+      },
     })
-    await applyAutoTier(prisma, clientId, ticket)
+    await applyAutoTier(prisma, clientId)
     return
   }
 
@@ -94,40 +126,48 @@ export async function setManualTier(clientId: string, tier: Tier | null, userId:
     data: { tier, tierManual: true, tierChangedAt: new Date() },
   })
   await prisma.clientTierHistory.create({
-    data: { clientId, fromTier: client.tier, toTier: tier, ticket, manual: true, userId },
+    data: {
+      clientId, fromTier: client.tier, toTier: tier, ticket, manual: true, userId,
+      source: 'MANUAL', recommended, reason: reason?.slice(0, 300) ?? null,
+    },
   })
 }
 
 /**
- * Reclassifica TODOS os clientes sem marca manual pelas faixas atuais.
- * Usada ao salvar as faixas: os clientes existentes entram nos grupos na
- * hora; os próximos são classificados na criação e a cada mudança de
- * serviços. Toda mudança vai para o histórico.
+ * Reclassifica TODOS os clientes sem marca manual pelas faixas atuais
+ * (usada ao salvar faixas e na correção de clientes "Não classificados").
  */
 export async function reclassifyAllClients(): Promise<{ updated: number }> {
   const ranges = await getTierRanges(prisma)
-  if (!ranges) return { updated: 0 }
-
   const clients = await prisma.client.findMany({
     where: { tierManual: false },
-    select: { id: true, tier: true, monthlyValue: true },
+    select: { id: true, tier: true },
   })
 
   let updated = 0
   for (const c of clients) {
-    const ticket = c.monthlyValue ?? 0
-    const next = recommendTier(ticket, ranges)
-    if (c.tier === next) continue
+    const ticketCents = await clientTicketCents(prisma, c.id)
+    const next = recommendTierCents(ticketCents, ranges)
+    if ((c.tier ?? null) === next) continue
     await prisma.client.update({
       where: { id: c.id },
       data: { tier: next, tierChangedAt: new Date() },
     })
     await prisma.clientTierHistory.create({
-      data: { clientId: c.id, fromTier: c.tier, toTier: next, ticket, manual: false },
+      data: {
+        clientId: c.id, fromTier: c.tier, toTier: next, ticket: ticketCents / 100,
+        manual: false, source: 'AUTO', recommended: next,
+      },
     })
     updated++
   }
   return { updated }
+}
+
+/** Recomendação automática atual (para exibir ao lado da manual). */
+export async function tierRecommendation(clientId: string): Promise<{ ticketCents: number; recommended: Tier | null }> {
+  const ticketCents = await clientTicketCents(prisma, clientId)
+  return { ticketCents, recommended: recommendTierCents(ticketCents, await getTierRanges(prisma)) }
 }
 
 /** Prioridade de demanda herdada do grupo: Scale alta, Growth média, Start padrão. */

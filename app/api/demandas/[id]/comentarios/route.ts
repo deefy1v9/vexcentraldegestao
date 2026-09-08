@@ -12,7 +12,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const comment = await prisma.taskComment.create({
     data: {
       taskId: id,
-      userId: (session.user as any).id,
+      userId: session.user.id,
       content,
     },
     include: { user: { select: { id: true, name: true } } },

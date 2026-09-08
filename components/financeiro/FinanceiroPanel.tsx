@@ -1,11 +1,15 @@
 'use client'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import CurrencyInput from '@/components/ui/CurrencyInput'
 import TierBadge from '@/components/ui/TierBadge'
+import FinanceKpis, { type MonthSummary } from '@/components/financeiro/FinanceKpis'
+import FinanceChart from '@/components/financeiro/FinanceChart'
+import AddEntryModal from '@/components/financeiro/AddEntryModal'
 import {
-  TrendingUp, TrendingDown, DollarSign, Users, Plus, Check, X,
-  ChevronLeft, ChevronRight, Pencil, Trash2, Repeat, CalendarClock,
+  TrendingDown, DollarSign, Users, Plus, Check, X,
+  ChevronLeft, ChevronRight, Pencil, Trash2, Repeat, CalendarClock, CalendarDays, Send, Ban,
 } from 'lucide-react'
 
 /* ---------------------------------- tipos ---------------------------------- */
@@ -34,6 +38,9 @@ interface Payment {
   dueDate: string
   paidAt?: string | null
   status: string
+  kind?: string | null
+  serviceId?: string | null
+  service?: { id: string; serviceName: string; contractType: string; billingDescription?: string | null } | null
   client: { id: string; name: string; tier?: string | null }
 }
 
@@ -84,6 +91,7 @@ interface AsaasChargeRow {
 }
 
 interface MonthData {
+  summary: MonthSummary
   entries: Entry[]
   clientPayments: Payment[]
   users: Collaborator[]
@@ -186,36 +194,63 @@ function ScopeDialog({
 
 /* --------------------------------- principal --------------------------------- */
 
+function currentPeriod() {
+  const d = new Date()
+  return { year: d.getFullYear(), month: d.getMonth() + 1 }
+}
+
+/** Lê ?mes=AAAA-MM da URL; sem parâmetro válido, mês corrente. */
+function periodFromParam(value: string | null) {
+  if (value && /^d{4}-(0[1-9]|1[0-2])$/.test(value)) {
+    const [y, m] = value.split('-').map(Number)
+    return { year: y, month: m }
+  }
+  return currentPeriod()
+}
+
 export default function FinanceiroPanel() {
-  const now = new Date()
-  const [period, setPeriod] = useState({ year: now.getFullYear(), month: now.getMonth() + 1 })
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const monthParam = searchParams.get('mes')
+  const period = useMemo(() => periodFromParam(monthParam), [monthParam])
+  const isCurrentMonth = period.year === currentPeriod().year && period.month === currentPeriod().month
+
   const [data, setData] = useState<MonthData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'overview' | 'payments' | 'costs' | 'salaries'>('overview')
   const [runningJob, setRunningJob] = useState(false)
+  const [showAdd, setShowAdd] = useState(false)
+  const [flash, setFlash] = useState<string | null>(null)
 
-  const load = useCallback(async (p: { year: number; month: number }) => {
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await fetch(`/api/financeiro?month=${p.month}&year=${p.year}`)
-      if (!res.ok) throw new Error()
-      setData(await res.json())
-    } catch {
-      setError('Não foi possível carregar os dados financeiros.')
-    } finally {
-      setLoading(false)
-    }
+  // O mês vive na URL: recarregar ou compartilhar o link mantém a competência
+  const setPeriod = useCallback((next: { year: number; month: number }) => {
+    const q = new URLSearchParams(searchParams.toString())
+    q.set('mes', `${next.year}-${String(next.month).padStart(2, '0')}`)
+    router.replace(`${pathname}?${q.toString()}`, { scroll: false })
+  }, [router, pathname, searchParams])
+
+  const load = useCallback((p: { year: number; month: number }) => {
+    fetch(`/api/financeiro?month=${p.month}&year=${p.year}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('falha'))))
+      .then((body: MonthData) => setData(body))
+      .catch(() => setError('Não foi possível carregar os dados financeiros.'))
+      .finally(() => setLoading(false))
   }, [])
 
   useEffect(() => { load(period) }, [period, load])
+  // Recarga manual (após uma ação): aí sim a tela volta ao estado de carga
+  const reload = useCallback(() => { setLoading(true); setError(null); load(period) }, [load, period])
+  useEffect(() => {
+    if (!flash) return
+    const t = setTimeout(() => setFlash(null), 5000)
+    return () => clearTimeout(t)
+  }, [flash])
 
   function shiftMonth(delta: number) {
-    setPeriod((p) => {
-      const d = new Date(p.year, p.month - 1 + delta, 1)
-      return { year: d.getFullYear(), month: d.getMonth() + 1 }
-    })
+    const d = new Date(period.year, period.month - 1 + delta, 1)
+    setPeriod({ year: d.getFullYear(), month: d.getMonth() + 1 })
   }
 
   /* ------------------------------ derivados do mês ------------------------------ */
@@ -225,24 +260,9 @@ export default function FinanceiroPanel() {
   const costEntries = useMemo(() => entries.filter((e) => e.type === 'CUSTO'), [entries])
   const salaryEntries = useMemo(() => entries.filter((e) => e.type === 'SALARIO'), [entries])
 
-  const receitaRecebida = payments.filter((p) => p.status === 'PAGO').reduce((s, p) => s + p.amount, 0)
-  const receitaPendente = payments.filter((p) => p.status === 'PENDENTE').reduce((s, p) => s + p.amount, 0)
-
-  const salariosPrevistos = salaryEntries.reduce((s, e) => s + e.amount, 0)
-  const salariosPagos = salaryEntries.filter((e) => e.status === 'PAGO').reduce((s, e) => s + e.amount, 0)
-  const outrosCustosPrevistos = costEntries.reduce((s, e) => s + e.amount, 0)
-  const outrosCustosPagos = costEntries.filter((e) => e.status === 'PAGO').reduce((s, e) => s + e.amount, 0)
-
-  // Custos Totais = Salários + Outros Custos (salário contado uma única vez)
-  const custosTotais = salariosPrevistos + outrosCustosPrevistos
-  const custosPagos = salariosPagos + outrosCustosPagos
-  const custosPendentes = custosTotais - custosPagos
-
-  // Lucro Líquido Realizado = Receitas Recebidas − Custos Pagos
-  const lucroRealizado = receitaRecebida - custosPagos
-  // Resultado previsto = receita prevista − salários previstos − outros custos previstos
-  const previstoServicos = data?.previstoServicos ?? 0
-  const resultadoPrevisto = previstoServicos - salariosPrevistos - outrosCustosPrevistos
+  // Os números do mês vêm prontos do backend (data.summary), fonte única
+  // compartilhada com o Dashboard e o perfil do cliente. Aqui só ficam os
+  // recortes que as abas usam para listar.
 
   /* --------------------------------- ações --------------------------------- */
 
@@ -252,7 +272,7 @@ export default function FinanceiroPanel() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ paymentIds, status: newStatus }),
     })
-    if (res.ok) load(period)
+    if (res.ok) reload()
   }
 
   async function toggleEntryPaid(entry: Entry) {
@@ -262,7 +282,7 @@ export default function FinanceiroPanel() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ entryId: entry.id, status: entry.status === 'PAGO' ? 'PENDENTE' : 'PAGO' }),
     })
-    if (res.ok) load(period)
+    if (res.ok) reload()
   }
 
   const tabs = [
@@ -275,142 +295,116 @@ export default function FinanceiroPanel() {
   return (
     <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
 
-      {/* Atalhos administrativos */}
-      <div className="flex items-center justify-end gap-2 -mb-3">
-        <a href="/financeiro/fiscal" className="text-[11px] font-semibold text-gray-500 hover:text-[#030A8C] px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors">
-          Configuração fiscal
-        </a>
-        <a href="/financeiro/integracoes" className="text-[11px] font-semibold text-gray-500 hover:text-[#030A8C] px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors">
-          Diagnóstico
-        </a>
-      </div>
+      {/* Cabeçalho: competência na URL, ações do mês e atalhos administrativos */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <button onClick={() => shiftMonth(-1)} aria-label="Mês anterior"
+            className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors">
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <label className="relative cursor-pointer">
+            <span className="px-4 py-2 rounded-lg border border-gray-200 bg-white text-sm font-semibold text-gray-900 inline-block min-w-[180px] text-center">
+              {MONTHS[period.month - 1]} de {period.year}
+            </span>
+            <input
+              type="month"
+              aria-label="Selecionar mês e ano"
+              value={`${period.year}-${String(period.month).padStart(2, '0')}`}
+              onChange={(e) => {
+                const [y, m] = e.target.value.split('-').map(Number)
+                if (y && m) setPeriod({ year: y, month: m })
+              }}
+              className="absolute inset-0 opacity-0 cursor-pointer"
+            />
+          </label>
+          <button onClick={() => shiftMonth(1)} aria-label="Próximo mês"
+            className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors">
+            <ChevronRight className="w-4 h-4" />
+          </button>
+          {!isCurrentMonth && (
+            <button onClick={() => setPeriod(currentPeriod())}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors">
+              <CalendarDays className="w-3.5 h-3.5" /> Mês atual
+            </button>
+          )}
+        </div>
 
-      {/* Navegação de mês */}
-      <div className="flex flex-wrap items-center justify-center gap-2">
-        <button onClick={() => shiftMonth(-1)} aria-label="Mês anterior"
-          className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors">
-          <ChevronLeft className="w-4 h-4" />
-        </button>
-        <label className="relative cursor-pointer">
-          <span className="px-4 py-2 rounded-lg border border-gray-200 bg-white text-sm font-semibold text-gray-900 inline-block min-w-[180px] text-center">
-            {MONTHS[period.month - 1]} de {period.year}
-          </span>
-          <input
-            type="month"
-            aria-label="Selecionar mês e ano"
-            value={`${period.year}-${String(period.month).padStart(2, '0')}`}
-            onChange={(e) => {
-              const [y, m] = e.target.value.split('-').map(Number)
-              if (y && m) setPeriod({ year: y, month: m })
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setShowAdd(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#030A8C] text-white text-xs font-semibold hover:bg-[#02077a] transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" /> Adicionar lançamento
+          </button>
+
+          {/* Gerar cobranças: mesma varredura do agendador, idempotente */}
+          <button
+            onClick={async () => {
+              if (runningJob) return
+              setRunningJob(true)
+              try {
+                const res = await fetch('/api/asaas/cobrancas', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ runJob: true }),
+                })
+                const r = await res.json().catch(() => ({}))
+                setFlash(res.ok
+                  ? `Cobranças: ${r.created ?? 0} criada(s), ${r.skipped ?? 0} já existente(s) ou fora da janela, ${r.errors ?? 0} erro(s).`
+                  : r.error || 'Falha ao gerar cobranças.')
+                if (res.ok) reload()
+              } finally {
+                setRunningJob(false)
+              }
             }}
-            className="absolute inset-0 opacity-0 cursor-pointer"
-          />
-        </label>
-        <button onClick={() => shiftMonth(1)} aria-label="Próximo mês"
-          className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors">
-          <ChevronRight className="w-4 h-4" />
-        </button>
+            disabled={runningJob}
+            className="px-3 py-2 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors disabled:opacity-50"
+          >
+            {runningJob ? 'Gerando…' : 'Gerar cobranças'}
+          </button>
 
-        <div className="w-px h-6 bg-gray-200 mx-1 hidden sm:block" />
+          {/* Exporta o mês carregado em CSV (recebimentos + custos + salários) */}
+          <button
+            onClick={() => {
+              if (!data) return
+              const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
+              const rows = [
+                ['tipo', 'natureza', 'descricao', 'cliente/colaborador', 'valor', 'vencimento', 'status'].join(';'),
+                ...payments.map((p) => ['recebimento', p.kind === 'AVULSO' ? 'avulso' : 'recorrente', p.service?.serviceName ?? `competencia ${String(p.month).padStart(2, '0')}/${p.year}`, p.client.name, p.amount.toFixed(2), p.dueDate?.slice(0, 10) ?? '', p.status].map(esc).join(';')),
+                ...entries.map((e) => [e.type.toLowerCase(), e.recurring ? 'recorrente' : 'unico', e.name || e.description, e.user?.name ?? e.category, e.amount.toFixed(2), e.dueDate?.slice(0, 10) ?? '', e.status].map(esc).join(';')),
+              ].join('\n')
+              const blob = new Blob([`\ufeff${rows}`], { type: 'text/csv;charset=utf-8' })
+              const a = document.createElement('a')
+              a.href = URL.createObjectURL(blob)
+              a.download = `financeiro-${period.year}-${String(period.month).padStart(2, '0')}.csv`
+              a.click()
+              URL.revokeObjectURL(a.href)
+            }}
+            className="px-3 py-2 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors"
+          >
+            Exportar relatório
+          </button>
 
-        {/* Gerar cobranças: roda a mesma varredura do agendador (idempotente) */}
-        <button
-          onClick={async () => {
-            if (runningJob) return
-            setRunningJob(true)
-            try {
-              const res = await fetch('/api/asaas/cobrancas', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ runJob: true }),
-              })
-              const r = await res.json().catch(() => ({}))
-              alert(res.ok
-                ? `Cobranças: ${r.created ?? 0} criada(s), ${r.skipped ?? 0} já existente(s)/fora da janela, ${r.errors ?? 0} erro(s).`
-                : r.error || 'Falha ao gerar cobranças.')
-              if (res.ok) load(period)
-            } finally {
-              setRunningJob(false)
-            }
-          }}
-          disabled={runningJob}
-          className="px-3 py-2 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors disabled:opacity-50"
-        >
-          {runningJob ? 'Gerando...' : 'Gerar cobranças'}
-        </button>
-
-        {/* Exporta o mês carregado em CSV (recebimentos + custos + salários) */}
-        <button
-          onClick={() => {
-            if (!data) return
-            const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
-            const rows = [
-              ['tipo', 'descricao', 'cliente/colaborador', 'valor', 'vencimento', 'status'].join(';'),
-              ...payments.map((p) => ['recebimento', `competencia ${String(p.month).padStart(2, '0')}/${p.year}`, p.client.name, p.amount.toFixed(2), p.dueDate?.slice(0, 10) ?? '', p.status].map(esc).join(';')),
-              ...entries.map((e) => [e.type.toLowerCase(), e.name || e.description, e.user?.name ?? e.category, e.amount.toFixed(2), e.dueDate?.slice(0, 10) ?? '', e.status].map(esc).join(';')),
-            ].join('\n')
-            const blob = new Blob([`﻿${rows}`], { type: 'text/csv;charset=utf-8' })
-            const a = document.createElement('a')
-            a.href = URL.createObjectURL(blob)
-            a.download = `financeiro-${period.year}-${String(period.month).padStart(2, '0')}.csv`
-            a.click()
-            URL.revokeObjectURL(a.href)
-          }}
-          className="px-3 py-2 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors"
-        >
-          Exportar relatório
-        </button>
+          <a href="/financeiro/fiscal" className="text-[11px] font-semibold text-gray-500 hover:text-[#030A8C] px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors">
+            Configuração fiscal
+          </a>
+          <a href="/financeiro/integracoes" className="text-[11px] font-semibold text-gray-500 hover:text-[#030A8C] px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors">
+            Diagnóstico
+          </a>
+        </div>
       </div>
 
+      {flash && (
+        <p className="text-xs font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5">{flash}</p>
+      )}
       {error && (
         <p className="text-sm font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-3 text-center">
           {error}
         </p>
       )}
 
-      {/* Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          {
-            label: 'Receita do Mês', value: formatCurrency(receitaRecebida),
-            sub: `${formatCurrency(receitaPendente)} pendente`,
-            icon: TrendingUp, color: 'text-green-600 bg-green-50',
-          },
-          {
-            label: 'Receita Prevista', value: formatCurrency(previstoServicos),
-            sub: 'serviços ativos',
-            icon: Users, color: 'text-[#030A8C] bg-blue-50',
-          },
-          {
-            label: 'Custos Totais', value: formatCurrency(custosTotais),
-            sub: `${formatCurrency(custosPagos)} pago · ${formatCurrency(custosPendentes)} pendente`,
-            icon: TrendingDown, color: 'text-red-600 bg-red-50',
-          },
-          {
-            label: 'Resultado Previsto', value: formatCurrency(resultadoPrevisto),
-            sub: 'receita prevista − custos',
-            icon: DollarSign,
-            color: resultadoPrevisto >= 0 ? 'text-[#030A8C] bg-blue-50' : 'text-red-600 bg-red-50',
-          },
-        ].map((card) => (
-          <div key={card.label} className="bg-white rounded-xl border border-gray-200 p-5">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-medium text-gray-500">{card.label}</p>
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${card.color}`}>
-                <card.icon className="w-4 h-4" />
-              </div>
-            </div>
-            {loading ? (
-              <div className="h-6 w-24 bg-gray-100 rounded animate-pulse" />
-            ) : (
-              <p className={`text-xl font-bold ${card.label === 'Resultado Previsto' && resultadoPrevisto < 0 ? 'text-red-600' : 'text-gray-900'}`}>
-                {card.value}
-              </p>
-            )}
-            <p className="text-xs text-gray-400 mt-1 truncate" title={card.sub}>{loading ? '—' : card.sub}</p>
-          </div>
-        ))}
-      </div>
+      {/* Indicadores da competência — todos vindos do resumo do backend */}
+      <FinanceKpis s={data?.summary ?? null} loading={loading} />
 
       {/* Abas */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -439,13 +433,7 @@ export default function FinanceiroPanel() {
             <>
               {activeTab === 'overview' && (
                 <OverviewTab
-                  previstoServicos={previstoServicos}
-                  receitaRecebida={receitaRecebida}
-                  receitaPendente={receitaPendente}
-                  salariosPrevistos={salariosPrevistos}
-                  outrosCustos={outrosCustosPrevistos}
-                  resultadoPrevisto={resultadoPrevisto}
-                  lucroRealizado={lucroRealizado}
+                  summary={data?.summary ?? null}
                   upcoming={data?.upcoming ?? []}
                   recent={data?.recent ?? []}
                 />
@@ -456,18 +444,19 @@ export default function FinanceiroPanel() {
                   charges={data?.asaasCharges ?? []}
                   period={period}
                   onToggle={togglePayments}
-                  onChanged={() => load(period)}
+                  onChanged={reload}
+                  onFlash={setFlash}
                 />
               )}
               {activeTab === 'costs' && (
-                <CostsTab entries={costEntries} period={period} onChanged={() => load(period)} onTogglePaid={toggleEntryPaid} />
+                <CostsTab entries={costEntries} period={period} onChanged={reload} onTogglePaid={toggleEntryPaid} />
               )}
               {activeTab === 'salaries' && (
                 <SalariesTab
                   entries={salaryEntries}
                   users={data?.users ?? []}
                   period={period}
-                  onChanged={() => load(period)}
+                  onChanged={reload}
                   onTogglePaid={toggleEntryPaid}
                 />
               )}
@@ -475,6 +464,14 @@ export default function FinanceiroPanel() {
           )}
         </div>
       </div>
+
+      {showAdd && (
+        <AddEntryModal
+          period={period}
+          onClose={() => setShowAdd(false)}
+          onSaved={(msg) => { setShowAdd(false); setFlash(msg); reload() }}
+        />
+      )}
 
     </div>
   )
@@ -493,6 +490,10 @@ interface IntegrationsStatus {
  * NÃO é falha da Focus: aparece como "aguardando certificado" e bloqueia
  * apenas a emissão de NFS-e — Asaas e o resto seguem normais.
  */
+const Dot = ({ ok }: { ok: boolean }) => (
+  <span className={`w-2 h-2 rounded-full shrink-0 ${ok ? 'bg-green-500' : 'bg-orange-400'}`} />
+)
+
 function IntegrationsCard() {
   const [st, setSt] = useState<IntegrationsStatus | null>(null)
   useEffect(() => {
@@ -502,10 +503,6 @@ function IntegrationsCard() {
       .catch(() => {})
   }, [])
   if (!st) return null
-
-  const Dot = ({ ok }: { ok: boolean }) => (
-    <span className={`w-2 h-2 rounded-full shrink-0 ${ok ? 'bg-green-500' : 'bg-orange-400'}`} />
-  )
 
   return (
     <div className="border border-gray-100 rounded-xl overflow-hidden">
@@ -556,50 +553,134 @@ function IntegrationsCard() {
 /* --------------------------------- Resumo --------------------------------- */
 
 function OverviewTab({
-  previstoServicos, receitaRecebida, receitaPendente, salariosPrevistos,
-  outrosCustos, resultadoPrevisto, lucroRealizado, upcoming, recent,
+  summary, upcoming, recent,
 }: {
-  previstoServicos: number
-  receitaRecebida: number
-  receitaPendente: number
-  salariosPrevistos: number
-  outrosCustos: number
-  resultadoPrevisto: number
-  lucroRealizado: number
+  summary: MonthSummary | null
   upcoming: Entry[]
   recent: Movement[]
 }) {
-  const rows = [
-    { label: 'Receita prevista (serviços ativos)', value: formatCurrency(previstoServicos), cls: 'bg-blue-50 text-[#030A8C]' },
-    { label: 'Receita já recebida', value: formatCurrency(receitaRecebida), cls: 'bg-green-50 text-green-700' },
-    { label: 'Receita pendente', value: formatCurrency(receitaPendente), cls: 'bg-orange-50 text-orange-700' },
-    { label: 'Salários', value: `- ${formatCurrency(salariosPrevistos)}`, cls: 'bg-purple-50 text-purple-700' },
-    { label: 'Outros custos', value: `- ${formatCurrency(outrosCustos)}`, cls: 'bg-red-50 text-red-700' },
-  ]
+  const brl = (c: number) => formatCurrency(c / 100)
+  const s = summary
+  const rows = s ? [
+    { label: 'Receita recorrente prevista', value: brl(s.previstaRecorrenteCents), bg: 'bg-blue-50', fg: 'text-[#030A8C]' },
+    { label: 'Receita avulsa prevista', value: brl(s.previstaAvulsaCents), bg: 'bg-purple-50', fg: 'text-purple-700' },
+    { label: 'Receita já recebida', value: brl(s.recebidaCents), bg: 'bg-green-50', fg: 'text-green-700' },
+    { label: 'Receita pendente', value: brl(s.pendenteCents), bg: 'bg-orange-50', fg: 'text-orange-700' },
+    { label: 'Receita atrasada', value: brl(s.atrasadaCents), bg: 'bg-red-50', fg: 'text-red-700' },
+    { label: 'Salários', value: `- ${brl(s.salariosPrevistosCents)}`, bg: 'bg-purple-50', fg: 'text-purple-700' },
+    { label: 'Outros custos', value: `- ${brl(Math.max(0, s.custosPrevistosCents - s.salariosPrevistosCents))}`, bg: 'bg-red-50', fg: 'text-red-700' },
+  ] : []
+
+  const maxCategoria = Math.max(1, ...(s?.custosPorCategoria ?? []).map((c) => c.previstoCents))
+
   return (
     <div className="space-y-5">
-      <div className="space-y-3">
-        {rows.map((r) => (
-          <div key={r.label} className={`flex items-center justify-between p-3 rounded-lg ${r.cls.split(' ')[0]}`}>
-            <span className="text-sm font-medium text-gray-700">{r.label}</span>
-            <span className={`text-sm font-bold ${r.cls.split(' ')[1]}`}>{r.value}</span>
-          </div>
-        ))}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className={`flex items-center justify-between p-4 rounded-lg border-2 ${resultadoPrevisto >= 0 ? 'bg-blue-50 border-[#030A8C]/40' : 'bg-red-50 border-red-300'}`}>
-            <span className="text-sm font-bold text-gray-900">Resultado previsto</span>
-            <span className={`text-base font-bold ${resultadoPrevisto >= 0 ? 'text-[#030A8C]' : 'text-red-700'}`}>
-              {formatCurrency(resultadoPrevisto)}
-            </span>
-          </div>
-          <div className={`flex items-center justify-between p-4 rounded-lg border-2 ${lucroRealizado >= 0 ? 'bg-blue-50 border-[#030A8C]' : 'bg-red-50 border-red-400'}`}>
-            <span className="text-sm font-bold text-gray-900">Lucro realizado</span>
-            <span className={`text-base font-bold ${lucroRealizado >= 0 ? 'text-[#030A8C]' : 'text-red-700'}`}>
-              {formatCurrency(lucroRealizado)}
-            </span>
+      {s && (
+        <div className="space-y-2.5">
+          {rows.map((r) => (
+            <div key={r.label} className={`flex items-center justify-between p-3 rounded-lg ${r.bg}`}>
+              <span className="text-sm font-medium text-gray-700">{r.label}</span>
+              <span className={`text-sm font-bold ${r.fg}`}>{r.value}</span>
+            </div>
+          ))}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className={`flex items-center justify-between p-4 rounded-lg border-2 ${s.resultadoPrevistoCents >= 0 ? 'bg-blue-50 border-[#030A8C]/40' : 'bg-red-50 border-red-300'}`}>
+              <span className="text-sm font-bold text-gray-900">Resultado previsto</span>
+              <span className={`text-base font-bold ${s.resultadoPrevistoCents >= 0 ? 'text-[#030A8C]' : 'text-red-700'}`}>{brl(s.resultadoPrevistoCents)}</span>
+            </div>
+            <div className={`flex items-center justify-between p-4 rounded-lg border-2 ${s.lucroRealizadoCents >= 0 ? 'bg-blue-50 border-[#030A8C]' : 'bg-red-50 border-red-400'}`}>
+              <span className="text-sm font-bold text-gray-900">Lucro realizado</span>
+              <span className={`text-base font-bold ${s.lucroRealizadoCents >= 0 ? 'text-[#030A8C]' : 'text-red-700'}`}>{brl(s.lucroRealizadoCents)}</span>
+            </div>
           </div>
         </div>
+      )}
+
+      {/* Evolução: recorrente, avulso, recebido e custos */}
+      <FinanceChart />
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Custos por categoria da competência */}
+        <div className="border border-gray-100 rounded-xl overflow-hidden">
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
+            <TrendingDown className="w-4 h-4 text-red-500" />
+            <p className="font-semibold text-gray-900 text-sm">Custos por categoria</p>
+          </div>
+          {!s || s.custosPorCategoria.length === 0 ? (
+            <p className="text-xs text-gray-400 text-center py-5">Nenhum custo lançado neste mês</p>
+          ) : (
+            <div className="p-4 space-y-2.5">
+              {s.custosPorCategoria.map((c) => (
+                <div key={c.category}>
+                  <div className="flex items-center justify-between text-xs mb-1">
+                    <span className="text-gray-700 font-medium truncate">{c.category}</span>
+                    <span className="text-gray-900 font-semibold shrink-0 ml-2">
+                      {brl(c.previstoCents)}
+                      {c.pagoCents > 0 && c.pagoCents < c.previstoCents && <span className="text-gray-400 font-normal"> · {brl(c.pagoCents)} pago</span>}
+                    </span>
+                  </div>
+                  <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-red-400 rounded-full" style={{ width: `${(c.previstoCents / maxCategoria) * 100}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Cobranças por status (Asaas) */}
+        <div className="border border-gray-100 rounded-xl overflow-hidden">
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
+            <DollarSign className="w-4 h-4 text-[#030A8C]" />
+            <p className="font-semibold text-gray-900 text-sm">Cobranças por status</p>
+          </div>
+          {!s || s.cobrancasPorStatus.length === 0 ? (
+            <p className="text-xs text-gray-400 text-center py-5">Nenhuma cobrança gerada neste mês</p>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {s.cobrancasPorStatus.map((c) => {
+                const st = ASAAS_STATUS_PT[c.status] ?? { label: c.status, cls: 'bg-gray-100 text-gray-600' }
+                return (
+                  <div key={c.status} className="flex items-center justify-between px-4 py-2.5">
+                    <span className="flex items-center gap-2">
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${st.cls}`}>{st.label}</span>
+                      <span className="text-[11px] text-gray-400">{c.count} cobrança(s)</span>
+                    </span>
+                    <span className="text-xs font-bold text-gray-900">{brl(c.cents)}</span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Segmentação da carteira pela receita recorrente ativa */}
+      {s && s.segments.length > 0 && (
+        <div className="border border-gray-100 rounded-xl overflow-hidden">
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
+            <Users className="w-4 h-4 text-[#030A8C]" />
+            <p className="font-semibold text-gray-900 text-sm">Carteira por grupo</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
+            {s.segments.map((seg) => (
+              <div key={seg.tier ?? 'sem'} className="p-4">
+                <div className="flex items-center justify-between mb-1.5">
+                  {seg.tier ? <TierBadge tier={seg.tier} size="sm" /> : <span className="text-xs font-semibold text-gray-500">Não classificado</span>}
+                  <span className="text-[11px] text-gray-400">{seg.count} cliente(s)</span>
+                </div>
+                <p className="text-base font-bold text-gray-900">{brl(seg.recurringCents)}<span className="text-[11px] text-gray-400 font-normal">/mês</span></p>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full ${seg.tier === 'SCALE' ? 'bg-[#F74A13]' : seg.tier ? 'bg-[#030A8C]' : 'bg-gray-300'}`} style={{ width: `${Math.min(seg.share, 100)}%` }} />
+                  </div>
+                  <span className="text-[11px] text-gray-500 font-semibold">{seg.share.toFixed(0)}%</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Próximos vencimentos */}
@@ -631,36 +712,36 @@ function OverviewTab({
         </div>
 
         <div className="space-y-4">
-        {/* Movimentações recentes */}
-        <div className="border border-gray-100 rounded-xl overflow-hidden">
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
-            <DollarSign className="w-4 h-4 text-[#030A8C]" />
-            <p className="font-semibold text-gray-900 text-sm">Movimentações recentes</p>
-          </div>
-          {recent.length === 0 ? (
-            <p className="text-xs text-gray-400 text-center py-5">Nenhuma movimentação registrada</p>
-          ) : (
-            <div className="divide-y divide-gray-100">
-              {recent.map((m) => (
-                <div key={m.id} className="flex items-center justify-between px-4 py-2.5">
-                  <div className="min-w-0">
-                    <p className="text-xs font-medium text-gray-900 truncate">{m.label}</p>
-                    <p className="text-[11px] text-gray-400">
-                      {m.kind === 'recebimento' ? 'Recebimento' : m.kind === 'salario' ? 'Salário pago' : 'Custo pago'}
-                      {' · '}{m.detail}{m.at ? ` · ${formatDate(m.at)}` : ''}
-                    </p>
-                  </div>
-                  <span className={`text-xs font-bold shrink-0 ml-2 ${m.kind === 'recebimento' ? 'text-green-600' : 'text-red-600'}`}>
-                    {m.kind === 'recebimento' ? '+ ' : '- '}{formatCurrency(m.amount)}
-                  </span>
-                </div>
-              ))}
+          {/* Movimentações recentes */}
+          <div className="border border-gray-100 rounded-xl overflow-hidden">
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
+              <DollarSign className="w-4 h-4 text-[#030A8C]" />
+              <p className="font-semibold text-gray-900 text-sm">Movimentações recentes</p>
             </div>
-          )}
-        </div>
+            {recent.length === 0 ? (
+              <p className="text-xs text-gray-400 text-center py-5">Nenhuma movimentação registrada</p>
+            ) : (
+              <div className="divide-y divide-gray-100">
+                {recent.map((m) => (
+                  <div key={m.id} className="flex items-center justify-between px-4 py-2.5">
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-gray-900 truncate">{m.label}</p>
+                      <p className="text-[11px] text-gray-400">
+                        {m.kind === 'recebimento' ? 'Recebimento' : m.kind === 'salario' ? 'Salário pago' : 'Custo pago'}
+                        {' · '}{m.detail}{m.at ? ` · ${formatDate(m.at)}` : ''}
+                      </p>
+                    </div>
+                    <span className={`text-xs font-bold shrink-0 ml-2 ${m.kind === 'recebimento' ? 'text-green-600' : 'text-red-600'}`}>
+                      {m.kind === 'recebimento' ? '+ ' : '- '}{formatCurrency(m.amount)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
-        {/* Integrações — status real, sem tokens */}
-        <IntegrationsCard />
+          {/* Integrações — status real, sem tokens */}
+          <IntegrationsCard />
         </div>
       </div>
     </div>
@@ -670,16 +751,30 @@ function OverviewTab({
 /* ------------------------------- Recebimentos ------------------------------- */
 
 function PaymentsTab({
-  payments, charges, period, onToggle, onChanged,
+  payments, charges, period, onToggle, onChanged, onFlash,
 }: {
   payments: Payment[]
   charges: AsaasChargeRow[]
   period: { year: number; month: number }
   onToggle: (ids: string[], status: string) => void
   onChanged: () => void
+  onFlash: (msg: string) => void
 }) {
   const [busyCharge, setBusyCharge] = useState<string | null>(null)
   const [chargeMsg, setChargeMsg] = useState<string | null>(null)
+  const [expanded, setExpanded] = useState<string | null>(null)
+  const [dueDialog, setDueDialog] = useState<{ ids: string[]; label: string; current: string } | null>(null)
+
+  /** Ações sobre as parcelas: vencimento, cancelamento e reenvio da fatura. */
+  async function paymentAction(payload: Record<string, unknown>, okMsg: string) {
+    const res = await fetch('/api/financeiro/pagamentos', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+    })
+    const body = await res.json().catch(() => ({}))
+    if (!res.ok) { onFlash(body.error || 'Falha na operação.'); return }
+    onFlash(body.skipped ? `${okMsg} (${body.skipped} parcela(s) já paga(s) mantida(s))` : okMsg)
+    onChanged()
+  }
   // Prontidão fiscal: sem Inscrição Municipal, alíquota da competência e chave
   // do Web Service, a emissão fica desabilitada aqui também (o backend recusa).
   const [fiscal, setFiscal] = useState<{ ready: boolean; missing: string[] } | null>(null)
@@ -824,6 +919,63 @@ function PaymentsTab({
                 </div>
               </div>
 
+              {/* Parcelas do mês, uma por serviço (recorrente × avulso) */}
+              {items.length > 0 && (
+                <div className="px-3 pb-1">
+                  <button
+                    onClick={() => setExpanded(expanded === client.id ? null : client.id)}
+                    className="text-[11px] font-semibold text-gray-500 hover:text-[#030A8C]"
+                  >
+                    {expanded === client.id ? 'Ocultar serviços' : `Ver ${items.length} serviço(s) do mês`}
+                  </button>
+                  {expanded === client.id && (
+                    <div className="mt-1.5 divide-y divide-gray-100 border border-gray-100 rounded-lg bg-white">
+                      {items.map((it) => (
+                        <div key={it.id} className="flex items-center justify-between gap-2 px-3 py-2">
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium text-gray-900 truncate">
+                              {it.service?.billingDescription || it.service?.serviceName || 'Serviço'}
+                            </p>
+                            <p className="text-[11px] text-gray-400">
+                              <span className={`font-semibold ${it.kind === 'AVULSO' ? 'text-purple-600' : 'text-[#030A8C]'}`}>
+                                {it.kind === 'AVULSO' ? 'Avulso' : 'Recorrente'}
+                              </span>
+                              {` · vence ${formatDate(it.dueDate)}`}
+                              {it.paidAt ? ` · pago em ${formatDate(it.paidAt)}` : ''}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-xs font-semibold text-gray-900">{formatCurrency(it.amount)}</span>
+                            <StatusBadge entry={{ status: it.status, dueDate: it.dueDate }} />
+                            {it.status !== 'PAGO' && (
+                              <>
+                                <button
+                                  onClick={() => setDueDialog({ ids: [it.id], label: it.service?.serviceName ?? client.name, current: it.dueDate.slice(0, 10) })}
+                                  title="Alterar vencimento"
+                                  className="p-1 text-gray-400 hover:text-[#030A8C] rounded"
+                                >
+                                  <CalendarDays className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    const reason = prompt('Motivo do cancelamento (opcional):') ?? undefined
+                                    paymentAction({ paymentIds: [it.id], action: 'cancelar', reason }, 'Parcela cancelada.')
+                                  }}
+                                  title="Cancelar parcela"
+                                  className="p-1 text-gray-400 hover:text-red-600 rounded"
+                                >
+                                  <Ban className="w-3.5 h-3.5" />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Faixa Asaas / NFS-e */}
               <div className="flex flex-wrap items-center gap-1.5 px-3 pb-2.5">
                 {!charge ? (
@@ -855,6 +1007,14 @@ function PaymentsTab({
                     <button onClick={() => syncCharge(charge.id)} disabled={busy} className="text-[11px] text-gray-500 hover:text-[#030A8C] font-medium disabled:opacity-50">
                       Sincronizar
                     </button>
+                    {items.some((p) => p.status !== 'PAGO') && (
+                      <button
+                        onClick={() => paymentAction({ paymentIds: items.filter((p) => p.status !== 'PAGO').map((p) => p.id), action: 'reenviar' }, 'Fatura reenviada por e-mail.')}
+                        className="inline-flex items-center gap-1 text-[11px] text-gray-500 hover:text-[#030A8C] font-medium"
+                      >
+                        <Send className="w-3 h-3" /> Reenviar fatura
+                      </button>
+                    )}
                     {!charge.nfse && ['CONFIRMED', 'RECEIVED'].includes(charge.status) && (
                       <button
                         onClick={() => nfseAction(charge.id, 'emit', 'NFS-e enviada para processamento.')}
@@ -913,6 +1073,44 @@ function PaymentsTab({
           )
         })
       )}
+
+      {dueDialog && (
+        <DueDateDialog
+          label={dueDialog.label}
+          current={dueDialog.current}
+          onClose={() => setDueDialog(null)}
+          onConfirm={(date) => {
+            const ids = dueDialog.ids
+            setDueDialog(null)
+            paymentAction({ paymentIds: ids, action: 'vencimento', dueDate: date }, 'Vencimento alterado.')
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+/** Novo vencimento de parcelas pendentes (parcelas pagas ficam intactas). */
+function DueDateDialog({ label, current, onClose, onConfirm }: {
+  label: string
+  current: string
+  onClose: () => void
+  onConfirm: (date: string) => void
+}) {
+  const [date, setDate] = useState(current)
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl w-full max-w-sm p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <p className="font-semibold text-gray-900 mb-1">Alterar vencimento</p>
+        <p className="text-xs text-gray-500 mb-3 truncate">{label}</p>
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="input text-sm" />
+        <div className="flex justify-end gap-2 mt-4">
+          <button onClick={onClose} className="px-3 py-2 text-xs font-medium text-gray-600 hover:text-gray-900">Cancelar</button>
+          <button onClick={() => onConfirm(date)} disabled={!date} className="px-4 py-2 bg-[#030A8C] text-white rounded-lg text-xs font-semibold hover:bg-[#02077a] disabled:opacity-40">
+            Salvar
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

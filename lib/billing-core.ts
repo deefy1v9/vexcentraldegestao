@@ -4,10 +4,19 @@
  */
 
 export interface ServiceLike {
-  monthlyValue: number | null
+  monthlyValue?: number | null
   status: string
   startDate?: Date | string | null
   endDate?: Date | string | null
+  // ---- contratação pelo catálogo (opcionais para manter compatibilidade) ----
+  contractType?: string | null // RECORRENTE | AVULSO | PROJETO | QUANTIDADE | PERSONALIZADO
+  priceCents?: number | null
+  quantity?: number | null
+  discountCents?: number | null
+  competence?: string | null // YYYY-MM (AVULSO)
+  id?: string
+  serviceName?: string
+  billingDescription?: string | null
 }
 
 export interface ClientLike {
@@ -23,10 +32,109 @@ export function competenceRange(year: number, month: number) {
   }
 }
 
+export function competenceKey(year: number, month: number): string {
+  return `${year}-${String(month).padStart(2, '0')}`
+}
+
+/** Serviço ativo para cálculo: só ATIVO conta (pausado/encerrado/legado não). */
+export function isServiceActive(s: { status: string }): boolean {
+  return s.status === 'ATIVO'
+}
+
+/** Avulso é o único tipo que não se repete mês a mês. */
+export function isRecurringType(contractType: string | null | undefined): boolean {
+  return (contractType ?? 'RECORRENTE') !== 'AVULSO'
+}
+
+/** Tipos que compõem o ticket mensal (MRR): recorrência sem prazo fixo. */
+export function countsForMrr(contractType: string | null | undefined): boolean {
+  const t = contractType ?? 'RECORRENTE'
+  return t === 'RECORRENTE' || t === 'QUANTIDADE' || t === 'PERSONALIZADO'
+}
+
 /**
- * Valor da cobrança de uma competência: soma dos serviços ativos válidos no
- * período, respeitando início/término do serviço, fim do contrato e status
- * do cliente. Retorna em CENTAVOS (inteiro) para nunca somar float.
+ * Valor líquido do serviço em centavos: negociado × quantidade − desconto.
+ * `priceCents` é a fonte de verdade; `monthlyValue` (float legado) só entra
+ * quando o serviço ainda não foi migrado para centavos.
+ */
+export function serviceCents(s: ServiceLike): number {
+  const base = s.priceCents != null
+    ? Math.max(0, Math.round(s.priceCents))
+    : s.monthlyValue != null ? Math.max(0, Math.round(s.monthlyValue * 100)) : 0
+  const qty = Math.max(1, Math.round(s.quantity ?? 1))
+  const discount = Math.max(0, Math.round(s.discountCents ?? 0))
+  return Math.max(0, base * qty - discount)
+}
+
+/**
+ * O serviço entra na competência?
+ * - AVULSO: só na competência escolhida.
+ * - Demais: ativo, iniciado até o fim do mês e não encerrado antes do início.
+ */
+export function serviceInCompetence(s: ServiceLike, year: number, month: number): boolean {
+  if (!isServiceActive(s)) return false
+  if (serviceCents(s) <= 0) return false
+  if (!isRecurringType(s.contractType)) {
+    return (s.competence ?? '') === competenceKey(year, month)
+  }
+  const { start, end } = competenceRange(year, month)
+  if (s.startDate && new Date(s.startDate) >= end) return false // começa depois
+  if (s.endDate && new Date(s.endDate) < start) return false // terminou antes
+  return true
+}
+
+export interface CompetenceItem {
+  serviceId?: string
+  description: string
+  cents: number
+  kind: 'RECORRENTE' | 'AVULSO'
+}
+
+export interface CompetenceBreakdown {
+  recurringCents: number
+  avulsoCents: number
+  totalCents: number
+  items: CompetenceItem[]
+}
+
+/**
+ * Composição da competência: recorrentes ativos + avulsos do mês. Base única
+ * para cobrança, receita prevista, itens da NFS-e e relatórios.
+ */
+export function competenceBreakdown(
+  client: ClientLike,
+  services: ServiceLike[],
+  year: number,
+  month: number,
+): CompetenceBreakdown {
+  const empty: CompetenceBreakdown = { recurringCents: 0, avulsoCents: 0, totalCents: 0, items: [] }
+  if (client.status !== 'ATIVO') return empty
+  const { start } = competenceRange(year, month)
+  if (client.contractEnd && new Date(client.contractEnd) < start) return empty
+
+  const items: CompetenceItem[] = []
+  let recurring = 0
+  let avulso = 0
+  for (const s of services) {
+    if (!serviceInCompetence(s, year, month)) continue
+    const cents = serviceCents(s)
+    const kind: 'RECORRENTE' | 'AVULSO' = isRecurringType(s.contractType) ? 'RECORRENTE' : 'AVULSO'
+    if (kind === 'AVULSO') avulso += cents
+    else recurring += cents
+    items.push({
+      serviceId: s.id,
+      description: s.billingDescription?.trim() || s.serviceName || 'Serviço',
+      cents,
+      kind,
+    })
+  }
+  return { recurringCents: recurring, avulsoCents: avulso, totalCents: recurring + avulso, items }
+}
+
+/**
+ * Valor da cobrança de uma competência (centavos): recorrentes válidos no
+ * período + avulsos daquele mês. Mantido por compatibilidade — a composição
+ * detalhada está em competenceBreakdown.
  */
 export function computeCompetenceCents(
   client: ClientLike,
@@ -34,21 +142,47 @@ export function computeCompetenceCents(
   year: number,
   month: number,
 ): number {
-  if (client.status !== 'ATIVO') return 0
-  const { start, end } = competenceRange(year, month)
+  return competenceBreakdown(client, services, year, month).totalCents
+}
 
-  // Contrato encerrado antes da competência: nada a cobrar
-  if (client.contractEnd && new Date(client.contractEnd) < start) return 0
-
+/**
+ * Ticket mensal recorrente (centavos) de hoje: só serviços ATIVOS de tipo
+ * recorrente, já iniciados e não encerrados. Avulsos, pausados, encerrados e
+ * início futuro ficam de fora — é o número que classifica o cliente.
+ */
+export function recurringTicketCents(services: ServiceLike[], todayISO: string): number {
+  const today = new Date(`${todayISO.slice(0, 10)}T00:00:00Z`)
   let cents = 0
   for (const s of services) {
-    if (s.status !== 'ATIVO') continue
-    if (s.monthlyValue == null || s.monthlyValue <= 0) continue
-    if (s.startDate && new Date(s.startDate) >= end) continue // começa depois
-    if (s.endDate && new Date(s.endDate) < start) continue // terminou antes
-    cents += Math.round(s.monthlyValue * 100)
+    if (!isServiceActive(s)) continue
+    if (!countsForMrr(s.contractType)) continue
+    if (s.startDate && new Date(s.startDate) > today) continue
+    if (s.endDate && new Date(s.endDate) < today) continue
+    cents += serviceCents(s)
   }
   return cents
+}
+
+/* ------------------------------ classificação ------------------------------ */
+
+export type TierName = 'START' | 'GROWTH' | 'SCALE'
+
+/** Faixas padrão (centavos): Start ≤ 1.500,00 · Growth ≤ 3.000,00 · Scale acima. */
+export const DEFAULT_TIER_RANGES = { startMaxCents: 150_000, growthMaxCents: 300_000 }
+
+/**
+ * Grupo pelo ticket recorrente. Limites inclusivos: R$ 1.500,00 é Start,
+ * R$ 1.500,01 já é Growth; R$ 3.000,00 é Growth, R$ 3.000,01 é Scale.
+ * Sem serviço recorrente ativo (ticket 0) não há classificação.
+ */
+export function recommendTierCents(
+  ticketCents: number,
+  ranges: { startMaxCents: number; growthMaxCents: number } = DEFAULT_TIER_RANGES,
+): TierName | null {
+  if (!Number.isFinite(ticketCents) || ticketCents <= 0) return null
+  if (ticketCents <= ranges.startMaxCents) return 'START'
+  if (ticketCents <= ranges.growthMaxCents) return 'GROWTH'
+  return 'SCALE'
 }
 
 /**

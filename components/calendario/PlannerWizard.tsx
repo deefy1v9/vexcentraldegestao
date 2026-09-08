@@ -124,8 +124,6 @@ export default function PlannerWizard({
   const [result, setResult] = useState<{ created: number; skipped: number; blocked: Array<{ ref: string; reason: string }> } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const client = clients.find((c) => c.id === clientId) ?? null
-
   const reset = useCallback(() => {
     setStep(0); setClientId(''); setServices([]); setSelectedServices([]); setFile(null)
     setNote(''); setError(null); setAnalysisId(null); setData(null); setResult(null)
@@ -134,7 +132,7 @@ export default function PlannerWizard({
 
   // Serviços ativos do cliente escolhido (dados reais do cadastro)
   useEffect(() => {
-    if (!clientId) { setServices([]); setSelectedServices([]); return }
+    if (!clientId) return
     fetch(`/api/clientes/${clientId}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((c) => {
@@ -322,7 +320,7 @@ export default function PlannerWizard({
                 <div className="space-y-4">
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">Cliente *</label>
-                    <select value={clientId} onChange={(e) => setClientId(e.target.value)} className="input">
+                    <select value={clientId} onChange={(e) => { setClientId(e.target.value); setServices([]); setSelectedServices([]) }} className="input">
                       <option value="">Selecione o cliente</option>
                       {clients.map((c) => (
                         <option key={c.id} value={c.id}>

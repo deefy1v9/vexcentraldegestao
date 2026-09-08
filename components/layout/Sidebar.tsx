@@ -12,6 +12,7 @@ import {
   Kanban,
   LogOut,
   Building2,
+  Briefcase,
 } from 'lucide-react'
 import { signOut } from 'next-auth/react'
 import { useSession } from 'next-auth/react'
@@ -26,6 +27,7 @@ import { useMobileNav } from './MobileNav'
 const menuItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/clientes', label: 'Clientes', icon: Building2 },
+  { href: '/servicos', label: 'Serviços', icon: Briefcase, adminOnly: true },
   { href: '/colaboradores', label: 'Colaboradores', icon: UserPlus, adminOnly: true },
   { href: '/demandas', label: 'Demandas', icon: Kanban },
   { href: '/calendario', label: 'Calendário', icon: Calendar, adminOnly: true },
@@ -64,7 +66,7 @@ function NavItem({ href, label, icon: Icon, onNavigate }: { href: string; label:
 export default function Sidebar() {
   const { data: session } = useSession()
   const name = session?.user?.name ?? ''
-  const role = (session?.user as any)?.role ?? ''
+  const role = session?.user?.role ?? ''
   const isAdmin = role === 'ADMIN'
   const { open, close } = useMobileNav()
 
@@ -93,6 +95,7 @@ export default function Sidebar() {
 
         {/* Logo */}
         <div className="pl-4 pt-5 pb-4">
+          {/* eslint-disable-next-line @next/next/no-img-element -- logo estático, sem ganho em otimizar */}
           <img src="/logo.png" alt="Logo" className="h-4 w-auto object-contain" />
         </div>
 
@@ -105,8 +108,8 @@ export default function Sidebar() {
             <div className="space-y-0.5">
               {menuItems
                 .filter((item) => isAdmin || !item.adminOnly)
-                .map(({ adminOnly: _adminOnly, ...item }) => (
-                  <NavItem key={item.href} {...item} onNavigate={close} />
+                .map((item) => (
+                  <NavItem key={item.href} href={item.href} label={item.label} icon={item.icon} onNavigate={close} />
                 ))}
             </div>
           </div>

@@ -12,6 +12,8 @@ import ClientEmailActions from '@/components/clientes/ClientEmailActions'
 import ProposalsList from '@/components/propostas/ProposalsList'
 import TierBadge from '@/components/ui/TierBadge'
 import { missingBillingFields } from '@/lib/billing-core'
+import { clientMonthIndicators } from '@/lib/finance-summary'
+import { tierRecommendation, TIER_LABEL } from '@/lib/client-tier'
 import { decryptSecret } from '@/lib/crypto'
 
 const TIER_PT: Record<string, string> = { START: 'Start', GROWTH: 'Growth', SCALE: 'Scale' }
@@ -34,7 +36,7 @@ const CHARGE_STATUS_PT: Record<string, { label: string; cls: string }> = {
 
 export default async function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const [session, { id }] = await Promise.all([auth(), params])
-  const isAdmin = (session?.user as any)?.role === 'ADMIN'
+  const isAdmin = session?.user?.role === 'ADMIN'
 
   const client = await prisma.client.findUnique({
     where: { id },
@@ -42,8 +44,9 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
       credentials: true,
       services: {
         include: {
+          catalog: { select: { id: true, name: true, category: true, minCents: true, maxCents: true, billingType: true } },
           payments: {
-            select: { id: true, status: true, amount: true, dueDate: true },
+            select: { id: true, status: true, amount: true, dueDate: true, year: true, month: true },
             orderBy: { dueDate: 'asc' },
           },
         },
@@ -64,14 +67,24 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
 
   if (!client) notFound()
 
-  // Valor total mensal: calculado pela soma dos serviços ativos, nunca manual
+  // Indicadores da competência atual — mesma regra do Financeiro e do Dashboard
+  const hoje = new Date()
+  const indicators = await clientMonthIndicators(id, hoje.getFullYear(), hoje.getMonth() + 1)
+  const recomendacao = isAdmin && client.tierManual ? await tierRecommendation(id) : null
+
   const activeServices = client.services.filter((s) => s.status === 'ATIVO')
-  const totalMensal = activeServices.reduce((sum, s) => sum + (s.monthlyValue ?? 0), 0)
+  // Ticket recorrente (só serviços que entram no MRR); avulso fica de fora
+  const ticketMensal = (indicators?.ticketCents ?? 0) / 100
+  const previstoMes = (indicators?.previstaCents ?? 0) / 100
+  const avulsoMes = (indicators?.avulsaCents ?? 0) / 100
   const billingMissing = missingBillingFields(client)
   const nextCharge = client.asaasCharges.find((c) => ['PENDING', 'OVERDUE'].includes(c.status))
   const sanitizedServices = isAdmin
     ? client.services
-    : client.services.map((s) => ({ ...s, monthlyValue: null, totalContractValue: null, payments: [] }))
+    : client.services.map((s) => ({
+        ...s, monthlyValue: null, totalContractValue: null, priceCents: null, discountCents: 0,
+        payments: [], catalog: s.catalog ? { ...s.catalog, minCents: null, maxCents: null } : null,
+      }))
 
   // O cofre guarda a senha cifrada em repouso, mas serve justamente para o
   // administrador consultar o acesso — aqui ela é aberta para exibição.
@@ -101,7 +114,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
           ['Início do Contrato', client.contractStart ? formatDate(client.contractStart) : '—'],
           ['Fim do Contrato', client.contractEnd ? formatDate(client.contractEnd) : '—'],
           ['Duração', client.contractMonths ? `${client.contractMonths} meses` : '—'],
-          ...(isAdmin ? [['Valor Total Mensal', formatCurrency(totalMensal)] as [string, string]] : []),
+          ...(isAdmin ? [['Ticket mensal recorrente', formatCurrency(ticketMensal)] as [string, string]] : []),
           ['Dia de Pagamento', client.paymentDay ? `Dia ${client.paymentDay}` : '—'],
           ['Status', client.status],
         ] as [string, string][]).map(([label, value]) => (
@@ -121,7 +134,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
   )
 
   const segmentCard = (
-    <div className="bg-white rounded-xl border border-gray-200 p-5">
+    <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
         <div>
           <p className="text-xs text-gray-500 font-medium mb-1">Grupo do cliente</p>
@@ -129,29 +142,54 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
             <TierBadge tier={client.tier} size="sm" />
             {!client.tier && <span className="text-sm text-gray-400">Não classificado</span>}
             <span className="text-[10px] text-gray-400">
-              {client.tier ? (client.tierManual ? 'definido manualmente' : 'classificação automática') : ''}
+              {client.tier ? (client.tierManual ? 'definido manualmente' : 'classificação automática') : 'sem serviço recorrente ativo'}
             </span>
           </div>
         </div>
-        {isAdmin && (
-          <div>
-            <p className="text-xs text-gray-500 font-medium mb-1">Ticket mensal</p>
-            <p className="text-sm font-bold text-gray-900">{formatCurrency(totalMensal)}</p>
-          </div>
-        )}
-        <div>
-          <p className="text-xs text-gray-500 font-medium mb-1">Serviços ativos</p>
-          <p className="text-sm font-bold text-gray-900">{activeServices.length}</p>
-        </div>
         <div>
           <p className="text-xs text-gray-500 font-medium mb-1">Prioridade operacional</p>
-          <p className="text-sm font-semibold text-gray-900">{client.tier ? TIER_PRIORITY_PT[client.tier] : '—'}</p>
+          <p className="text-sm font-semibold text-gray-900">{client.tier ? TIER_PRIORITY_PT[client.tier] : 'Padrão'}</p>
         </div>
         <div>
           <p className="text-xs text-gray-500 font-medium mb-1">Última alteração de grupo</p>
           <p className="text-sm text-gray-700">{client.tierChangedAt ? formatDate(client.tierChangedAt) : '—'}</p>
         </div>
       </div>
+
+      {isAdmin && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-3 border-t border-gray-100">
+          <div>
+            <p className="text-[10px] text-gray-500 uppercase tracking-wide">Ticket recorrente</p>
+            <p className="text-sm font-bold text-[#030A8C]">{formatCurrency(ticketMensal)}<span className="text-[10px] text-gray-400 font-normal">/mês</span></p>
+          </div>
+          <div>
+            <p className="text-[10px] text-gray-500 uppercase tracking-wide">Recorrentes ativos</p>
+            <p className="text-sm font-bold text-gray-900">{indicators?.recurringActive ?? 0}</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-gray-500 uppercase tracking-wide">Avulsos no mês</p>
+            <p className="text-sm font-bold text-gray-900">
+              {indicators?.avulsosMes ?? 0}
+              {avulsoMes > 0 && <span className="text-[10px] text-gray-400 font-normal"> · {formatCurrency(avulsoMes)}</span>}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] text-gray-500 uppercase tracking-wide">Previsto no mês</p>
+            <p className="text-sm font-bold text-gray-900">{formatCurrency(previstoMes)}</p>
+          </div>
+        </div>
+      )}
+
+      {isAdmin && recomendacao && recomendacao.recommended !== client.tier && (
+        <p className="text-[11px] text-orange-700 bg-orange-50 border border-orange-100 rounded-lg px-3 py-2">
+          Grupo definido manualmente. Pelo ticket atual ({formatCurrency(recomendacao.ticketCents / 100)}), a classificação automática seria{' '}
+          <span className="font-semibold">{recomendacao.recommended ? TIER_LABEL[recomendacao.recommended] : 'Não classificado'}</span>.
+        </p>
+      )}
+
+      {isAdmin && activeServices.length === 0 && (
+        <p className="text-[11px] text-gray-500">Nenhum serviço ativo — o cliente fica fora do ticket recorrente e da classificação.</p>
+      )}
     </div>
   )
 
@@ -298,6 +336,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
           <p key={h.id} className="text-[11px] text-gray-500">
             {formatDate(h.createdAt)} · Grupo: {h.fromTier ? TIER_PT[h.fromTier] : 'Sem grupo'} → {h.toTier ? TIER_PT[h.toTier] : 'Sem grupo'}
             {' '}· ticket {formatCurrency(h.ticket)} · {h.manual ? 'manual' : 'automática'}
+            {h.reason ? ` · ${h.reason}` : ''}
           </p>
         ))}
         {isAdmin && client.tierHistory.length === 0 && (
