@@ -4,237 +4,174 @@ import Header from '@/components/layout/Header'
 import DashboardIndicators from '@/components/dashboard/DashboardIndicators'
 import RevenueChart from '@/components/dashboard/RevenueChart'
 import PortfolioSegmentation from '@/components/dashboard/PortfolioSegmentation'
+import PeriodSelector from '@/components/dashboard/PeriodSelector'
+import PipelineSection from '@/components/dashboard/PipelineSection'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { getMonthSummary } from '@/lib/finance-summary'
+import { getPeriodSummary, type PeriodView } from '@/lib/finance-summary'
+import { newLeadsInPeriod, pipelinePeriodSummary } from '@/lib/pipeline'
 import { Building2, Kanban, ArrowUpRight } from 'lucide-react'
 import Link from 'next/link'
 
-async function getDashboardData(viewer: { id: string; isAdmin: boolean }) {
-  const now = new Date()
-  const month = now.getMonth() + 1
-  const year = now.getFullYear()
-  // Admin vê os números da agência inteira; colaborador, só o que é dele.
-  const taskScope = viewer.isAdmin ? {} : { assigneeId: viewer.id }
+/** Período pedido na URL; sem parâmetro, mês atual em America/Sao_Paulo. */
+function periodFromParams(params: Record<string, string | string[] | undefined>) {
+  const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+  const [anoHoje, mesHoje] = hoje.split('-').map(Number)
+  const raw = (k: string) => (Array.isArray(params[k]) ? params[k]?.[0] : params[k]) as string | undefined
 
-  const [
-    totalClients,
-    inactiveClients,
-    totalUsers,
-    pendingTasks,
-    inProgressTasks,
-    doneTasks,
-    monthPayments,
-    upcomingEvents,
-    recentLogs,
-    recentTasks,
-    activeClients,
-    clientsWithServices,
-  ] = await Promise.all([
-    prisma.client.count(),
-    prisma.client.count({ where: { status: 'INATIVO' } }),
-    prisma.user.count({ where: { isActive: true } }),
-    prisma.task.count({ where: { status: 'TODO', ...taskScope } }),
-    prisma.task.count({ where: { status: 'EM_ANDAMENTO', ...taskScope } }),
-    prisma.task.count({ where: { status: 'CONCLUIDO', ...taskScope } }),
-    prisma.clientPayment.findMany({
-      where: { month, year },
-      include: { client: { select: { name: true } } },
-      orderBy: { dueDate: 'asc' },
-    }),
-    prisma.calendarEvent.findMany({
-      where: { startDate: { gte: now }, status: 'PENDENTE' },
-      include: { client: { select: { name: true } } },
-      orderBy: { startDate: 'asc' },
-      take: 5,
-    }),
-    prisma.activityLog.findMany({
-      include: { user: { select: { name: true } } },
-      orderBy: { createdAt: 'desc' },
-      take: 8,
-    }),
-    // Colaborador só enxerga as demandas atribuídas a ele.
-    prisma.task.findMany({
-      where: { status: { not: 'CONCLUIDO' }, ...taskScope },
-      include: {
-        assignee: { select: { name: true } },
-        client: { select: { name: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 6,
-    }),
-    prisma.client.count({ where: { status: 'ATIVO' } }),
-    // Ticket médio considera só clientes ativos que têm serviço ativo
-    prisma.client.count({
-      where: { status: 'ATIVO', services: { some: { status: 'ATIVO' } } },
-    }),
-  ])
-
-  // Números financeiros: fonte única compartilhada com o Financeiro
-  // (lib/finance-summary) — MRR só de recorrentes, avulso só na competência.
-  const summary = await getMonthSummary(year, month)
-  const mrr = summary.mrrCents / 100
-  const arr = mrr * 12
-  const recebida = summary.recebidaCents / 100
-  const pendente = summary.pendenteCents / 100
-  const atrasada = summary.atrasadaCents / 100
-  const prevista = summary.previstaCents / 100
-  const previstaAvulsa = summary.previstaAvulsaCents / 100
-  const recebidaAvulsa = summary.recebidaAvulsaCents / 100
-  const custos = summary.custosPrevistosCents / 100
-  const resultadoPrevisto = summary.resultadoPrevistoCents / 100
-  const lucroRealizado = summary.lucroRealizadoCents / 100
-  const ticketMedio = clientsWithServices > 0 ? mrr / clientsWithServices : 0
-  const inadimplencia = prevista > 0 ? (atrasada / prevista) * 100 : 0
-
-  const pendingRevenue = monthPayments
-    .filter((p) => p.status === 'PENDENTE')
-    .reduce((s, p) => s + p.amount, 0)
-
-  // Tendências REAIS vs mês anterior (nunca inventadas): receita recebida
-  // por competência e clientes novos por data de cadastro
-  const prevMonth = month === 1 ? 12 : month - 1
-  const prevYear = month === 1 ? year - 1 : year
-  const [newClientsNow, newClientsPrev] = await Promise.all([
-    prisma.client.count({ where: { createdAt: { gte: new Date(year, month - 1, 1) } } }),
-    prisma.client.count({
-      where: { createdAt: { gte: new Date(prevYear, prevMonth - 1, 1), lt: new Date(year, month - 1, 1) } },
-    }),
-  ])
-  const recebidaPrev = (summary.previous?.recebidaCents ?? 0) / 100
-
-  // Segmentação da carteira pela receita RECORRENTE ativa de cada grupo
-  const segments = summary.segments.map((seg) => ({
-    tier: seg.tier,
-    count: seg.count,
-    revenue: seg.recurringCents / 100,
-    share: seg.share,
-  }))
-
+  const view: PeriodView = raw('visao') === 'anual' ? 'anual' : 'mensal'
+  const ano = Number(raw('ano'))
+  const mes = Number(raw('mes'))
   return {
-    segments,
-    recebidaPrev,
-    newClientsNow,
-    newClientsPrev,
-    totalClients,
-    activeClients,
-    inactiveClients,
-    totalUsers,
-    pendingTasks,
-    inProgressTasks,
-    doneTasks,
-    mrr,
-    arr,
-    recebida,
-    pendente,
-    atrasada,
-    prevista,
-    previstaAvulsa,
-    recebidaAvulsa,
-    custos,
-    resultadoPrevisto,
-    lucroRealizado,
-    ticketMedio,
-    inadimplencia,
-    clientsWithServices,
-    pendingRevenue,
-    monthPayments: monthPayments.slice(0, 5),
-    upcomingEvents,
-    recentLogs,
-    recentTasks,
+    view,
+    year: Number.isInteger(ano) && ano >= 2000 && ano <= 2100 ? ano : anoHoje,
+    month: view === 'mensal' ? (Number.isInteger(mes) && mes >= 1 && mes <= 12 ? mes : mesHoje) : null,
   }
 }
 
-const STATUS_LABEL: Record<string, string> = {
-  TODO: 'A Fazer',
-  EM_ANDAMENTO: 'Em Andamento',
-  EM_REVISAO: 'Em Revisão',
-  CONCLUIDO: 'Concluído',
-  BACKLOG: 'Backlog',
-}
-
-const STATUS_DOT: Record<string, string> = {
-  TODO: 'bg-blue-500',
-  EM_ANDAMENTO: 'bg-yellow-500',
-  EM_REVISAO: 'bg-purple-500',
-  CONCLUIDO: 'bg-green-500',
-  BACKLOG: 'bg-gray-400',
-}
-
-export default async function DashboardPage() {
-  const session = await auth()
-  const isAdmin = session?.user?.role === 'ADMIN'
-  const d = await getDashboardData({ id: session?.user?.id ?? '', isAdmin })
-  const firstName = session?.user?.name?.split(' ')[0]
+async function getOperationalData(viewer: { id: string; isAdmin: boolean }) {
   const now = new Date()
-  const timeStr = now.toLocaleString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
+  const taskScope = viewer.isAdmin ? {} : { assigneeId: viewer.id }
+
+  const [totalClients, activeClients, totalUsers, pendingTasks, inProgressTasks, upcomingEvents, recentLogs, recentTasks] =
+    await Promise.all([
+      prisma.client.count(),
+      prisma.client.count({ where: { status: 'ATIVO' } }),
+      prisma.user.count({ where: { isActive: true } }),
+      prisma.task.count({ where: { status: 'TODO', ...taskScope } }),
+      prisma.task.count({ where: { status: 'EM_ANDAMENTO', ...taskScope } }),
+      prisma.calendarEvent.findMany({
+        where: { startDate: { gte: now }, status: 'PENDENTE' },
+        include: { client: { select: { name: true } } },
+        orderBy: { startDate: 'asc' },
+        take: 5,
+      }),
+      prisma.activityLog.findMany({
+        include: { user: { select: { name: true } } },
+        orderBy: { createdAt: 'desc' },
+        take: 8,
+      }),
+      prisma.task.findMany({
+        where: { status: { not: 'CONCLUIDO' }, ...taskScope },
+        include: { assignee: { select: { name: true } }, client: { select: { name: true } } },
+        orderBy: { createdAt: 'desc' },
+        take: 6,
+      }),
+    ])
+
+  return { totalClients, activeClients, totalUsers, pendingTasks, inProgressTasks, upcomingEvents, recentLogs, recentTasks }
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  TODO: 'A Fazer', EM_ANDAMENTO: 'Em Andamento', EM_REVISAO: 'Em Revisão',
+  CONCLUIDO: 'Concluído', BACKLOG: 'Backlog',
+}
+const STATUS_DOT: Record<string, string> = {
+  TODO: 'bg-blue-500', EM_ANDAMENTO: 'bg-yellow-500', EM_REVISAO: 'bg-purple-500',
+  CONCLUIDO: 'bg-green-500', BACKLOG: 'bg-gray-400',
+}
+
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
+  const [session, params] = await Promise.all([auth(), searchParams])
+  const isAdmin = session?.user?.role === 'ADMIN'
+  const period = periodFromParams(params)
+  const op = await getOperationalData({ id: session?.user?.id ?? '', isAdmin })
+  const firstName = session?.user?.name?.split(' ')[0]
+
+  // Financeiro e comercial são exclusivos de administradores
+  const summary = isAdmin ? await getPeriodSummary(period.view, period.year, period.month) : null
+  const inicio = period.view === 'anual'
+    ? new Date(Date.UTC(period.year, 0, 1))
+    : new Date(Date.UTC(period.year, (period.month ?? 1) - 1, 1))
+  const fim = period.view === 'anual'
+    ? new Date(Date.UTC(period.year, 11, 31, 23, 59, 59))
+    : new Date(Date.UTC(period.year, period.month ?? 1, 0, 23, 59, 59))
+  const [pipeline, novosLeads] = isAdmin
+    ? await Promise.all([pipelinePeriodSummary(inicio, fim), newLeadsInPeriod(inicio, fim)])
+    : [null, 0]
+
+  const financeiroHref = period.view === 'mensal'
+    ? `/financeiro?mes=${period.year}-${String(period.month ?? 1).padStart(2, '0')}`
+    : '/financeiro'
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <Header title="Dashboard" subtitle={timeStr} />
+      <Header title="Dashboard" subtitle={summary?.label ?? 'Resumo da agência'} />
 
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
-
-        {/* Welcome */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h2 className="text-lg font-bold text-gray-900">Olá, {firstName} 👋</h2>
-            <p className="text-sm text-gray-500 mt-0.5">Resumo da agência de hoje.</p>
+            <p className="text-sm text-gray-500 mt-0.5">
+              {summary ? `Resumo de ${summary.label.toLowerCase()}.` : 'Resumo da agência de hoje.'}
+            </p>
           </div>
           <Link
             href="/demandas"
             className="flex items-center justify-center gap-2 w-full sm:w-auto bg-[#030A8C] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#02077a] transition-colors"
           >
-            <Kanban className="w-4 h-4" />
-            Ver Demandas
+            <Kanban className="w-4 h-4" /> Ver Demandas
           </Link>
         </div>
 
-        {/* Indicadores — admin: 4 principais + "Ver mais indicadores" + gráfico.
-            Colaborador vê apenas clientes e as próprias demandas. */}
-        {isAdmin ? (
+        {isAdmin && summary ? (
           <>
-            <DashboardIndicators d={d} />
-            <PortfolioSegmentation segments={d.segments} total={d.mrr} />
+            <PeriodSelector
+              view={summary.view}
+              year={summary.year}
+              month={summary.month}
+              isCurrent={summary.isCurrentPeriod}
+              referenceDate={summary.referenceDate}
+            />
+            <DashboardIndicators
+              s={summary}
+              totalClients={op.totalClients}
+              inProgressTasks={op.inProgressTasks}
+              pendingTasks={op.pendingTasks}
+              totalUsers={op.totalUsers}
+              financeiroHref={financeiroHref}
+            />
+            {pipeline && (
+              <PipelineSection summary={pipeline} periodLabel={summary.label.toLowerCase()} novosLeads={novosLeads} />
+            )}
+            <PortfolioSegmentation
+              segments={summary.segments.map((x) => ({ tier: x.tier, count: x.count, revenue: x.recurringCents / 100, share: x.share }))}
+              total={summary.mrrCents / 100}
+            />
             <RevenueChart />
           </>
         ) : (
           <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
-            <Link
-              href="/clientes"
-              className="group bg-white border border-gray-100 rounded-xl p-5 hover:border-gray-200 transition-all"
-            >
+            <Link href="/clientes" className="group bg-white border border-gray-100 rounded-xl p-5 hover:border-gray-200 transition-all">
               <div className="flex items-start justify-between mb-4">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#030A8C22' }}>
                   <Building2 className="w-4 h-4" style={{ color: '#030A8C' }} />
                 </div>
                 <ArrowUpRight className="w-3.5 h-3.5 text-gray-300 group-hover:text-gray-500 transition-colors" />
               </div>
-              <p className="text-2xl font-bold text-gray-900 leading-none">{d.activeClients}</p>
+              <p className="text-2xl font-bold text-gray-900 leading-none">{op.activeClients}</p>
               <p className="text-xs text-gray-500 mt-1">Clientes Ativos</p>
-              <p className="text-[11px] text-gray-400 mt-0.5">{d.totalClients} total</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">{op.totalClients} total</p>
             </Link>
 
-            <Link
-              href="/demandas"
-              className="group bg-white border border-gray-100 rounded-xl p-5 hover:border-gray-200 transition-all"
-            >
+            <Link href="/demandas" className="group bg-white border border-gray-100 rounded-xl p-5 hover:border-gray-200 transition-all">
               <div className="flex items-start justify-between mb-4">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#f59e0b22' }}>
                   <Kanban className="w-4 h-4" style={{ color: '#f59e0b' }} />
                 </div>
                 <ArrowUpRight className="w-3.5 h-3.5 text-gray-300 group-hover:text-gray-500 transition-colors" />
               </div>
-              <p className="text-2xl font-bold text-gray-900 leading-none">{d.inProgressTasks}</p>
+              <p className="text-2xl font-bold text-gray-900 leading-none">{op.inProgressTasks}</p>
               <p className="text-xs text-gray-500 mt-1">Em Andamento</p>
-              <p className="text-[11px] text-gray-400 mt-0.5">{d.pendingTasks} a fazer</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">{op.pendingTasks} a fazer</p>
             </Link>
           </div>
         )}
 
-        {/* Middle columns */}
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-
-          {/* Open tasks — ocupa a linha toda quando não há coluna de admin */}
           <div className={`${isAdmin ? 'lg:col-span-3' : 'lg:col-span-5'} bg-white border border-gray-100 rounded-xl overflow-hidden`}>
             <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
               <p className="font-semibold text-gray-900 text-sm">Demandas em Aberto</p>
@@ -242,11 +179,11 @@ export default async function DashboardPage() {
                 Ver todas <ArrowUpRight className="w-3 h-3" />
               </Link>
             </div>
-            {d.recentTasks.length === 0 ? (
+            {op.recentTasks.length === 0 ? (
               <p className="text-xs text-gray-400 text-center py-8">Nenhuma demanda em aberto</p>
             ) : (
               <div className="divide-y divide-gray-100">
-                {d.recentTasks.map((task) => (
+                {op.recentTasks.map((task) => (
                   <div key={task.id} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors">
                     <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${STATUS_DOT[task.status] || 'bg-gray-400'}`} />
                     <div className="flex-1 min-w-0">
@@ -267,39 +204,29 @@ export default async function DashboardPage() {
             )}
           </div>
 
-          {/* Right column — 2 cols. Pagamentos e agenda são só de admin. */}
           {isAdmin && (
             <div className="lg:col-span-2 space-y-4">
-
               <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
                 <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
-                  <p className="font-semibold text-gray-900 text-sm">Pagamentos do Mês</p>
-                  <Link href="/financeiro" className="text-gray-400 hover:text-gray-600 transition-colors">
+                  <p className="font-semibold text-gray-900 text-sm">Custos por categoria</p>
+                  <Link href={financeiroHref} className="text-gray-400 hover:text-gray-600 transition-colors">
                     <ArrowUpRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>
-                {d.monthPayments.length === 0 ? (
-                  <p className="text-xs text-gray-400 text-center py-5">Sem pagamentos este mês</p>
+                {!summary || summary.custosPorCategoria.length === 0 ? (
+                  <p className="text-xs text-gray-400 text-center py-5">Nenhum custo no período</p>
                 ) : (
                   <div className="divide-y divide-gray-100">
-                    {d.monthPayments.map((p) => (
-                      <div key={p.id} className="flex items-center justify-between px-5 py-2.5">
-                        <p className="text-xs text-gray-700 truncate flex-1 mr-2">{p.client.name}</p>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <p className="text-xs font-semibold text-gray-900">{formatCurrency(p.amount)}</p>
-                          <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold ${
-                            p.status === 'PAGO' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
-                          }`}>
-                            {p.status}
-                          </span>
-                        </div>
+                    {summary.custosPorCategoria.slice(0, 6).map((c) => (
+                      <div key={c.category} className="flex items-center justify-between px-5 py-2.5">
+                        <p className="text-xs text-gray-700 truncate flex-1 mr-2">{c.category}</p>
+                        <p className="text-xs font-semibold text-gray-900">{formatCurrency(c.previstoCents / 100)}</p>
                       </div>
                     ))}
                   </div>
                 )}
               </div>
 
-              {/* Upcoming events */}
               <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
                 <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
                   <p className="font-semibold text-gray-900 text-sm">Próximas Entregas</p>
@@ -307,11 +234,11 @@ export default async function DashboardPage() {
                     <ArrowUpRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>
-                {d.upcomingEvents.length === 0 ? (
+                {op.upcomingEvents.length === 0 ? (
                   <p className="text-xs text-gray-400 text-center py-5">Nenhuma entrega próxima</p>
                 ) : (
                   <div className="divide-y divide-gray-100">
-                    {d.upcomingEvents.map((ev) => (
+                    {op.upcomingEvents.map((ev) => (
                       <div key={ev.id} className="flex items-start gap-3 px-5 py-2.5">
                         <div className="w-1 h-1 rounded-full bg-[#030A8C] mt-2 shrink-0" />
                         <div className="flex-1 min-w-0">
@@ -330,40 +257,36 @@ export default async function DashboardPage() {
           )}
         </div>
 
-        {/* Activity feed — expõe o que toda a equipe fez, então é só de admin */}
         {isAdmin && (
-        <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
-            <p className="font-semibold text-gray-900 text-sm">Atividade Recente</p>
-            <Link href="/logs" className="text-[10px] text-gray-400 hover:text-gray-600 flex items-center gap-1">
-              Ver logs <ArrowUpRight className="w-3 h-3" />
-            </Link>
-          </div>
-          {d.recentLogs.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-6">Nenhuma atividade registrada</p>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
-              {d.recentLogs.map((log, i) => (
-                <div
-                  key={log.id}
-                  className={`flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors border-b border-gray-100 lg:border-b-0 ${
-                    i % 4 !== 3 ? 'lg:border-r border-gray-100' : ''
-                  }`}
-                >
-                  <div className="w-7 h-7 bg-[#030A8C] rounded-full flex items-center justify-center shrink-0">
-                    <span className="text-white text-[10px] font-bold">{log.user.name.charAt(0)}</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-gray-900 truncate">{log.user.name}</p>
-                    <p className="text-[10px] text-gray-400 truncate">{log.action} · {log.module}</p>
-                  </div>
-                </div>
-              ))}
+          <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
+              <p className="font-semibold text-gray-900 text-sm">Atividade Recente</p>
+              <Link href="/logs" className="text-[10px] text-gray-400 hover:text-gray-600 flex items-center gap-1">
+                Ver logs <ArrowUpRight className="w-3 h-3" />
+              </Link>
             </div>
-          )}
-        </div>
+            {op.recentLogs.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-6">Nenhuma atividade registrada</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
+                {op.recentLogs.map((log, i) => (
+                  <div
+                    key={log.id}
+                    className={`flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors border-b border-gray-100 lg:border-b-0 ${i % 4 !== 3 ? 'lg:border-r border-gray-100' : ''}`}
+                  >
+                    <div className="w-7 h-7 bg-[#030A8C] rounded-full flex items-center justify-center shrink-0">
+                      <span className="text-white text-[10px] font-bold">{log.user.name.charAt(0)}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-gray-900 truncate">{log.user.name}</p>
+                      <p className="text-[10px] text-gray-400 truncate">{log.action} · {log.module}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         )}
-
       </div>
     </div>
   )

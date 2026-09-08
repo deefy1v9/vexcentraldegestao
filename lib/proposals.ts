@@ -114,7 +114,8 @@ export async function snapshotFromProspect(prospectId: string): Promise<Recipien
     id: p.id,
     name: p.name,
     tradeName: p.tradeName,
-    document: p.document,
+    // Lead novo pode não ter documento ainda; a validação da proposta cobra
+    document: p.document ?? '',
     personType: p.personType === 'PJ' ? 'PJ' : 'PF',
     contactName: p.contactName,
     email: p.email,

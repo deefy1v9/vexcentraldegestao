@@ -66,6 +66,11 @@ model User {
   confirmedPlans   PlanProposal[]     @relation("PlanConfirmedBy")
   prospects        Prospect[]
   proposals        Proposal[]
+
+  ownedProspects       Prospect[]         @relation("ProspectOwner")
+  ownedOpportunities   Opportunity[]      @relation("OpportunityOwner")
+  createdOpportunities Opportunity[]      @relation("OpportunityCreator")
+  opportunityEvents    OpportunityEvent[]
 }
 
 model Client {
@@ -132,6 +137,7 @@ model Client {
   contractAnalyses     ContractAnalysis[]
   planProposals        PlanProposal[]
   proposals            Proposal[]
+  opportunities        Opportunity[]
 }
 
 // ---------------------------------------------------------------------------
@@ -486,7 +492,8 @@ model ServiceCatalog {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  clientServices ClientService[]
+  clientServices    ClientService[]
+  opportunityItems  OpportunityItem[]
 }
 
 // Vigência de valor: alterar o negociado nunca reescreve o passado.
@@ -818,6 +825,7 @@ model CrmContact {
   conversations CrmConversation[]
   activities    CrmActivity[]
   scheduled     ScheduledMessage[]
+  prospect      Prospect?
 }
 
 model CrmConversation {
@@ -1014,12 +1022,19 @@ model AiJob {
 model Prospect {
   id                String    @id @default(cuid())
   personType        String    @default("PF") // PF | PJ
-  document          String    @unique // CPF/CNPJ apenas dígitos
+  // Opcional: um lead novo entra só com nome e responsável; o documento é
+  // exigido na proposta e na conversão em cliente.
+  document          String?   @unique // CPF/CNPJ apenas dígitos
   name              String // nome completo ou razão social
   tradeName         String?
   contactName       String?
   email             String?
   phone             String?
+  // ---- pipeline comercial ----
+  source            String? // origem do lead (indicação, tráfego, evento...)
+  ownerId           String? // responsável comercial
+  crmContactId      String? @unique // contato do CRM, preserva as conversas
+  interestServices  String[]  @default([]) // nomes/ids de serviços de interesse
   zipCode           String?
   street            String?
   addressNumber     String?
@@ -1035,8 +1050,106 @@ model Prospect {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  createdBy User       @relation(fields: [createdById], references: [id])
-  proposals Proposal[]
+  createdBy     User            @relation(fields: [createdById], references: [id])
+  owner         User?           @relation("ProspectOwner", fields: [ownerId], references: [id])
+  crmContact    CrmContact?     @relation(fields: [crmContactId], references: [id])
+  proposals     Proposal[]
+  opportunities Opportunity[]
+
+  @@index([ownerId])
+}
+
+// ---------------------------- pipeline comercial ----------------------------
+
+// Negociação com um lead (Prospect) ou com um cliente que já existe.
+// O mesmo contato pode ter várias oportunidades — nunca se duplica o cadastro.
+// Valores aqui são POTENCIAL comercial: só viram contratação na conversão.
+model Opportunity {
+  id       String @id @default(cuid())
+  title    String
+  // NOVO | EM_CONTATO | QUALIFICADO | PROPOSTA_ENVIADA | EM_NEGOCIACAO |
+  // GANHO | PERDIDO
+  stage    String @default("NOVO")
+  prospectId String?
+  clientId   String?
+  ownerId    String
+  proposalId String? // proposta vigente da negociação
+
+  source          String?
+  // Estimativa antes de detalhar os itens (centavos, recorrente + avulso)
+  estimateCents   Int       @default(0)
+  estimateNote    String?
+  expectedCloseDate DateTime?
+  closedAt        DateTime? // data real do fechamento (ganho ou perdido)
+  lossReason      String?
+  nextAction      String?
+  nextActionAt    DateTime?
+  notes           String?
+
+  stageChangedAt  DateTime  @default(now())
+  convertedClientId String?
+  convertedAt     DateTime? // trava de idempotência da conversão
+  createdById     String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  prospect  Prospect?  @relation(fields: [prospectId], references: [id])
+  client    Client?    @relation(fields: [clientId], references: [id])
+  owner     User       @relation("OpportunityOwner", fields: [ownerId], references: [id])
+  createdBy User       @relation("OpportunityCreator", fields: [createdById], references: [id])
+  proposal  Proposal?  @relation(fields: [proposalId], references: [id])
+
+  items  OpportunityItem[]
+  events OpportunityEvent[]
+
+  @@index([stage, expectedCloseDate])
+  @@index([ownerId, stage])
+  @@index([clientId])
+  @@index([prospectId])
+}
+
+// Serviço orçado. Vira ClientService só quando a oportunidade é ganha.
+model OpportunityItem {
+  id            String  @id @default(cuid())
+  opportunityId String
+  catalogId     String?
+  order         Int     @default(0)
+
+  name          String
+  scope         String?
+  // RECORRENTE | AVULSO | PROJETO | QUANTIDADE | PERSONALIZADO
+  contractType  String  @default("RECORRENTE")
+  quantity      Int     @default(1)
+  unitCents     Int     @default(0) // valor negociado por unidade
+  discountCents Int     @default(0)
+  months        Int? // prazo contratual, quando definido
+  startDate     DateTime?
+  competence    String? // YYYY-MM, obrigatório no avulso
+  notes         String?
+
+  // Rastreabilidade: serviço criado na conversão
+  clientServiceId String?
+
+  opportunity Opportunity     @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  catalog     ServiceCatalog? @relation(fields: [catalogId], references: [id])
+
+  @@index([opportunityId, order])
+}
+
+// Histórico comercial: etapa, valores, proposta, responsável, ganho/perda.
+model OpportunityEvent {
+  id            String   @id @default(cuid())
+  opportunityId String
+  type          String // CRIACAO | ETAPA | VALOR | PROPOSTA | RESPONSAVEL | NOTA | GANHO | PERDA | CONVERSAO | REABERTURA
+  message       String
+  userId        String?
+  payload       Json?
+  createdAt     DateTime @default(now())
+
+  opportunity Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  user        User?       @relation(fields: [userId], references: [id])
+
+  @@index([opportunityId, createdAt])
 }
 
 // Modelo do documento, versionado. O conteúdo é uma árvore de seções com
@@ -1111,10 +1224,11 @@ model Proposal {
   addendums Proposal[]        @relation("ProposalAddendum")
   createdBy User              @relation(fields: [createdById], references: [id])
 
-  items     ProposalItem[]
-  versions  ProposalVersion[]
-  documents ProposalDocument[]
-  events    ProposalEvent[]
+  items         ProposalItem[]
+  versions      ProposalVersion[]
+  documents     ProposalDocument[]
+  events        ProposalEvent[]
+  opportunities Opportunity[]
 
   @@unique([kind, year, seq])
   @@index([clientId, status])
