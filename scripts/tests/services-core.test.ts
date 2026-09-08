@@ -190,3 +190,21 @@ test('DUE_RULES aceita só as duas regras conhecidas', () => {
   assert.ok(isDueRule('DIA_UTIL'))
   assert.equal(isDueRule('QUINTO_DIA'), false)
 })
+
+test('serviço que começa hoje já conta no ticket', () => {
+  // A data é guardada ao meio-dia UTC: comparar por timestamp deixava o
+  // serviço "no futuro" no próprio dia em que ele passa a valer.
+  const services = [
+    { priceCents: 200000, status: 'ATIVO', contractType: 'RECORRENTE', startDate: new Date('2026-09-08T12:00:00Z') },
+  ]
+  assert.equal(recurringTicketCents(services, '2026-09-08'), 200000)
+  assert.equal(recurringTicketCents(services, '2026-09-07'), 0)
+})
+
+test('serviço encerrado hoje ainda conta no dia do encerramento', () => {
+  const services = [
+    { priceCents: 100000, status: 'ATIVO', contractType: 'RECORRENTE', endDate: new Date('2026-09-08T12:00:00Z') },
+  ]
+  assert.equal(recurringTicketCents(services, '2026-09-08'), 100000)
+  assert.equal(recurringTicketCents(services, '2026-09-09'), 0)
+})

@@ -194,13 +194,16 @@ export function computeCompetenceCents(
  * início futuro ficam de fora — é o número que classifica o cliente.
  */
 export function recurringTicketCents(services: ServiceLike[], todayISO: string): number {
-  const today = new Date(`${todayISO.slice(0, 10)}T00:00:00Z`)
+  // Comparação por dia civil: serviço que começa hoje já conta, mesmo que a
+  // data guardada tenha hora (o padrão do sistema é meio-dia UTC).
+  const hoje = todayISO.slice(0, 10)
+  const diaDe = (v: Date | string) => (typeof v === 'string' ? v : v.toISOString()).slice(0, 10)
   let cents = 0
   for (const s of services) {
     if (!isServiceActive(s)) continue
     if (!countsForMrr(s.contractType)) continue
-    if (s.startDate && new Date(s.startDate) > today) continue
-    if (s.endDate && new Date(s.endDate) < today) continue
+    if (s.startDate && diaDe(s.startDate) > hoje) continue
+    if (s.endDate && diaDe(s.endDate) < hoje) continue
     cents += serviceCents(s)
   }
   return cents

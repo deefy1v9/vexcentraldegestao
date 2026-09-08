@@ -354,10 +354,10 @@ export async function getPeriodSummary(view: PeriodView, year: number, month?: n
     ? Array.from({ length: 12 }, (_, i) => ({ year, month: i + 1 }))
     : [{ year, month: mes as number }]
 
-  // Só materializa competências já iniciadas: mês futuro não gera parcela
+  // Só a competência corrente é materializada. Consultar um mês antigo no
+  // Dashboard não pode criar parcela retroativa que ninguém tinha gerado.
   for (const p of meses) {
-    const passado = p.year < t.year || (p.year === t.year && p.month <= t.month)
-    if (!passado) continue
+    if (p.year !== t.year || p.month !== t.month) continue
     await materializeMonth(p.year, p.month)
     await materializeReceivables(p.year, p.month)
   }

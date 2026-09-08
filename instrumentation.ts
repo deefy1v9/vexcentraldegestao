@@ -70,6 +70,16 @@ export async function register() {
         console.error('[asaas] billing job error:', err)
       }
 
+      // Classificação: serviço com início futuro entra no ticket no dia em
+      // que a vigência começa, então a carteira é reavaliada todo dia
+      try {
+        const { reclassifyAllClients } = await import('./lib/client-tier')
+        const tiers = await reclassifyAllClients()
+        if (tiers.updated > 0) console.log(`[tier] carteira reclassificada: ${tiers.updated} cliente(s)`)
+      } catch (err) {
+        console.error('[tier] reclassify error:', err)
+      }
+
       // E-mails do dia: lembretes (D-3, D0), atraso (D+1/7/15), contrato a
       // vencer e resumo aos administradores — cada um uma vez só (refId)
       try {
