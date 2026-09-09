@@ -19,6 +19,35 @@ import {
 
 export class GscError extends Error {}
 
+/**
+ * Traduz a falha do Google sem vazar segredo. O corpo de erro do OAuth traz
+ * `error` e `error_description` (por exemplo `redirect_uri_mismatch`), que
+ * são diagnóstico, não credencial — o token nunca aparece nesses campos.
+ */
+export function describeGoogleError(err: unknown): string {
+  const e = err as {
+    message?: string
+    response?: { status?: number; data?: { error?: string; error_description?: string } }
+  }
+  const dados = e?.response?.data
+  const codigo = typeof dados?.error === 'string' ? dados.error : null
+  const detalhe = typeof dados?.error_description === 'string' ? dados.error_description : null
+
+  const conhecidos: Record<string, string> = {
+    redirect_uri_mismatch: 'A URI de retorno não confere com a cadastrada no Google Cloud.',
+    invalid_client: 'Client ID ou Client Secret inválidos.',
+    invalid_grant: 'O código de autorização expirou ou já foi usado. Comece a conexão de novo.',
+    access_denied: 'Autorização recusada no Google.',
+    unauthorized_client: 'O cliente OAuth não está autorizado para este fluxo.',
+    invalid_scope: 'O escopo pedido não está habilitado no cliente OAuth.',
+    admin_policy_enforced: 'A política da organização no Google bloqueou o acesso.',
+  }
+  if (codigo && conhecidos[codigo]) return `${conhecidos[codigo]} (${codigo})`
+  if (codigo) return `${codigo}${detalhe ? `: ${detalhe}` : ''}`
+  if (e?.response?.status) return `O Google respondeu ${e.response.status}.`
+  return e?.message ? `Falha ao falar com o Google: ${e.message}` : 'Falha ao falar com o Google.'
+}
+
 const AUTH_ENDPOINT_SCOPES = [GSC_SCOPE, 'openid', 'email']
 
 /* ------------------------------ credenciais ------------------------------ */
@@ -106,19 +135,36 @@ export async function exchangeCode(code: string, userId: string) {
   if (!cred) throw new GscError('Credenciais do Google não configuradas no servidor.')
 
   const client = oauthClient(cred)
-  const { tokens } = await client.getToken(code)
+  let tokens
+  try {
+    const res = await client.getToken(code)
+    tokens = res.tokens
+  } catch (err) {
+    console.error('[gsc] troca do código falhou:', describeGoogleError(err))
+    throw new GscError(describeGoogleError(err))
+  }
   if (!tokens.access_token) throw new GscError('O Google não devolveu o token de acesso.')
 
+  // O e-mail só identifica a conta na tela; se não vier, a conexão continua
   let email = ''
   if (tokens.id_token) {
-    const ticket = await client.verifyIdToken({ idToken: tokens.id_token, audience: cred.clientId })
-    email = ticket.getPayload()?.email ?? ''
+    try {
+      const ticket = await client.verifyIdToken({ idToken: tokens.id_token, audience: cred.clientId })
+      email = ticket.getPayload()?.email ?? ''
+    } catch (err) {
+      console.error('[gsc] id_token não verificado:', describeGoogleError(err))
+    }
   }
   if (!email) {
-    client.setCredentials({ access_token: tokens.access_token })
-    const info = await client.request<{ email?: string }>({ url: 'https://www.googleapis.com/oauth2/v2/userinfo' })
-    email = info.data.email ?? 'conta-google'
+    try {
+      client.setCredentials({ access_token: tokens.access_token })
+      const info = await client.request<{ email?: string }>({ url: 'https://www.googleapis.com/oauth2/v2/userinfo' })
+      email = info.data.email ?? ''
+    } catch (err) {
+      console.error('[gsc] userinfo indisponível:', describeGoogleError(err))
+    }
   }
+  if (!email) email = `conta-google-${Date.now().toString(36)}`
 
   const existente = await prisma.gscConnection.findUnique({ where: { googleEmail: email } })
   const mesclado = mergeTokens(

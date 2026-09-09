@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { consumeState, exchangeCode, GscError } from '@/lib/gsc'
+import { consumeState, exchangeCode, describeGoogleError, GscError } from '@/lib/gsc'
 import { logActivity } from '@/lib/activity'
 
 /**
@@ -29,7 +29,9 @@ export async function GET(req: NextRequest) {
     await logActivity(userId, 'conectou o Google Search Console', 'SEO', email)
     return volta(hasRefresh ? 'conectado=1' : `aviso=${encodeURIComponent('Conectado, mas sem renovação automática. Reconecte concedendo acesso offline.')}`)
   } catch (err) {
-    const msg = err instanceof GscError ? err.message : 'Não foi possível concluir a conexão.'
+    // Motivo vai para o log do servidor; a tela recebe a versão curta
+    const msg = err instanceof GscError ? err.message : describeGoogleError(err)
+    console.error('[gsc] callback falhou:', msg)
     return volta(`erro=${encodeURIComponent(msg)}`)
   }
 }
