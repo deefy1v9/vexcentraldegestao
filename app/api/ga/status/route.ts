@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
-import { getConnection } from '@/lib/gsc'
+import { getConnection, syncGrantedScopes } from '@/lib/gsc'
 import { GA_SCOPE, hasScope } from '@/lib/ga-core'
 
 /**
@@ -13,6 +13,18 @@ export async function GET() {
   if (admin instanceof NextResponse) return admin
 
   const connection = await getConnection()
+
+  // Escopo pode ter sido concedido depois: confirma com o Google antes de
+  // dizer que falta autorizar
+  let scope = connection?.scope ?? null
+  if (connection && !hasScope(scope, GA_SCOPE)) {
+    try {
+      scope = await syncGrantedScopes(connection.id)
+    } catch {
+      // Sem resposta do Google, segue com o que está gravado
+    }
+  }
+
   const properties = connection
     ? await prisma.gaProperty.findMany({
         where: { connectionId: connection.id },
@@ -24,7 +36,7 @@ export async function GET() {
   return NextResponse.json({
     connected: !!connection,
     googleEmail: connection?.googleEmail ?? null,
-    hasAnalyticsScope: hasScope(connection?.scope, GA_SCOPE),
+    hasAnalyticsScope: hasScope(scope, GA_SCOPE),
     properties: properties.map((p) => ({
       id: p.id,
       propertyId: p.propertyId,

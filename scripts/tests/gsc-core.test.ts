@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import {
   GSC_SCOPE, buildRange, lastAvailableDate, addDays, isISODate, isDomainProperty,
   propertyLabel, canRead, totalsFromRow, formatCtr, formatPosition, variation,
-  previousRange, cacheKey, isFresh, isStateUsable, mergeTokens, needsRefresh, stateExpiry,
+  previousRange, cacheKey, isFresh, isStateUsable, mergeTokens, needsRefresh, stateExpiry, mergeScopes,
 } from '../../lib/gsc-core'
 
 const HOJE = '2026-09-09'
@@ -153,4 +153,17 @@ test('token vencido ou perto do fim precisa renovar', () => {
   assert.ok(needsRefresh(new Date('2026-09-09T11:59:00Z'), agora))
   assert.ok(needsRefresh(new Date('2026-09-09T12:00:30Z'), agora))
   assert.equal(needsRefresh(new Date('2026-09-09T13:00:00Z'), agora), false)
+})
+
+test('escopos somam sem repetir e sem perder o anterior', () => {
+  const gsc = 'https://www.googleapis.com/auth/webmasters.readonly openid'
+  const ga = 'https://www.googleapis.com/auth/analytics.readonly openid'
+  const junto = mergeScopes(gsc, ga)
+  assert.ok(junto.includes('webmasters.readonly'))
+  assert.ok(junto.includes('analytics.readonly'))
+  // openid aparece uma vez só
+  assert.equal(junto.split(' ').filter((s) => s === 'openid').length, 1)
+  // separador é espaço de verdade: nada pode quebrar a string no meio
+  assert.equal(mergeScopes('https://a/scope', null), 'https://a/scope')
+  assert.equal(mergeScopes(null, null), '')
 })

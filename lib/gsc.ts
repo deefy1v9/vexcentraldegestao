@@ -4,7 +4,7 @@ import { prisma } from './prisma'
 import { encryptSecret, decryptSecret } from './crypto'
 import { getSettings } from './settings'
 import {
-  GSC_SCOPE, cacheKey, isFresh, mergeTokens, needsRefresh, stateExpiry, isStateUsable,
+  GSC_SCOPE, cacheKey, isFresh, mergeScopes, mergeTokens, needsRefresh, stateExpiry, isStateUsable,
   type DateRange,
 } from './gsc-core'
 
@@ -182,9 +182,7 @@ export async function exchangeCode(code: string, userId: string) {
   )
 
   // Escopos somam: autorizar o Analytics não pode derrubar o Search Console
-  const escoposAtuais = (existente?.scope ?? '').split(/s+/).filter(Boolean)
-  const escoposNovos = (tokens.scope ?? '').split(/s+/).filter(Boolean)
-  const escopos = [...new Set([...escoposAtuais, ...escoposNovos])].join(' ')
+  const escopos = mergeScopes(existente?.scope, tokens.scope)
 
   const dados = {
     accessToken: encryptSecret(mesclado.accessToken),
@@ -392,4 +390,24 @@ export async function getReport(
   })
   await prisma.gscConnection.update({ where: { id: prop.connectionId }, data: { lastSyncAt: fetchedAt } })
   return { report, cached: false, fetchedAt }
+}
+
+/**
+ * Pergunta ao Google quais escopos o token realmente tem e regrava.
+ *
+ * A fonte da verdade é o Google: o que guardamos pode estar desatualizado
+ * (escopo revogado na conta) ou ter sido gravado errado. `tokeninfo` devolve
+ * a lista exata concedida ao token atual.
+ */
+export async function syncGrantedScopes(connectionId: string): Promise<string> {
+  const client = await authorizedClient(connectionId)
+  const token = (await client.getAccessToken()).token
+  if (!token) throw new GscError('Sem token de acesso para verificar os escopos.')
+  const res = await client.request<{ scope?: string }>({
+    url: 'https://www.googleapis.com/oauth2/v3/tokeninfo',
+    params: { access_token: token },
+  })
+  const scope = (res.data.scope ?? '').trim()
+  if (scope) await prisma.gscConnection.update({ where: { id: connectionId }, data: { scope } })
+  return scope
 }

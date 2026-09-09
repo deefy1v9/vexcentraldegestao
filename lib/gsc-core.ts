@@ -217,3 +217,12 @@ export function needsRefresh(expiryDate: Date | null, now: Date = new Date(), ma
   if (!expiryDate) return true
   return expiryDate.getTime() - now.getTime() <= margemSegundos * 1000
 }
+
+/**
+ * Junta escopos já concedidos com os novos, sem repetir e sem perder o que
+ * existia: autorizar o Analytics não pode derrubar o Search Console.
+ */
+export function mergeScopes(atual: string | null | undefined, novo: string | null | undefined): string {
+  const lista = [...(atual ?? '').split(/\s+/), ...(novo ?? '').split(/\s+/)].filter(Boolean)
+  return [...new Set(lista)].join(' ')
+}
