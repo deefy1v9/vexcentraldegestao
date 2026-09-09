@@ -140,6 +140,7 @@ model Client {
   proposals            Proposal[]
   opportunities        Opportunity[]
   gscProperties        GscProperty[]
+  gaProperties         GaProperty[]
 }
 
 // ---------------------------------------------------------------------------
@@ -1339,8 +1340,9 @@ model GscConnection {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  connectedBy User?         @relation(fields: [connectedById], references: [id])
-  properties  GscProperty[]
+  connectedBy  User?         @relation(fields: [connectedById], references: [id])
+  properties   GscProperty[]
+  gaProperties GaProperty[]
 }
 
 // Tentativa de autorização: state aleatório, curto e de uso único.
@@ -1386,6 +1388,68 @@ model GscCache {
   expiresAt  DateTime
 
   property GscProperty @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId, expiresAt])
+}
+
+// --------------------------- Google Analytics 4 ---------------------------
+
+// Propriedade do GA4 vinculada a um cliente ou ao site da VEX. `propertyId`
+// é o ID NUMÉRICO da propriedade — nunca o ID de medição (G-XXXX).
+model GaProperty {
+  id            String   @id @default(cuid())
+  connectionId  String
+  propertyId    String // numérico, como "123456789"
+  displayName   String
+  accountName   String?
+  accountId     String?
+  timeZone      String?
+  currencyCode  String?
+  clientId      String? // nulo quando é o site da própria VEX
+  isVexSite     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  connection GscConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  client     Client?       @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  cache      GaCache[]
+  mapping    GaEventMapping?
+
+  @@unique([connectionId, propertyId])
+  @@index([clientId])
+}
+
+// Quais eventos do GA4 representam contato nesta propriedade. Nada é
+// presumido: cada mapeamento guarda como foi verificado.
+model GaEventMapping {
+  id         String   @id @default(cuid())
+  propertyId String   @unique
+  // Evento de formulário concluído (padrão do GA4: generate_lead)
+  leadEvent      String?
+  // NAO_VERIFICADO | VALIDADO | SEM_OCORRENCIA | CONFIGURACAO_NECESSARIA
+  leadStatus     String   @default("NAO_VERIFICADO")
+  leadCheckedAt  DateTime?
+  // Clique no WhatsApp: evento próprio ou click filtrado por destino
+  whatsappEvent      String?
+  whatsappUrlContains String? @default("wa.me")
+  whatsappStatus     String   @default("NAO_VERIFICADO")
+  whatsappCheckedAt  DateTime?
+  notes      String?
+  updatedAt  DateTime @updatedAt
+
+  property GaProperty @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+}
+
+// Resposta do GA4 guardada por propriedade, período, canal e tipo.
+model GaCache {
+  id         String   @id @default(cuid())
+  propertyId String
+  key        String   @unique
+  payload    Json
+  fetchedAt  DateTime @default(now())
+  expiresAt  DateTime
+
+  property GaProperty @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
   @@index([propertyId, expiresAt])
 }

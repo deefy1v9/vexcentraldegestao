@@ -100,7 +100,10 @@ function oauthClient(cred: GscCredentials): OAuth2Client {
 /* --------------------------------- state --------------------------------- */
 
 /** Cria o state de uso único e devolve a URL de consentimento. */
-export async function buildAuthUrl(userId: string): Promise<{ url: string; redirectUri: string }> {
+export async function buildAuthUrl(
+  userId: string,
+  extraScopes: string[] = [],
+): Promise<{ url: string; redirectUri: string }> {
   const cred = await getCredentials()
   if (!cred) throw new GscError('Credenciais do Google não configuradas no servidor.')
 
@@ -108,11 +111,13 @@ export async function buildAuthUrl(userId: string): Promise<{ url: string; redir
   const state = randomBytes(32).toString('base64url')
   await prisma.gscOAuthState.create({ data: { state, userId, expiresAt: stateExpiry() } })
 
+  // Autorização incremental: o que já foi concedido continua valendo
+  const escopos = [...new Set([...AUTH_ENDPOINT_SCOPES, ...extraScopes])]
   const url = oauthClient(cred).generateAuthUrl({
     access_type: 'offline', // refresh token para renovar sem novo consentimento
     prompt: 'consent',
     include_granted_scopes: true,
-    scope: AUTH_ENDPOINT_SCOPES,
+    scope: escopos,
     state,
   })
   return { url, redirectUri: cred.redirectUri }
@@ -176,11 +181,16 @@ export async function exchangeCode(code: string, userId: string) {
     tokens,
   )
 
+  // Escopos somam: autorizar o Analytics não pode derrubar o Search Console
+  const escoposAtuais = (existente?.scope ?? '').split(/s+/).filter(Boolean)
+  const escoposNovos = (tokens.scope ?? '').split(/s+/).filter(Boolean)
+  const escopos = [...new Set([...escoposAtuais, ...escoposNovos])].join(' ')
+
   const dados = {
     accessToken: encryptSecret(mesclado.accessToken),
     refreshToken: encryptSecret(mesclado.refreshToken),
     expiryDate: mesclado.expiryDate,
-    scope: tokens.scope ?? GSC_SCOPE,
+    scope: escopos || GSC_SCOPE,
     status: mesclado.refreshToken ? 'ATIVA' : 'SEM_REFRESH',
     lastError: null,
     connectedById: userId,
@@ -200,7 +210,7 @@ export async function getConnection() {
  * Cliente autenticado e pronto. Renova o access token quando preciso e
  * preserva o refresh token — o Google só o envia na primeira autorização.
  */
-async function authorizedClient(connectionId: string): Promise<OAuth2Client> {
+export async function authorizedClient(connectionId: string): Promise<OAuth2Client> {
   const cred = await getCredentials()
   if (!cred) throw new GscError('Credenciais do Google não configuradas no servidor.')
   const conn = await prisma.gscConnection.findUnique({ where: { id: connectionId } })

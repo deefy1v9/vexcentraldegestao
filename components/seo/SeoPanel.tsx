@@ -10,6 +10,7 @@ import {
   formatCount, formatCtr, formatPosition, variation, br, PERMISSION_LABEL,
   type RangeKind,
 } from '@/lib/gsc-core'
+import AnalyticsPanel from '@/components/seo/AnalyticsPanel'
 
 /* ---------------------------------- tipos ---------------------------------- */
 
@@ -92,6 +93,7 @@ export default function SeoPanel({ clientes }: { clientes: Array<{ id: string; n
   const [vincular, setVincular] = useState(false)
   const [ocupado, setOcupado] = useState(false)
 
+  const aba = params.get('aba') === 'analytics' ? 'analytics' : 'search-console'
   const propriedadeUrl = params.get('propriedade') ?? ''
   const periodo = (params.get('periodo') ?? '28d') as RangeKind
   const mes = params.get('mes') ?? ''
@@ -219,6 +221,33 @@ export default function SeoPanel({ clientes }: { clientes: Array<{ id: string; n
           <CheckCircle2 className="w-4 h-4 shrink-0 mt-px" /> {aviso}
         </p>
       )}
+
+      {/* Search Console e Analytics: cada um com suas definições */}
+      <div className="flex items-center gap-0.5 bg-gray-100 rounded-lg p-0.5 h-10 w-fit">
+        {([['search-console', 'Search Console'], ['analytics', 'Analytics']] as const).map(([k, l]) => (
+          <button
+            key={k}
+            onClick={() => setParams({ aba: k === 'search-console' ? null : k })}
+            aria-pressed={aba === k}
+            className={`px-4 h-9 rounded-md text-xs font-semibold ${aba === k ? 'bg-white text-[#030A8C] shadow-sm' : 'text-gray-500'}`}
+          >
+            {l}
+          </button>
+        ))}
+      </div>
+
+      {aba === 'analytics' ? (
+        <AnalyticsPanel
+          clientes={clientes}
+          periodo={periodo}
+          mes={mes}
+          ano={ano}
+          de={de}
+          ate={ate}
+          onPeriodo={setParams}
+        />
+      ) : (
+      <>
 
       {/* Credenciais ausentes: pendência de configuração, não erro do usuário */}
       {!status?.configured && (
@@ -460,6 +489,9 @@ export default function SeoPanel({ clientes }: { clientes: Array<{ id: string; n
             </>
           )}
         </>
+      )}
+
+      </>
       )}
 
       {vincular && status?.connection && (
