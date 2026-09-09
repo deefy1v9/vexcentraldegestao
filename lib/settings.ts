@@ -24,6 +24,7 @@ export const SECRET_SETTING_KEYS = new Set<string>([
   'SMTP_CONTATO_PASS',
   'UAZAPI_TOKEN',
   'ANTHROPIC_API_KEY',
+  'GSC_CLIENT_SECRET',
 ])
 
 /** Lê várias chaves de uma vez, já descriptografadas quando for o caso. */

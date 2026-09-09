@@ -222,16 +222,11 @@ export default function SeoPanel({ clientes }: { clientes: Array<{ id: string; n
 
       {/* Credenciais ausentes: pendência de configuração, não erro do usuário */}
       {!status?.configured && (
-        <div className="bg-white border border-orange-200 rounded-xl p-5">
-          <p className="font-semibold text-gray-900 flex items-center gap-2"><AlertTriangle className="w-4 h-4 text-orange-500" /> Configuração pendente</p>
-          <p className="text-sm text-gray-600 mt-1">
-            Falta preencher no servidor: <span className="font-mono text-xs">{status?.missingEnv.join(', ')}</span>.
-          </p>
-          <p className="text-xs text-gray-500 mt-2">
-            URI de retorno que precisa estar cadastrada no Google Cloud:{' '}
-            <span className="font-mono text-[11px] bg-gray-100 px-1.5 py-0.5 rounded">{status?.redirectUri}</span>
-          </p>
-        </div>
+        <CredenciaisCard
+          missingEnv={status?.missingEnv ?? []}
+          redirectUri={status?.redirectUri ?? ''}
+          onSalvo={() => { setAviso('Credenciais salvas. Já pode conectar a conta do Google.'); carregarStatus() }}
+        />
       )}
 
       {/* Conexão */}
@@ -679,3 +674,102 @@ function VincularModal({
 }
 
 export { PERMISSION_LABEL }
+
+/* ----------------------------- credenciais ----------------------------- */
+
+/**
+ * Formulário das credenciais do cliente OAuth. Existe para o segredo ir
+ * direto do Google Cloud para o servidor, cifrado, sem passar por chat,
+ * e-mail ou repositório. Variável de ambiente, se houver, tem prioridade.
+ */
+function CredenciaisCard({
+  missingEnv, redirectUri, onSalvo,
+}: {
+  missingEnv: string[]
+  redirectUri: string
+  onSalvo: () => void
+}) {
+  const [clientId, setClientId] = useState('')
+  const [clientSecret, setClientSecret] = useState('')
+  const [salvando, setSalvando] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
+  const [copiado, setCopiado] = useState(false)
+
+  async function salvar() {
+    setSalvando(true); setErro(null)
+    try {
+      const res = await fetch('/api/gsc/credenciais', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId: clientId.trim(), clientSecret: clientSecret.trim() }),
+      })
+      const b = await res.json().catch(() => ({}))
+      if (!res.ok) { setErro(b.error ?? 'Não foi possível salvar.'); return }
+      setClientSecret('')
+      onSalvo()
+    } finally { setSalvando(false) }
+  }
+
+  return (
+    <div className="bg-white border border-orange-200 rounded-xl p-4 sm:p-5 space-y-3">
+      <div>
+        <p className="font-semibold text-gray-900 flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 text-orange-500" /> Configuração pendente
+        </p>
+        <p className="text-sm text-gray-600 mt-1">
+          Falta no servidor: <span className="font-mono text-xs">{missingEnv.join(', ')}</span>.
+          Cole abaixo as credenciais do cliente OAuth. O segredo é gravado cifrado e nunca volta para a tela.
+        </p>
+      </div>
+
+      <div className="flex items-center gap-2 text-xs bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+        <span className="text-gray-500 shrink-0">URI de retorno:</span>
+        <span className="font-mono text-[11px] text-gray-900 truncate">{redirectUri}</span>
+        <button
+          onClick={() => { navigator.clipboard.writeText(redirectUri); setCopiado(true) }}
+          className="ml-auto text-[11px] font-semibold text-[#030A8C] hover:underline shrink-0"
+        >
+          {copiado ? 'copiado' : 'copiar'}
+        </button>
+      </div>
+
+      {erro && <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{erro}</p>}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs font-medium text-gray-600 mb-1 block">Client ID</label>
+          <input
+            value={clientId}
+            onChange={(e) => setClientId(e.target.value)}
+            placeholder="000000000000-xxxxx.apps.googleusercontent.com"
+            className="input text-sm font-mono"
+            autoComplete="off"
+          />
+        </div>
+        <div>
+          <label className="text-xs font-medium text-gray-600 mb-1 block">Client secret</label>
+          <input
+            type="password"
+            value={clientSecret}
+            onChange={(e) => setClientSecret(e.target.value)}
+            placeholder="GOCSPX-..."
+            className="input text-sm font-mono"
+            autoComplete="off"
+          />
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[11px] text-gray-400">
+          O Google não mostra o segredo depois de criado. Se você não tem mais o valor, gere um novo em “Add secret”.
+        </p>
+        <button
+          onClick={salvar}
+          disabled={salvando || !clientId.trim() || !clientSecret.trim()}
+          className="shrink-0 flex items-center gap-1.5 px-4 h-9 bg-[#030A8C] text-white rounded-lg text-xs font-semibold hover:bg-[#02077a] disabled:opacity-40"
+        >
+          {salvando && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Salvar credenciais
+        </button>
+      </div>
+    </div>
+  )
+}
