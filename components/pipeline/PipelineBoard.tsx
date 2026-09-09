@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
   Plus, Search, LayoutGrid, List, X, Loader2, AlertTriangle, Clock, FileText,
@@ -13,6 +13,7 @@ import {
   STAGES, STAGE_LABEL, opportunityTotals, daysBetween, isFollowUpLate, type Stage,
 } from '@/lib/pipeline-core'
 import OpportunityDrawer, { type Opportunity, type CatalogOption } from '@/components/pipeline/OpportunityDrawer'
+import PortalMenu from '@/components/ui/PortalMenu'
 import {
   EMPTY_FILTERS, FilterChips, FiltersButton, OwnerSelect,
   type PipelineFilterState,
@@ -188,9 +189,9 @@ export default function PipelineBoard({ isAdmin, currentUserId }: { isAdmin: boo
   const ownerName = owners.find((o) => o.id === filters.owner)?.name ?? null
 
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col h-full min-h-0 gap-3">
       {/* Cabeçalho: contexto à esquerda, ação principal à direita */}
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start justify-between gap-3 shrink-0">
         <p className="text-sm text-gray-500">
           {loading ? 'Carregando negociações…' : `${filtered.length} negociação(ões) no funil comercial.`}
         </p>
@@ -203,7 +204,7 @@ export default function PipelineBoard({ isAdmin, currentUserId }: { isAdmin: boo
       </div>
 
       {/* Barra compacta */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 shrink-0">
         <div className="relative flex-1 min-w-[240px] max-w-[400px]">
           <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
@@ -254,20 +255,22 @@ export default function PipelineBoard({ isAdmin, currentUserId }: { isAdmin: boo
         onClear={() => push({ ...EMPTY_FILTERS })}
       />
 
-      {flash && <p className="text-xs font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">{flash}</p>}
-      {error && <p className="text-xs font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
+      {flash && <p className="text-xs font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 shrink-0">{flash}</p>}
+      {error && <p className="text-xs font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 shrink-0">{error}</p>}
 
       {loading ? (
-        <div className="flex gap-3 overflow-hidden">
-          {[...Array(4)].map((_, i) => <div key={i} className="h-64 w-[300px] shrink-0 bg-gray-100 rounded-xl animate-pulse" />)}
+        <div className="flex gap-3 overflow-hidden flex-1 min-h-0">
+          {[...Array(4)].map((_, i) => <div key={i} className="w-[300px] shrink-0 bg-gray-100 rounded-xl animate-pulse" />)}
         </div>
       ) : view === 'lista' ? (
-        <ListView list={filtered} onOpen={setOpenId} />
+        <div className="flex-1 min-h-0 overflow-auto">
+          <ListView list={filtered} onOpen={setOpenId} />
+        </div>
       ) : (
         <>
           {/* Celular e tablet: uma etapa por vez, sem depender de arrastar */}
-          <div className="lg:hidden space-y-3">
-            <div className="flex gap-1.5 overflow-x-auto pb-1">
+          <div className="lg:hidden flex-1 min-h-0 flex flex-col gap-3">
+            <div className="flex gap-1.5 overflow-x-auto pb-1 shrink-0">
               {colunas.map((s) => (
                 <button
                   key={s}
@@ -294,7 +297,7 @@ export default function PipelineBoard({ isAdmin, currentUserId }: { isAdmin: boo
           </div>
 
           {/* Desktop: rolagem horizontal apenas dentro do quadro */}
-          <div className="hidden lg:flex gap-3 overflow-x-auto pb-2 -mx-1 px-1">
+          <div className="hidden lg:flex gap-3 overflow-x-auto overflow-y-hidden pb-2 -mx-1 px-1 flex-1 min-h-0">
             {colunas.map((stage) => {
               const list = byStage.get(stage) ?? []
               return (
@@ -306,7 +309,7 @@ export default function PipelineBoard({ isAdmin, currentUserId }: { isAdmin: boo
                     setDragging(null)
                     if (opp) moveTo(opp, stage)
                   }}
-                  className="w-[300px] shrink-0"
+                  className="w-[300px] shrink-0 h-full"
                 >
                   <Column
                     stage={stage}
@@ -373,8 +376,8 @@ function Column({
   onDragStart?: (id: string) => void
 }) {
   return (
-    <div className="bg-gray-50 rounded-xl border border-gray-200 flex flex-col max-h-[calc(100dvh-330px)] min-h-[180px]">
-      <div className="px-3 py-2.5 border-b border-gray-200 bg-gray-50 rounded-t-xl">
+    <div className="bg-gray-50 rounded-xl border border-gray-200 flex flex-col h-full min-h-0">
+      <div className="px-3 py-2.5 border-b border-gray-200 bg-gray-50 rounded-t-xl shrink-0">
         <div className="flex items-center justify-between gap-2">
           <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${STAGE_COLOR[stage]}`}>{STAGE_LABEL[stage]}</span>
           <span className="text-[11px] font-semibold text-gray-500">{list.length}</span>
@@ -384,7 +387,7 @@ function Column({
           {totals.pontual > 0 && <span className="text-purple-700"> · {brl(totals.pontual)} pontual</span>}
         </p>
       </div>
-      <div className="p-2 space-y-2 overflow-y-auto">
+      <div className="p-2 space-y-2 overflow-y-auto flex-1 min-h-0">
         {list.length === 0 ? (
           <p className="text-[11px] text-gray-400 text-center py-4">Nenhuma negociação</p>
         ) : list.map((o) => (
@@ -408,71 +411,68 @@ function Card({
   draggable: boolean
   onDragStart?: (id: string) => void
 }) {
-  const [menu, setMenu] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
   const totals = opportunityTotals(opp.items, opp.estimateCents)
   const nome = opp.client?.name ?? opp.prospect?.tradeName ?? opp.prospect?.name ?? 'Sem contato'
   const atrasado = isFollowUpLate(opp.nextActionAt, today)
   const pontual = totals.avulsoCents + totals.projetoMensalCents
   const semValor = totals.itemCount === 0 && !totals.usandoEstimativa
 
-  useEffect(() => {
-    if (!menu) return
-    const fora = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setMenu(false) }
-    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenu(false) }
-    document.addEventListener('mousedown', fora)
-    document.addEventListener('keydown', esc)
-    return () => { document.removeEventListener('mousedown', fora); document.removeEventListener('keydown', esc) }
-  }, [menu])
-
   return (
     <div
-      ref={ref}
       draggable={draggable}
       onDragStart={() => onDragStart?.(opp.id)}
-      className={`relative bg-white border rounded-lg p-3 ${busy ? 'opacity-50' : ''} ${atrasado ? 'border-red-200' : 'border-gray-200'} ${draggable ? 'cursor-grab active:cursor-grabbing' : ''}`}
+      className={`bg-white border rounded-lg p-3 ${busy ? 'opacity-50' : ''} ${atrasado ? 'border-red-200' : 'border-gray-200'} ${draggable ? 'cursor-grab active:cursor-grabbing' : ''}`}
     >
       <div className="flex items-start justify-between gap-1">
         <button onClick={() => onOpen(opp.id)} className="text-left min-w-0 flex-1">
-          <p className="text-sm font-semibold text-gray-900 leading-snug line-clamp-2">{opp.title}</p>
-          <p className="text-[11px] text-gray-500 truncate flex items-center gap-1 mt-0.5">
-            {nome}
+          <p className="text-sm font-semibold text-gray-900 leading-snug line-clamp-2 break-words">{opp.title}</p>
+          <p className="text-[11px] text-gray-500 flex items-center gap-1 mt-0.5 min-w-0">
+            <span className="truncate">{nome}</span>
             {opp.client && <TierBadge tier={opp.client.tier} />}
           </p>
         </button>
-        <button
-          onClick={() => setMenu((v) => !v)}
-          aria-label="Ações da negociação"
-          aria-haspopup="menu"
-          aria-expanded={menu}
-          className="p-1 -mr-1 rounded hover:bg-gray-100 text-gray-400 shrink-0"
-        >
-          <MoreVertical className="w-4 h-4" />
-        </button>
-      </div>
 
-      {menu && (
-        <div className="absolute right-2 top-9 z-30 w-52 bg-white border border-gray-200 rounded-lg shadow-lg py-1" role="menu">
-          <button
-            onClick={() => { setMenu(false); onOpen(opp.id) }}
-            className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
-            role="menuitem"
-          >
-            Abrir detalhes
-          </button>
-          <p className="px-3 pt-2 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Mover para</p>
-          {STAGES.filter((s) => s !== opp.stage).map((s) => (
+        {/* Menu em portal: dentro da coluna com rolagem, um menu absoluto
+            seria recortado — subir z-index não resolveria */}
+        <PortalMenu
+          ariaLabel={`Ações de ${opp.title}`}
+          trigger={({ open, toggle, ref }) => (
             <button
-              key={s}
-              onClick={() => { setMenu(false); onMove(opp, s) }}
-              className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-1.5"
-              role="menuitem"
+              ref={ref}
+              onClick={toggle}
+              aria-label="Ações da negociação"
+              aria-haspopup="menu"
+              aria-expanded={open}
+              className="p-1 -mr-1 rounded hover:bg-gray-100 text-gray-400 shrink-0"
             >
-              <ArrowRight className="w-3 h-3 text-gray-300" /> {STAGE_LABEL[s]}
+              <MoreVertical className="w-4 h-4" />
             </button>
-          ))}
-        </div>
-      )}
+          )}
+        >
+          {(close) => (
+            <>
+              <button
+                onClick={() => { close(); onOpen(opp.id) }}
+                className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
+                role="menuitem"
+              >
+                Abrir detalhes
+              </button>
+              <p className="px-3 pt-2 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Mover para</p>
+              {STAGES.filter((s) => s !== opp.stage).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => { close(); onMove(opp, s) }}
+                  className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-1.5"
+                  role="menuitem"
+                >
+                  <ArrowRight className="w-3 h-3 text-gray-300 shrink-0" /> {STAGE_LABEL[s]}
+                </button>
+              ))}
+            </>
+          )}
+        </PortalMenu>
+      </div>
 
       <div className="mt-2 text-xs">
         {totals.usandoEstimativa ? (
@@ -514,7 +514,7 @@ function Card({
       </div>
 
       {opp.nextAction ? (
-        <p className={`mt-1.5 text-[11px] truncate ${atrasado ? 'text-red-600 font-semibold' : 'text-gray-500'}`}>
+        <p className={`mt-1.5 text-[11px] break-words line-clamp-2 ${atrasado ? 'text-red-600 font-semibold' : 'text-gray-500'}`}>
           {opp.nextAction}{opp.nextActionAt ? ` · ${formatDate(opp.nextActionAt)}` : ''}
         </p>
       ) : (

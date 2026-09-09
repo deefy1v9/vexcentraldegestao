@@ -16,7 +16,9 @@ export default async function PipelinePage() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <Header title="Pipeline" subtitle="Leads, negociações e fechamento comercial" />
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+      {/* Sem overflow aqui: quem rola é o quadro, para o Kanban ocupar toda
+          a altura que sobra do cabeçalho */}
+      <div className="flex-1 min-h-0 flex flex-col p-4 sm:p-6">
         {/* O quadro guarda filtros e visualização na URL (useSearchParams) */}
         <Suspense fallback={<p className="text-sm text-gray-400">Carregando pipeline…</p>}>
           <PipelineBoard isAdmin={viewer.role === 'ADMIN'} currentUserId={viewer.id} />
