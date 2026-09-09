@@ -414,3 +414,15 @@ export function applyCompetenceToDescription(desc: string, competencia: string):
   }
   return `${desc} — competência ${competencia}`
 }
+
+/**
+ * Lê uma competência "AAAA-MM" vinda da URL ou de um formulário.
+ * Devolve null quando o texto não é uma competência válida — quem chama
+ * decide o que fazer (normalmente, cair no mês corrente).
+ */
+export function parseCompetence(value: string | null | undefined): { year: number; month: number } | null {
+  if (!value || !/^\d{4}-(0[1-9]|1[0-2])$/.test(value.slice(0, 7))) return null
+  const [year, month] = value.slice(0, 7).split('-').map(Number)
+  if (!Number.isInteger(year) || year < 2000 || year > 2100) return null
+  return { year, month }
+}

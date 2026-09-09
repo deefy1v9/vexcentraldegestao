@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { formatCurrency, formatDate } from '@/lib/utils'
+import { parseCompetence } from '@/lib/billing-core'
 import CurrencyInput from '@/components/ui/CurrencyInput'
 import TierBadge from '@/components/ui/TierBadge'
 import FinanceKpis, { type MonthSummary } from '@/components/financeiro/FinanceKpis'
@@ -201,11 +202,7 @@ function currentPeriod() {
 
 /** Lê ?mes=AAAA-MM da URL; sem parâmetro válido, mês corrente. */
 function periodFromParam(value: string | null) {
-  if (value && /^d{4}-(0[1-9]|1[0-2])$/.test(value)) {
-    const [y, m] = value.split('-').map(Number)
-    return { year: y, month: m }
-  }
-  return currentPeriod()
+  return parseCompetence(value) ?? currentPeriod()
 }
 
 export default function FinanceiroPanel() {

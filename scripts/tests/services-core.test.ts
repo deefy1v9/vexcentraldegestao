@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import {
   serviceCents, serviceInCompetence, competenceBreakdown, computeCompetenceCents,
   recurringTicketCents, recommendTierCents, isRecurringType, countsForMrr,
-  nthBusinessDayISO, dueDateForRule, isDueRule, DUE_RULES,
+  nthBusinessDayISO, dueDateForRule, isDueRule, DUE_RULES, parseCompetence,
   DEFAULT_TIER_RANGES,
 } from '../../lib/billing-core'
 import { isContractType, CONTRACT_TYPES } from '../../lib/services-catalog'
@@ -207,4 +207,16 @@ test('serviço encerrado hoje ainda conta no dia do encerramento', () => {
   ]
   assert.equal(recurringTicketCents(services, '2026-09-08'), 100000)
   assert.equal(recurringTicketCents(services, '2026-09-09'), 0)
+})
+
+test('competência da URL: aceita AAAA-MM e recusa o resto', () => {
+  assert.deepEqual(parseCompetence('2026-08'), { year: 2026, month: 8 })
+  assert.deepEqual(parseCompetence('2026-08-15'), { year: 2026, month: 8 })
+  assert.equal(parseCompetence('2026-13'), null)
+  assert.equal(parseCompetence('2026-00'), null)
+  assert.equal(parseCompetence('agosto'), null)
+  assert.equal(parseCompetence('dddd-08'), null)
+  assert.equal(parseCompetence(''), null)
+  assert.equal(parseCompetence(null), null)
+  assert.equal(parseCompetence('1999-08'), null)
 })
