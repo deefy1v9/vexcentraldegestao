@@ -67,6 +67,7 @@ model User {
   prospects        Prospect[]
   proposals        Proposal[]
 
+  gscConnections       GscConnection[]
   ownedProspects       Prospect[]         @relation("ProspectOwner")
   ownedOpportunities   Opportunity[]      @relation("OpportunityOwner")
   createdOpportunities Opportunity[]      @relation("OpportunityCreator")
@@ -138,6 +139,7 @@ model Client {
   planProposals        PlanProposal[]
   proposals            Proposal[]
   opportunities        Opportunity[]
+  gscProperties        GscProperty[]
 }
 
 // ---------------------------------------------------------------------------
@@ -1316,4 +1318,74 @@ model ProposalEvent {
   proposal Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
 
   @@index([proposalId, createdAt])
+}
+
+// ------------------------- Google Search Console -------------------------
+
+// Conta Google autorizada. Tokens ficam cifrados (lib/crypto) e nunca saem
+// para o frontend. Uma conexão atende várias propriedades.
+model GscConnection {
+  id           String    @id @default(cuid())
+  googleEmail  String    @unique
+  accessToken  String? // cifrado
+  refreshToken String? // cifrado — nunca sobrescrito por ausente na renovação
+  expiryDate   DateTime?
+  scope        String?
+  // ATIVA | SEM_REFRESH | REVOGADA | ERRO
+  status       String    @default("ATIVA")
+  lastError    String?
+  lastSyncAt   DateTime?
+  connectedById String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  connectedBy User?         @relation(fields: [connectedById], references: [id])
+  properties  GscProperty[]
+}
+
+// Tentativa de autorização: state aleatório, curto e de uso único.
+model GscOAuthState {
+  state     String   @id
+  userId    String
+  redirect  String?
+  usedAt    DateTime?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
+}
+
+// Propriedade do Search Console vinculada a um cliente ou ao site da VEX.
+// siteUrl é guardado exatamente como o Google devolve (domain: ou URL).
+model GscProperty {
+  id              String   @id @default(cuid())
+  connectionId    String
+  siteUrl         String
+  permissionLevel String?
+  clientId        String? // nulo quando é o site da própria VEX
+  isVexSite       Boolean  @default(false)
+  label           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  connection GscConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  client     Client?       @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  cache      GscCache[]
+
+  @@unique([connectionId, siteUrl])
+  @@index([clientId])
+}
+
+// Resposta do Google guardada por propriedade, período e filtros.
+model GscCache {
+  id         String   @id @default(cuid())
+  propertyId String
+  key        String   @unique
+  payload    Json
+  fetchedAt  DateTime @default(now())
+  expiresAt  DateTime
+
+  property GscProperty @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId, expiresAt])
 }

@@ -14,6 +14,7 @@ import {
   Building2,
   Briefcase,
   Target,
+  Search,
 } from 'lucide-react'
 import { signOut } from 'next-auth/react'
 import { useSession } from 'next-auth/react'
@@ -34,6 +35,7 @@ const menuItems = [
   { href: '/calendario', label: 'Calendário', icon: Calendar, adminOnly: true },
   { href: '/pipeline', label: 'Pipeline', icon: Target },
   { href: '/crm', label: 'CRM', icon: MessageCircle, adminOnly: true },
+  { href: '/seo', label: 'SEO', icon: Search, adminOnly: true },
 ]
 
 const generalItems = [
