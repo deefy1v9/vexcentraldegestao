@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireUser } from '@/lib/api-auth'
+import { requireAdmin } from '@/lib/api-auth'
 import { findClientMatches } from '@/lib/pipeline'
 
 /**
@@ -8,7 +8,7 @@ import { findClientMatches } from '@/lib/pipeline'
  * apenas sugestões — nada é fundido automaticamente.
  */
 export async function GET(req: NextRequest) {
-  const viewer = await requireUser()
+  const viewer = await requireAdmin()
   if (viewer instanceof NextResponse) return viewer
   const { searchParams } = new URL(req.url)
   return NextResponse.json(await findClientMatches({

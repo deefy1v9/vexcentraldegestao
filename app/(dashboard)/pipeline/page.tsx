@@ -6,12 +6,13 @@ import PipelineBoard from '@/components/pipeline/PipelineBoard'
 
 /**
  * Pipeline comercial: leads, negociações e conversão em cliente.
- * Administrador enxerga tudo; colaborador vê apenas as próprias negociações
- * (o filtro real acontece no servidor, em /api/pipeline).
+ * Acesso exclusivo de administradores, no menu, na página e na API.
  */
 export default async function PipelinePage() {
+  // Pipeline comercial é de administrador: colaborador nem chega à página
   const viewer = await getSessionUser()
   if (!viewer) redirect('/login')
+  if (viewer.role !== 'ADMIN') redirect('/dashboard')
 
   return (
     <div className="flex flex-col h-full overflow-hidden">

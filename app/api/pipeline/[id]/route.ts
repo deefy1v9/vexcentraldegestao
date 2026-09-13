@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireUser } from '@/lib/api-auth'
+import { requireAdmin } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { OPPORTUNITY_INCLUDE, logOpportunityEvent, projectedTierFor } from '@/lib/pipeline'
 
 /** Detalhe da oportunidade com histórico, e edição dos campos comerciais. */
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const viewer = await requireUser()
+  const viewer = await requireAdmin()
   if (viewer instanceof NextResponse) return viewer
   const { id } = await params
 
@@ -24,7 +24,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const viewer = await requireUser()
+  const viewer = await requireAdmin()
   if (viewer instanceof NextResponse) return viewer
   const { id } = await params
 

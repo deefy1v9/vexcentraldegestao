@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireUser } from '@/lib/api-auth'
+import { requireAdmin } from '@/lib/api-auth'
 import { moveStage, PipelineError } from '@/lib/pipeline'
 
 /**
@@ -9,7 +9,7 @@ import { moveStage, PipelineError } from '@/lib/pipeline'
  * a transação volta atrás e a oportunidade fica na etapa anterior.
  */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const viewer = await requireUser()
+  const viewer = await requireAdmin()
   if (viewer instanceof NextResponse) return viewer
   const { id } = await params
   const body = await req.json().catch(() => ({}))

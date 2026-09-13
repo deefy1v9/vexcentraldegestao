@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireUser } from '@/lib/api-auth'
+import { requireAdmin } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
 import { boardData, ensureLead, itemFromBody, logOpportunityEvent, PipelineError } from '@/lib/pipeline'
@@ -10,13 +10,13 @@ import { isStage } from '@/lib/pipeline-core'
  * negociações. Colaborador enxerga apenas as próprias oportunidades.
  */
 export async function GET() {
-  const viewer = await requireUser()
+  const viewer = await requireAdmin()
   if (viewer instanceof NextResponse) return viewer
   return NextResponse.json(await boardData(viewer))
 }
 
 export async function POST(req: NextRequest) {
-  const viewer = await requireUser()
+  const viewer = await requireAdmin()
   if (viewer instanceof NextResponse) return viewer
 
   const body = await req.json().catch(() => ({}))

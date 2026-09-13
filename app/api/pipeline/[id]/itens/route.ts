@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireUser } from '@/lib/api-auth'
+import { requireAdmin } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { itemFromBody, logOpportunityEvent, OPPORTUNITY_INCLUDE } from '@/lib/pipeline'
 import { priceWarnings } from '@/lib/pipeline-core'
@@ -26,7 +26,7 @@ async function guard(id: string, viewer: { id: string; role: string }) {
 
 /** Serviços orçados: catálogo como referência, valor negociado no item. */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const viewer = await requireUser()
+  const viewer = await requireAdmin()
   if (viewer instanceof NextResponse) return viewer
   const { id } = await params
   const g = await guard(id, viewer)
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 }
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const viewer = await requireUser()
+  const viewer = await requireAdmin()
   if (viewer instanceof NextResponse) return viewer
   const { id } = await params
   const g = await guard(id, viewer)
@@ -97,7 +97,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const viewer = await requireUser()
+  const viewer = await requireAdmin()
   if (viewer instanceof NextResponse) return viewer
   const { id } = await params
   const g = await guard(id, viewer)
