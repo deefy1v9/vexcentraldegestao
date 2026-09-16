@@ -106,7 +106,12 @@ export async function materializeReceivables(year: number, month: number, db: Db
  * recorrente gera do início até o fim (ou 12 meses à frente) — o resto é
  * materializado mês a mês ao abrir a competência.
  */
-export async function seedServicePayments(db: Db, serviceId: string): Promise<number> {
+/**
+ * `fromDate`: começa a gerar a partir dessa competência em vez do início do
+ * contrato. Reativar depois de uma pausa usa isso — os meses pausados não
+ * voltam como parcela.
+ */
+export async function seedServicePayments(db: Db, serviceId: string, fromDate?: Date): Promise<number> {
   const s = await db.clientService.findUnique({
     where: { id: serviceId },
     select: {
@@ -124,7 +129,8 @@ export async function seedServicePayments(db: Db, serviceId: string): Promise<nu
     return (await ensureServicePayment(db, s, y, m)) ? 1 : 0
   }
 
-  const start = s.startDate ?? new Date()
+  const inicioContrato = s.startDate ?? new Date()
+  const start = fromDate && fromDate > inicioContrato ? fromDate : inicioContrato
   let y = start.getUTCFullYear()
   let m = start.getUTCMonth() + 1
   const limit = s.endDate

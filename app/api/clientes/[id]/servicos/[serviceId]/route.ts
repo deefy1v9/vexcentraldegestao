@@ -74,7 +74,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       // Para de gerar a partir da competência da data (pagas ficam)
       await dropPendingPaymentsFrom(tx, serviceId, date.toISOString())
     } else {
-      await seedServicePayments(tx, serviceId)
+      // Volta a gerar só da data da reativação em diante: o período pausado
+      // não vira cobrança retroativa
+      await seedServicePayments(tx, serviceId, date)
     }
     await recalcClientMonthlyValue(tx, id)
   })
