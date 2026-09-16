@@ -8,6 +8,7 @@ import {
 import { formatDate } from '@/lib/utils'
 import TierBadge from '@/components/ui/TierBadge'
 import AiImportModal from '@/components/demandas/AiImportModal'
+import TaskBrief from '@/components/demandas/TaskBrief'
 
 type TaskStatus = 'BACKLOG' | 'TODO' | 'EM_ANDAMENTO' | 'EM_REVISAO' | 'APROVADO' | 'CONCLUIDO'
 type TaskPriority = 'BAIXA' | 'MEDIA' | 'ALTA' | 'URGENTE'
@@ -24,6 +25,7 @@ interface Task {
   priority: TaskPriority
   dueDate?: Date | string | null
   platform?: string | null
+  contentType?: string | null
   driveLink?: string | null
   tags: string[]
   client?: { id: string; name: string; tier?: string | null } | null
@@ -957,10 +959,10 @@ export default function KanbanBoard({
         </div>
       </div>
 
-      {/* Task detail drawer */}
+      {/* Detalhe da demanda: popup centralizado (tela cheia no celular) */}
       {selectedTask && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-end z-50" onClick={() => { setSelectedTask(null); setEditMode(false); setAttachments([]) }}>
-          <div className="bg-white border-l border-gray-200 w-full max-w-md h-full flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 sm:p-4" onClick={() => { setSelectedTask(null); setEditMode(false); setAttachments([]) }}>
+          <div className="bg-white w-full h-full sm:h-auto sm:max-h-[92dvh] sm:max-w-3xl sm:rounded-2xl sm:border sm:border-gray-200 sm:shadow-2xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
 
             {/* Drawer header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
@@ -1014,11 +1016,17 @@ export default function KanbanBoard({
               {!editMode ? (
                 <>
                   <div>
-                    <h2 className="text-lg font-bold text-gray-900 mb-1">{selectedTask.title}</h2>
-                    {selectedTask.description && <p className="text-sm text-gray-500">{selectedTask.description}</p>}
+                    <h2 className="text-xl font-bold text-gray-900 leading-snug">{selectedTask.title}</h2>
+                    {(selectedTask.client || selectedTask.platform || selectedTask.contentType) && (
+                      <p className="text-xs text-gray-500 mt-1 flex flex-wrap items-center gap-x-2">
+                        {selectedTask.client && <span className="font-semibold text-gray-700">{selectedTask.client.name}</span>}
+                        {selectedTask.platform && <span>· {selectedTask.platform}</span>}
+                        {selectedTask.contentType && <span>· {selectedTask.contentType}</span>}
+                      </p>
+                    )}
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
                     <div>
                       <p className="text-xs text-gray-400 mb-1 font-medium">Status</p>
                       {/* Colaborador só mexe no status da demanda atribuída a ele
@@ -1110,6 +1118,14 @@ export default function KanbanBoard({
                       </div>
                     )
                   })()}
+
+                  {/* Briefing: copy, legenda e hashtags em blocos separados */}
+                  {selectedTask.description && (
+                    <div>
+                      <p className="text-xs text-gray-400 mb-2 font-medium">Briefing</p>
+                      <TaskBrief description={selectedTask.description} />
+                    </div>
+                  )}
 
                   {/* Link do Drive já enviado */}
                   {selectedTask.driveLink && (

@@ -32,7 +32,7 @@ const menuItems = [
   { href: '/servicos', label: 'Serviços', icon: Briefcase, adminOnly: true },
   { href: '/colaboradores', label: 'Colaboradores', icon: UserPlus, adminOnly: true },
   { href: '/demandas', label: 'Demandas', icon: Kanban },
-  { href: '/calendario', label: 'Calendário', icon: Calendar, adminOnly: true },
+  { href: '/calendario', label: 'Calendário', icon: Calendar },
   { href: '/pipeline', label: 'Pipeline', icon: Target, adminOnly: true },
   { href: '/crm', label: 'CRM', icon: MessageCircle, adminOnly: true },
   { href: '/seo', label: 'SEO', icon: Search, adminOnly: true },

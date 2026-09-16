@@ -5,10 +5,8 @@ import { logActivity } from '@/lib/activity'
 
 export async function GET(req: NextRequest) {
   const session = await auth()
+  // Leitura liberada a todo usuário logado; escrita continua só do admin
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (session.user.role !== 'ADMIN') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
 
   const { searchParams } = new URL(req.url)
   const month = searchParams.get('month')

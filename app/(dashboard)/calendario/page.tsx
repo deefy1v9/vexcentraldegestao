@@ -5,9 +5,11 @@ import Header from '@/components/layout/Header'
 import CalendarView from '@/components/calendario/CalendarView'
 
 export default async function CalendarioPage() {
-  // Agenda da agência: restrita a administradores.
+  // Agenda da agência: todo colaborador consulta (é a visão mais intuitiva
+  // das entregas); criar, mudar ou apagar evento continua com o admin.
   const viewer = await getSessionUser()
-  if (!viewer || viewer.role !== 'ADMIN') redirect('/dashboard')
+  if (!viewer) redirect('/dashboard')
+  const isAdmin = viewer.role === 'ADMIN'
 
   const [events, tasks, clients, users, aiItems] = await Promise.all([
     prisma.calendarEvent.findMany({
@@ -59,6 +61,7 @@ export default async function CalendarioPage() {
         aiTaskIds={aiTaskIds}
         clients={clients}
         users={users}
+        canEdit={isAdmin}
       />
     </div>
   )

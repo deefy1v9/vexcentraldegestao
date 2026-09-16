@@ -77,6 +77,8 @@ const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
 // Sunday=0 → shift to Monday=0
+const STATUS_LABEL: Record<string, string> = { PENDENTE: 'Pendente', EM_ANDAMENTO: 'Em Andamento', CONCLUIDO: 'Concluído' }
+
 function toMonday(dayOfWeek: number) {
   return (dayOfWeek + 6) % 7
 }
@@ -97,12 +99,15 @@ export default function CalendarView({
   aiTaskIds = [],
   clients,
   users,
+  canEdit = true,
 }: {
   initialEvents: CalEvent[]
   initialTasks?: CalTask[]
   aiTaskIds?: string[]
   clients: Client[]
   users: User[]
+  /** Colaborador só consulta: sem criar, mudar ou apagar eventos. */
+  canEdit?: boolean
 }) {
   const router = useRouter()
   const today = new Date()
@@ -180,6 +185,7 @@ export default function CalendarView({
   function goToday() { setCursor(new Date(today.getFullYear(), today.getMonth(), today.getDate())) }
 
   function openNewEvent(dateStr: string) {
+    if (!canEdit) return
     setForm((f) => ({ ...f, startDate: dateStr }))
     setShowForm(true)
   }
@@ -274,7 +280,7 @@ export default function CalendarView({
     return (
       <div
         onClick={() => openNewEvent(iso)}
-        className={`border-b border-r border-gray-100 p-1.5 cursor-pointer transition-colors group ${
+        className={`border-b border-r border-gray-100 p-1.5 transition-colors group ${canEdit ? 'cursor-pointer' : ''} ${
           !cell.isCurrentMonth ? 'bg-gray-50' : isWeekend ? 'bg-gray-50/50' : 'bg-white'
         } hover:bg-gray-50`}
       >
@@ -380,7 +386,7 @@ export default function CalendarView({
             {activeFilters > 0 && <span className="text-[10px] font-bold">{activeFilters}</span>}
           </button>
 
-          <PlannerConfigPanel onCapacity={setCapacity} />
+          {canEdit && <PlannerConfigPanel onCapacity={setCapacity} />}
 
           <button
             onClick={goToday}
@@ -389,15 +395,17 @@ export default function CalendarView({
             Hoje
           </button>
 
-          <PlannerWizard clients={clients} onCreated={() => router.refresh()} />
+          {canEdit && <PlannerWizard clients={clients} onCreated={() => router.refresh()} />}
 
-          <button
-            onClick={() => { setForm((f) => ({ ...f, startDate: todayISO })); setShowForm(true) }}
-            className="flex items-center gap-1.5 border border-gray-200 text-gray-600 px-2.5 py-1.5 rounded-lg text-xs font-semibold hover:border-[#030A8C] hover:text-[#030A8C] transition-colors"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Evento</span>
-          </button>
+          {canEdit && (
+            <button
+              onClick={() => { setForm((f) => ({ ...f, startDate: todayISO })); setShowForm(true) }}
+              className="flex items-center gap-1.5 border border-gray-200 text-gray-600 px-2.5 py-1.5 rounded-lg text-xs font-semibold hover:border-[#030A8C] hover:text-[#030A8C] transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Evento</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -540,15 +548,19 @@ export default function CalendarView({
                 </div>
                 <div>
                   <p className="text-[10px] text-gray-400 font-medium mb-1">STATUS</p>
-                  <select
-                    value={selectedEvent.status}
-                    onChange={(e) => updateStatus(selectedEvent.id, e.target.value)}
-                    className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs text-gray-700 outline-none focus:border-[#030A8C]"
-                  >
-                    <option value="PENDENTE">Pendente</option>
-                    <option value="EM_ANDAMENTO">Em Andamento</option>
-                    <option value="CONCLUIDO">Concluído</option>
-                  </select>
+                  {canEdit ? (
+                    <select
+                      value={selectedEvent.status}
+                      onChange={(e) => updateStatus(selectedEvent.id, e.target.value)}
+                      className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs text-gray-700 outline-none focus:border-[#030A8C]"
+                    >
+                      <option value="PENDENTE">Pendente</option>
+                      <option value="EM_ANDAMENTO">Em Andamento</option>
+                      <option value="CONCLUIDO">Concluído</option>
+                    </select>
+                  ) : (
+                    <p className="text-xs text-gray-700">{STATUS_LABEL[selectedEvent.status] ?? selectedEvent.status}</p>
+                  )}
                 </div>
                 <div>
                   <p className="text-[10px] text-gray-400 font-medium mb-1">DATA</p>
@@ -577,14 +589,16 @@ export default function CalendarView({
                 </div>
               )}
             </div>
-            <div className="px-5 pb-5">
-              <button
-                onClick={() => deleteEvent(selectedEvent.id)}
-                className="w-full py-2 text-xs text-red-500 hover:bg-red-50 rounded-xl transition-colors font-medium"
-              >
-                Excluir evento
-              </button>
-            </div>
+            {canEdit && (
+              <div className="px-5 pb-5">
+                <button
+                  onClick={() => deleteEvent(selectedEvent.id)}
+                  className="w-full py-2 text-xs text-red-500 hover:bg-red-50 rounded-xl transition-colors font-medium"
+                >
+                  Excluir evento
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
