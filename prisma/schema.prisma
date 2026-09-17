@@ -98,6 +98,15 @@ model Client {
   // Definido pelo planejamento e reutilizado nas próximas análises.
   operationalGroup String?
 
+  // Perfis públicos (URL canônica; ver lib/client-links). Aparecem no
+  // detalhe do cliente e no popup da demanda para o produtor conferir.
+  website   String?
+  instagram String?
+  facebook  String?
+  linkedin  String?
+  youtube   String?
+  tiktok    String?
+
   // ------- Faturamento (Asaas) e NFS-e (Focus) — ativação individual -------
   billingEnabled    Boolean   @default(false) // cobrança automática mensal
   legalName         String? // razão social (tomador da NFS-e)

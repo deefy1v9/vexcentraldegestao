@@ -3,6 +3,7 @@ import { requireUser, requireAdmin } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
 import { applyAutoTier } from '@/lib/client-tier'
+import { CLIENT_LINK_KINDS, normalizeProfileUrl } from '@/lib/client-links'
 
 export async function GET(req: NextRequest) {
   const gate = await requireUser()
@@ -86,6 +87,8 @@ export async function POST(req: NextRequest) {
       paymentDay: paymentDay ? Number(paymentDay) : null,
       status: status || 'ATIVO',
       notes,
+      // Perfis públicos: aceita URL, @handle ou handle e guarda a URL canônica
+      ...Object.fromEntries(CLIENT_LINK_KINDS.map((k) => [k, normalizeProfileUrl(k, body[k])])),
       services: { create: serviceRows },
     },
   })

@@ -4,6 +4,8 @@ import { useRouter, useParams } from 'next/navigation'
 import Header from '@/components/layout/Header'
 import CurrencyInput from '@/components/ui/CurrencyInput'
 import ClientBillingSection, { BillingForm, EMPTY_BILLING } from '@/components/clientes/ClientBillingSection'
+import ClientLinksFields from '@/components/clientes/ClientLinksFields'
+import { CLIENT_LINK_KINDS, type ClientLinkKind } from '@/lib/client-links'
 import { formatCurrency } from '@/lib/utils'
 import Link from 'next/link'
 import { ArrowLeft, Save, Trash2, Plus } from 'lucide-react'
@@ -31,6 +33,12 @@ interface Client {
   notes?: string | null
   tier?: string | null
   tierManual?: boolean
+  website?: string | null
+  instagram?: string | null
+  facebook?: string | null
+  linkedin?: string | null
+  youtube?: string | null
+  tiktok?: string | null
   services: { id: string; serviceName: string; description?: string | null; monthlyValue?: number | null }[]
 }
 
@@ -58,6 +66,7 @@ export default function EditClientePage() {
     notes: '',
     tier: 'AUTO',
     tierReason: '',
+    website: '', instagram: '', facebook: '', linkedin: '', youtube: '', tiktok: '',
   })
 
   // Valor total mensal: soma automática dos serviços, somente leitura
@@ -94,6 +103,7 @@ export default function EditClientePage() {
           notes: data.notes || '',
           tier: data.tierManual && data.tier ? data.tier : 'AUTO',
           tierReason: '',
+          ...Object.fromEntries(CLIENT_LINK_KINDS.map((k) => [k, data[k] || ''])) as Record<ClientLinkKind, string>,
         })
         setServices(data.services.map((s) => ({
           id: s.id,
@@ -270,6 +280,8 @@ export default function EditClientePage() {
                 </div>
               </div>
             </div>
+
+            <ClientLinksFields value={form} onChange={setField} />
 
             {/* Contrato */}
             <div className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6 space-y-4">

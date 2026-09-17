@@ -6,6 +6,7 @@ import CurrencyInput from '@/components/ui/CurrencyInput'
 import { formatCurrency } from '@/lib/utils'
 import { Plus, Trash2, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
+import ClientLinksFields from '@/components/clientes/ClientLinksFields'
 
 interface ServiceForm {
   serviceName: string
@@ -24,6 +25,7 @@ export default function NovoClientePage() {
     name: '', cnpj: '', email: '', phone: '', niche: '',
     contractStart: '', contractMonths: '',
     paymentDay: '', status: 'ATIVO', notes: '',
+    website: '', instagram: '', facebook: '', linkedin: '', youtube: '', tiktok: '',
   })
 
   // Valor total mensal: somatório automático dos serviços, somente leitura
@@ -124,6 +126,8 @@ export default function NovoClientePage() {
                 </div>
               </div>
             </div>
+
+            <ClientLinksFields value={form} onChange={setField} />
 
             {/* Contrato */}
             <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">

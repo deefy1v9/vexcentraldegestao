@@ -1,3 +1,4 @@
+import { CLIENT_LINK_SELECT } from '@/lib/client-links'
 import { prisma } from '@/lib/prisma'
 import { auth } from '@/lib/auth'
 import Header from '@/components/layout/Header'
@@ -9,7 +10,7 @@ export default async function DemandasPage() {
   const [tasks, clients, users] = await Promise.all([
     prisma.task.findMany({
       include: {
-        client: { select: { id: true, name: true, tier: true } },
+        client: { select: { id: true, name: true, tier: true, ...CLIENT_LINK_SELECT } },
         assignee: { select: { id: true, name: true } },
         creator: { select: { id: true, name: true } },
         producer: { select: { id: true, name: true } },

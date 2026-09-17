@@ -9,6 +9,8 @@ import { formatDate } from '@/lib/utils'
 import TierBadge from '@/components/ui/TierBadge'
 import AiImportModal from '@/components/demandas/AiImportModal'
 import TaskBrief from '@/components/demandas/TaskBrief'
+import ClientLinkChips from '@/components/clientes/ClientLinkChips'
+import type { ClientLinkFields } from '@/lib/client-links'
 
 type TaskStatus = 'BACKLOG' | 'TODO' | 'EM_ANDAMENTO' | 'EM_REVISAO' | 'APROVADO' | 'CONCLUIDO'
 type TaskPriority = 'BAIXA' | 'MEDIA' | 'ALTA' | 'URGENTE'
@@ -28,7 +30,7 @@ interface Task {
   contentType?: string | null
   driveLink?: string | null
   tags: string[]
-  client?: { id: string; name: string; tier?: string | null } | null
+  client?: ({ id: string; name: string; tier?: string | null } & ClientLinkFields) | null
   assignee?: UserRef | null
   producer?: UserRef | null
   reviewer?: UserRef | null
@@ -1024,6 +1026,10 @@ export default function KanbanBoard({
                         {selectedTask.contentType && <span>· {selectedTask.contentType}</span>}
                       </p>
                     )}
+                    {/* Perfis do cliente: o produtor confere o feed antes de criar */}
+                    <div className="mt-2">
+                      <ClientLinkChips client={selectedTask.client} />
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">

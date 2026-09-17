@@ -11,6 +11,8 @@ import ClientProfileTabs from '@/components/clientes/ClientProfileTabs'
 import ClientEmailActions from '@/components/clientes/ClientEmailActions'
 import ProposalsList from '@/components/propostas/ProposalsList'
 import TierBadge from '@/components/ui/TierBadge'
+import ClientLinkChips from '@/components/clientes/ClientLinkChips'
+import { clientLinks } from '@/lib/client-links'
 import { missingBillingFields } from '@/lib/billing-core'
 import { clientMonthIndicators } from '@/lib/finance-summary'
 import { tierRecommendation, TIER_LABEL } from '@/lib/client-tier'
@@ -124,6 +126,12 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
           </div>
         ))}
       </div>
+      {clientLinks(client).length > 0 && (
+        <div className="mt-4 pt-4 border-t border-gray-100">
+          <p className="text-xs text-gray-500 font-medium mb-2">Site e redes</p>
+          <ClientLinkChips client={client} size="md" />
+        </div>
+      )}
       {client.notes && (
         <div className="mt-4 pt-4 border-t border-gray-100">
           <p className="text-xs text-gray-500 font-medium mb-1">Observações</p>

@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
 import { applyAutoTier, clientTicketCents, setManualTier, Tier } from '@/lib/client-tier'
 import { missingNfseFields } from '@/lib/billing-core'
+import { CLIENT_LINK_KINDS, normalizeProfileUrl } from '@/lib/client-links'
 
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const gate = await requireUser()
@@ -125,6 +126,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         contractEnd,
         contractMonths: body.contractMonths ? Number(body.contractMonths) : null,
         paymentDay: body.paymentDay ? Number(body.paymentDay) : null,
+        // Perfis públicos: só os campos enviados; URL, @handle ou handle
+        ...Object.fromEntries(
+          CLIENT_LINK_KINDS.filter((k) => has(k)).map((k) => [k, normalizeProfileUrl(k, body[k])]),
+        ),
         // monthlyValue não é aceito do corpo: é derivado dos serviços (abaixo).
         // Faturamento/NFS-e (asaasCustomerId é somente leitura — nunca aceito)
         ...(has('billingEnabled') ? { billingEnabled: !!body.billingEnabled } : {}),
