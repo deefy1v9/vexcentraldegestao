@@ -2,45 +2,38 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import {
-  LayoutDashboard,
-  UserPlus,
-  Calendar,
-  MessageCircle,
-  DollarSign,
-  Activity,
-  Kanban,
-  LogOut,
-  Building2,
-  Briefcase,
-  Target,
-  Search,
-} from 'lucide-react'
 import { signOut } from 'next-auth/react'
 import { useSession } from 'next-auth/react'
 import { getInitials } from '@/lib/utils'
 import { useMobileNav } from './MobileNav'
+import {
+  IconDashboard, IconClientes, IconServicos, IconColaboradores, IconDemandas, IconCalendario,
+  IconPipeline, IconCrm, IconSeo, IconFinanceiro, IconLogs, IconSair,
+} from '@/components/icons/duotone'
 
 /**
  * `adminOnly` esconde o item do colaborador — que só acompanha clientes e as
  * próprias demandas. A checagem de verdade fica no servidor (cada página
  * redireciona); aqui é só para não mostrar porta que não abre.
+ *
+ * Visual no padrão do modelo novo: painel lateral fixo, ícones duotone,
+ * item ativo em bloco sólido da marca. Só aparência — rotas e regras iguais.
  */
 const menuItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/clientes', label: 'Clientes', icon: Building2 },
-  { href: '/servicos', label: 'Serviços', icon: Briefcase, adminOnly: true },
-  { href: '/colaboradores', label: 'Colaboradores', icon: UserPlus, adminOnly: true },
-  { href: '/demandas', label: 'Demandas', icon: Kanban },
-  { href: '/calendario', label: 'Calendário', icon: Calendar },
-  { href: '/pipeline', label: 'Pipeline', icon: Target, adminOnly: true },
-  { href: '/crm', label: 'CRM', icon: MessageCircle, adminOnly: true },
-  { href: '/seo', label: 'SEO', icon: Search, adminOnly: true },
+  { href: '/dashboard', label: 'Dashboard', icon: IconDashboard },
+  { href: '/clientes', label: 'Clientes', icon: IconClientes },
+  { href: '/servicos', label: 'Serviços', icon: IconServicos, adminOnly: true },
+  { href: '/colaboradores', label: 'Colaboradores', icon: IconColaboradores, adminOnly: true },
+  { href: '/demandas', label: 'Demandas', icon: IconDemandas },
+  { href: '/calendario', label: 'Calendário', icon: IconCalendario },
+  { href: '/pipeline', label: 'Pipeline', icon: IconPipeline, adminOnly: true },
+  { href: '/crm', label: 'CRM', icon: IconCrm, adminOnly: true },
+  { href: '/seo', label: 'SEO', icon: IconSeo, adminOnly: true },
 ]
 
 const generalItems = [
-  { href: '/financeiro', label: 'Financeiro', icon: DollarSign },
-  { href: '/logs', label: 'Logs', icon: Activity },
+  { href: '/financeiro', label: 'Financeiro', icon: IconFinanceiro },
+  { href: '/logs', label: 'Logs', icon: IconLogs },
 ]
 
 function NavItem({ href, label, icon: Icon, onNavigate }: { href: string; label: string; icon: React.ElementType; onNavigate?: () => void }) {
@@ -51,17 +44,15 @@ function NavItem({ href, label, icon: Icon, onNavigate }: { href: string; label:
     <Link
       href={href}
       onClick={onNavigate}
+      aria-current={active ? 'page' : undefined}
       className={cn(
-        'relative flex items-center gap-3 px-4 py-2.5 text-sm transition-all rounded-r-xl',
+        'group flex items-center gap-3 px-3 py-2.5 text-[13.5px] rounded-xl transition-all',
         active
-          ? 'text-[#030A8C] font-semibold bg-[#030A8C]/5'
-          : 'text-gray-400 font-medium hover:text-gray-700 hover:bg-gray-50'
+          ? 'bg-[#030A8C] text-white font-semibold shadow-[0_8px_18px_-8px_rgba(3,10,140,0.55)]'
+          : 'text-gray-500 font-medium hover:bg-gray-100/80 hover:text-gray-900'
       )}
     >
-      {active && (
-        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-[#F74A13] rounded-r-full" />
-      )}
-      <Icon className={cn('w-[18px] h-[18px] shrink-0', active ? 'text-[#030A8C]' : 'text-gray-400')} />
+      <Icon className={cn('w-5 h-5 shrink-0 transition-colors', active ? 'text-white' : 'text-gray-400 group-hover:text-[#030A8C]')} />
       {label}
     </Link>
   )
@@ -90,26 +81,26 @@ export default function Sidebar() {
           volta a ser uma coluna estática no fluxo. */}
       <div
         className={cn(
-          'p-3 shrink-0 z-50 transition-transform duration-200 ease-out',
+          'shrink-0 z-50 transition-transform duration-200 ease-out',
           'fixed inset-y-0 left-0 lg:static lg:translate-x-0',
           open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
         )}
       >
-      <aside className="w-[220px] h-full bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col overflow-hidden">
+      <aside className="w-[248px] h-full bg-white border-r border-gray-200/70 flex flex-col overflow-hidden">
 
-        {/* Logo */}
-        <div className="pl-4 pt-5 pb-4">
+        {/* Logo — mesma altura do cabeçalho das páginas */}
+        <div className="h-[72px] px-5 flex items-center border-b border-gray-100 shrink-0">
           {/* eslint-disable-next-line @next/next/no-img-element -- logo estático, sem ganho em otimizar */}
           <img src="/logo.png" alt="Logo" className="h-4 w-auto object-contain" />
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto space-y-5 pb-3">
+        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
           <div>
-            <p className="px-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
+            <p className="px-3 text-[10.5px] font-bold text-gray-400 uppercase tracking-[0.14em] mb-2">
               Menu
             </p>
-            <div className="space-y-0.5">
+            <div className="space-y-1">
               {menuItems
                 .filter((item) => isAdmin || !item.adminOnly)
                 .map((item) => (
@@ -119,10 +110,10 @@ export default function Sidebar() {
           </div>
 
           <div>
-            <p className="px-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
+            <p className="px-3 text-[10.5px] font-bold text-gray-400 uppercase tracking-[0.14em] mb-2">
               Geral
             </p>
-            <div className="space-y-0.5">
+            <div className="space-y-1">
               {/* Financeiro e Logs são exclusivos de administradores. */}
               {isAdmin &&
                 generalItems.map((item) => (
@@ -130,40 +121,24 @@ export default function Sidebar() {
                 ))}
               <button
                 onClick={() => { close(); signOut({ callbackUrl: '/login' }) }}
-                className="w-full relative flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-400 hover:text-gray-700 hover:bg-gray-50 transition-all rounded-r-xl"
+                className="group w-full flex items-center gap-3 px-3 py-2.5 text-[13.5px] font-medium text-gray-500 hover:bg-red-50 hover:text-red-600 transition-all rounded-xl"
               >
-                <LogOut className="w-[18px] h-[18px] shrink-0 text-gray-400" />
+                <IconSair className="w-5 h-5 shrink-0 text-gray-400 group-hover:text-red-500 transition-colors" />
                 Sair
               </button>
             </div>
           </div>
         </nav>
 
-        {/* Bottom card */}
-        <div className="p-3">
-          <div className="bg-gray-900 rounded-xl p-4 relative overflow-hidden">
-            <div className="absolute -right-4 -top-4 w-20 h-20 bg-[#F74A13]/20 rounded-full" />
-            <div className="absolute -right-2 bottom-0 w-14 h-14 bg-[#030A8C]/20 rounded-full" />
-
-            <div className="relative">
-              <div className="w-7 h-7 bg-[#F74A13] rounded-lg flex items-center justify-center mb-3">
-                <span className="text-white font-bold text-xs">V</span>
-              </div>
-              <p className="text-white text-sm font-bold leading-tight mb-0.5">
-                Central de <br />Gestão
-              </p>
-              <p className="text-gray-400 text-[11px] mb-3">
-                Vex Agency v1.0
-              </p>
-              <div className="flex items-center gap-2 bg-white/10 rounded-lg px-2 py-1.5">
-                <div className="w-5 h-5 bg-[#030A8C] rounded-full flex items-center justify-center shrink-0">
-                  <span className="text-white text-[9px] font-bold">{getInitials(name)}</span>
-                </div>
-                <div className="min-w-0">
-                  <p className="text-white text-[10px] font-semibold truncate leading-none">{name}</p>
-                  <p className="text-gray-400 text-[9px] leading-none mt-0.5">{role}</p>
-                </div>
-              </div>
+        {/* Usuário */}
+        <div className="p-3 border-t border-gray-100">
+          <div className="flex items-center gap-3 rounded-xl bg-gray-50 px-3 py-2.5">
+            <div className="w-9 h-9 rounded-full bg-[#030A8C] text-white flex items-center justify-center text-xs font-bold shrink-0 ring-2 ring-white shadow-sm">
+              {getInitials(name)}
+            </div>
+            <div className="min-w-0">
+              <p className="text-[13px] font-semibold text-gray-900 truncate leading-tight">{name}</p>
+              <p className="text-[11px] text-gray-400 leading-tight mt-0.5">{role === 'ADMIN' ? 'Administrador' : 'Colaborador'} · Central VEX</p>
             </div>
           </div>
         </div>

@@ -77,7 +77,7 @@ export default function Header({ title, subtitle }: HeaderProps) {
   }
 
   return (
-    <header className="h-[72px] border-b border-gray-200/70 px-4 sm:px-6 flex items-center justify-between gap-2 shrink-0">
+    <header className="h-[72px] bg-white/85 backdrop-blur-md border-b border-gray-200/70 px-4 sm:px-6 flex items-center justify-between gap-2 shrink-0">
       <div className="flex items-center gap-2 min-w-0">
         {/* Hambúrguer: abre a sidebar como drawer no mobile. */}
         <button
@@ -94,34 +94,35 @@ export default function Header({ title, subtitle }: HeaderProps) {
       </div>
 
       <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-        <div className="hidden lg:flex items-center gap-2 bg-gray-100 rounded-xl px-3 py-2 mr-2 text-sm text-gray-400 w-52">
+        <div className="hidden lg:flex items-center gap-2 bg-gray-100 rounded-full h-10 px-4 mr-2 text-sm text-gray-400 w-60">
           <Search className="w-4 h-4" />
           <span>Buscar...</span>
-          <span className="ml-auto text-xs bg-white rounded px-1.5 py-0.5 text-gray-400 border border-gray-200">⌘F</span>
+          <span className="ml-auto text-[10px] bg-white rounded-md px-1.5 py-0.5 text-gray-400 border border-gray-200">⌘F</span>
         </div>
 
         <button
           onClick={toggleTheme}
           title={dark ? 'Mudar para tema claro' : 'Mudar para tema escuro'}
           aria-label={dark ? 'Mudar para tema claro' : 'Mudar para tema escuro'}
-          className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-gray-100 transition-colors"
+          className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
         >
           {dark
-            ? <Sun className="w-[18px] h-[18px] text-gray-500" />
-            : <Moon className="w-[18px] h-[18px] text-gray-500" />}
+            ? <Sun className="w-[18px] h-[18px] text-gray-600" />
+            : <Moon className="w-[18px] h-[18px] text-gray-600" />}
         </button>
 
-        <button className="hidden sm:flex w-9 h-9 items-center justify-center rounded-xl hover:bg-gray-100 transition-colors">
-          <Mail className="w-[18px] h-[18px] text-gray-500" />
+        <button className="hidden sm:flex w-10 h-10 items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors" aria-label="Mensagens">
+          <Mail className="w-[18px] h-[18px] text-gray-600" />
         </button>
 
         {/* Notification bell */}
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setOpen((p) => !p)}
-            className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-gray-100 transition-colors relative"
+            aria-label="Notificações"
+            className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors relative"
           >
-            <Bell className="w-[18px] h-[18px] text-gray-500" />
+            <Bell className="w-[18px] h-[18px] text-gray-600" />
             {count > 0 && (
               <span className="absolute top-1 right-1 min-w-[16px] h-4 bg-[#F74A13] rounded-full flex items-center justify-center px-1">
                 <span className="text-white text-[9px] font-bold leading-none">{count > 9 ? '9+' : count}</span>
