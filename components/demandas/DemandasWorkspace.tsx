@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { ListChecks, Users } from 'lucide-react'
 import AiImportModal from '@/components/demandas/AiImportModal'
 import {
-  filterTasks, sortTasks, tabCounts, tabFromFilters, filtersForTab, EMPTY_DEMANDAS_FILTERS,
+  canSee, filterTasks, sortTasks, tabCounts, tabFromFilters, filtersForTab, EMPTY_DEMANDAS_FILTERS,
   type ActionKind, type DemandasFilters, type ListTab, type Period, type SortKey, type TaskStatus,
 } from '@/lib/demandas-core'
 import { DemandasTopBar, DemandasTabs, DemandasFilterRow, DemandasChips } from './DemandasToolbar'
@@ -40,7 +40,9 @@ export default function DemandasWorkspace({
   const pathname = usePathname()
   const params = useSearchParams()
 
-  const [tasks, setTasks] = useState<Task[]>(initialTasks)
+  const [allTasks, setTasks] = useState<Task[]>(initialTasks)
+  // Colaborador não vê o que está com o revisor
+  const tasks = useMemo(() => allTasks.filter((t) => canSee(t, currentUserId, isAdmin)), [allTasks, currentUserId, isAdmin])
   const [showNew, setShowNew] = useState(false)
   const [showAiImport, setShowAiImport] = useState(false)
   const [asideTab, setAsideTab] = useState<'equipe' | 'fila'>(isAdmin ? 'equipe' : 'fila')
@@ -174,7 +176,7 @@ export default function DemandasWorkspace({
             onNew={() => setShowNew(true)}
             onImport={() => setShowAiImport(true)}
           />
-          <DemandasTabs active={tab} counts={counts} onChange={(t) => push(filtersForTab(filters, t))} />
+          <DemandasTabs active={tab} counts={counts} isAdmin={isAdmin} onChange={(t) => push(filtersForTab(filters, t))} />
           <DemandasFilterRow
             filters={filters}
             onChange={push}

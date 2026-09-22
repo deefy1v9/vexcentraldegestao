@@ -14,6 +14,15 @@ const ESTILO: Record<BriefKind, { icon: React.ElementType; cls: string; label: s
   texto: { icon: MessageSquare, cls: 'border-gray-200 bg-white', label: 'Descrição' },
 }
 
+/** URLs viram links clicáveis; o resto do texto fica intacto. */
+function comLinks(texto: string) {
+  return texto.split(/(https?:\/\/\S+)/g).map((parte, i) => (
+    /^https?:\/\//.test(parte)
+      ? <a key={i} href={parte} target="_blank" rel="noopener noreferrer" className="text-[#030A8C] underline break-all hover:text-[#02077a]">{parte}</a>
+      : <span key={i}>{parte}</span>
+  ))
+}
+
 function BotaoCopiar({ texto, rotulo = 'Copiar' }: { texto: string; rotulo?: string }) {
   const [ok, setOk] = useState(false)
   return (
@@ -67,7 +76,7 @@ export default function TaskBrief({ description }: { description: string | null 
             ) : s.kind === 'alerta' ? (
               <p className="text-sm text-orange-800 whitespace-pre-wrap">{s.body}</p>
             ) : (
-              <p className={`text-sm text-gray-800 whitespace-pre-wrap leading-relaxed ${s.kind === 'copy' ? 'font-medium' : ''}`}>{s.body}</p>
+              <p className={`text-sm text-gray-800 whitespace-pre-wrap leading-relaxed ${s.kind === 'copy' ? 'font-medium' : ''}`}>{comLinks(s.body)}</p>
             )}
           </section>
         )

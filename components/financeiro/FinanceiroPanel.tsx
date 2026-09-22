@@ -1,56 +1,24 @@
 'use client'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { Download, Plus, RefreshCw, Settings2 } from 'lucide-react'
 import { parseCompetence } from '@/lib/billing-core'
-import CurrencyInput from '@/components/ui/CurrencyInput'
-import TierBadge from '@/components/ui/TierBadge'
-import FinanceKpis, { type MonthSummary } from '@/components/financeiro/FinanceKpis'
-import FinanceChart from '@/components/financeiro/FinanceChart'
 import AddEntryModal from '@/components/financeiro/AddEntryModal'
+import FinanceKpis, { type MonthSummary, type TileKey } from '@/components/financeiro/FinanceKpis'
+import { MonthPicker, FinanceTabs, FinanceFilterRow, FinanceChips, Pagination } from '@/components/financeiro/FinanceToolbar'
+import ReceivablesTable from '@/components/financeiro/ReceivablesTable'
+import EntriesTable from '@/components/financeiro/EntriesTable'
+import OverviewTab from '@/components/financeiro/OverviewTab'
 import {
-  TrendingDown, DollarSign, Users, Plus, Check, X,
-  ChevronLeft, ChevronRight, Pencil, Trash2, Repeat, CalendarClock, CalendarDays, Send, Ban,
-} from 'lucide-react'
+  COST_CATEGORIES, CostEditForm, DueDateDialog, NewCostModal, NewSalaryModal, SalaryEditForm, ScopeDialog,
+} from '@/components/financeiro/EntryForms'
+import {
+  buildReceivableRows, filterEntries, filterReceivables, finTabCounts, isOverdue, situationOf,
+  sortEntries, sortReceivables, EMPTY_FIN_FILTERS,
+  type ChargeLike, type EntryLike, type FinFilters, type FinSort, type FinTab, type PaymentLike, type ReceivableRow,
+} from '@/lib/financeiro-core'
 
-/* ---------------------------------- tipos ---------------------------------- */
-
-interface Entry {
-  id: string
-  type: string // CUSTO | SALARIO | RECEITA
-  category: string
-  name?: string | null
-  description: string
-  amount: number
-  dueDate?: string | null
-  paidAt?: string | null
-  status: string // PENDENTE | PAGO
-  recurring: boolean
-  recurringCostId?: string | null
-  salaryContractId?: string | null
-  user?: { id: string; name: string; position?: string | null } | null
-}
-
-interface Payment {
-  id: string
-  month: number
-  year: number
-  amount: number
-  dueDate: string
-  paidAt?: string | null
-  status: string
-  kind?: string | null
-  serviceId?: string | null
-  service?: { id: string; serviceName: string; contractType: string; billingDescription?: string | null } | null
-  client: { id: string; name: string; tier?: string | null }
-}
-
-interface Collaborator {
-  id: string
-  name: string
-  position?: string | null
-  salary?: number | null
-}
+interface Collaborator { id: string; name: string; position?: string | null; salary?: number | null }
 
 interface Movement {
   id: string
@@ -61,173 +29,88 @@ interface Movement {
   at: string
 }
 
-interface NfseRow {
-  id: string
-  status: string
-  numero?: string | null
-  pdfUrl?: string | null
-  xmlUrl?: string | null
-  lastError?: string | null
-  municipalMessage?: string | null
-}
-
-interface AsaasChargeRow {
-  id: string
-  clientId: string
-  year: number
-  month: number
-  status: string
-  value: string
-  netValue?: string | null
-  fee?: string | null
-  billingType: string
-  dueDate: string
-  invoiceUrl?: string | null
-  bankSlipUrl?: string | null
-  identificationField?: string | null
-  lastError?: string | null
-  asaasId?: string | null
-  nfse?: NfseRow | null
-  client: { id: string; name: string }
+interface Entry extends EntryLike {
+  recurringCostId?: string | null
+  salaryContractId?: string | null
 }
 
 interface MonthData {
   summary: MonthSummary
   entries: Entry[]
-  clientPayments: Payment[]
+  clientPayments: PaymentLike[]
   users: Collaborator[]
-  asaasCharges: AsaasChargeRow[]
+  asaasCharges: ChargeLike[]
   previstoServicos: number
   upcoming: Entry[]
   recent: Movement[]
 }
 
-const ASAAS_STATUS_PT: Record<string, { label: string; cls: string }> = {
-  PENDING: { label: 'Aguardando pagamento', cls: 'bg-orange-100 text-orange-700' },
-  CONFIRMED: { label: 'Confirmado', cls: 'bg-blue-100 text-blue-700' },
-  RECEIVED: { label: 'Recebido', cls: 'bg-green-100 text-green-700' },
-  OVERDUE: { label: 'Vencido', cls: 'bg-red-100 text-red-700' },
-  REFUNDED: { label: 'Estornado', cls: 'bg-purple-100 text-purple-700' },
-  PARTIALLY_REFUNDED: { label: 'Estorno parcial', cls: 'bg-purple-100 text-purple-700' },
-  CANCELLED: { label: 'Cancelado', cls: 'bg-gray-100 text-gray-600' },
-  DELETED: { label: 'Cancelado', cls: 'bg-gray-100 text-gray-600' },
-  ERROR: { label: 'Erro na cobrança', cls: 'bg-red-100 text-red-700' },
-}
-
-const NFSE_STATUS_PT: Record<string, { label: string; cls: string }> = {
-  PROCESSANDO: { label: 'Processando NFS-e', cls: 'bg-blue-50 text-[#030A8C]' },
-  AUTORIZADO: { label: 'NFS-e autorizada', cls: 'bg-green-100 text-green-700' },
-  ERRO_AUTORIZACAO: { label: 'Erro na NFS-e', cls: 'bg-red-100 text-red-700' },
-  CANCELADO: { label: 'NFS-e cancelada', cls: 'bg-gray-100 text-gray-600' },
-  ERRO_CANCELAMENTO: { label: 'Erro no cancelamento', cls: 'bg-red-100 text-red-700' },
-}
-
-const MONTHS = [
-  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
-]
-
-const COST_CATEGORIES = [
-  'Softwares e ferramentas', 'Anúncios', 'Fornecedores', 'Impostos',
-  'Aluguel', 'Equipamentos', 'Serviços', 'Administrativo', 'Outros',
-]
-
-/* ------------------------------- badges/status ------------------------------ */
-
-function isOverdue(e: { status: string; dueDate?: string | null }) {
-  if (e.status !== 'PENDENTE' || !e.dueDate) return false
-  const today = new Date(); today.setHours(0, 0, 0, 0)
-  return new Date(e.dueDate) < today
-}
-
-function StatusBadge({ entry }: { entry: { status: string; dueDate?: string | null } }) {
-  if (entry.status === 'PAGO') {
-    return <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">Pago</span>
-  }
-  if (isOverdue(entry)) {
-    return <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700">Atrasado</span>
-  }
-  return <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">Pendente</span>
-}
-
-function TypeBadge({ recurring }: { recurring: boolean }) {
-  return recurring ? (
-    <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-[#030A8C]">
-      <Repeat className="w-2.5 h-2.5" /> Recorrente
-    </span>
-  ) : (
-    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">Único</span>
-  )
-}
-
-/* --------------------------- diálogo de escopo (2 opções) --------------------------- */
-
-function ScopeDialog({
-  title, onlyLabel, futureLabel, onPick, onClose,
-}: {
-  title: string
-  onlyLabel: string
-  futureLabel: string
-  onPick: (scope: 'only' | 'future') => void
-  onClose: () => void
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl w-full max-w-sm p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <p className="font-semibold text-gray-900 mb-4">{title}</p>
-        <div className="space-y-2">
-          <button onClick={() => onPick('only')}
-            className="w-full text-left px-4 py-3 border border-gray-200 rounded-lg text-sm text-gray-700 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors">
-            {onlyLabel}
-          </button>
-          <button onClick={() => onPick('future')}
-            className="w-full text-left px-4 py-3 border border-gray-200 rounded-lg text-sm text-gray-700 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors">
-            {futureLabel}
-          </button>
-        </div>
-        <button onClick={onClose} className="mt-3 w-full py-2 text-sm text-gray-500 hover:bg-gray-50 rounded-lg">
-          Cancelar
-        </button>
-      </div>
-    </div>
-  )
-}
-
-/* --------------------------------- principal --------------------------------- */
+const PAGE = 10
+const TABS: FinTab[] = ['visao', 'recebiveis', 'atrasados', 'custos', 'salarios']
+const SORTS: FinSort[] = ['vencimento', 'valor', 'nome']
 
 function currentPeriod() {
   const d = new Date()
   return { year: d.getFullYear(), month: d.getMonth() + 1 }
 }
 
-/** Lê ?mes=AAAA-MM da URL; sem parâmetro válido, mês corrente. */
-function periodFromParam(value: string | null) {
-  return parseCompetence(value) ?? currentPeriod()
-}
-
+/**
+ * Financeiro do mês: quatro números clicáveis no topo, abas com contadores,
+ * filtros e tabela paginada com a ação de cada linha. A competência, a aba e
+ * os filtros vivem na URL.
+ */
 export default function FinanceiroPanel() {
   const router = useRouter()
   const pathname = usePathname()
-  const searchParams = useSearchParams()
-  const monthParam = searchParams.get('mes')
-  const period = useMemo(() => periodFromParam(monthParam), [monthParam])
+  const params = useSearchParams()
+  const period = useMemo(() => parseCompetence(params.get('mes')) ?? currentPeriod(), [params])
   const isCurrentMonth = period.year === currentPeriod().year && period.month === currentPeriod().month
 
   const [data, setData] = useState<MonthData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'overview' | 'payments' | 'costs' | 'salaries'>('overview')
-  const [runningJob, setRunningJob] = useState(false)
-  const [showAdd, setShowAdd] = useState(false)
   const [flash, setFlash] = useState<string | null>(null)
+  const [runningJob, setRunningJob] = useState(false)
+  const [page, setPage] = useState(1)
 
-  // O mês vive na URL: recarregar ou compartilhar o link mantém a competência
-  const setPeriod = useCallback((next: { year: number; month: number }) => {
-    const q = new URLSearchParams(searchParams.toString())
-    q.set('mes', `${next.year}-${String(next.month).padStart(2, '0')}`)
+  const [showAdd, setShowAdd] = useState(false)
+  const [showNewCost, setShowNewCost] = useState(false)
+  const [showNewSalary, setShowNewSalary] = useState(false)
+  const [editing, setEditing] = useState<Entry | null>(null)
+  const [editAmount, setEditAmount] = useState<number | null>(null)
+  const [scopeAction, setScopeAction] = useState<{ entry: Entry; action: 'edit' | 'delete'; fields?: Record<string, unknown> } | null>(null)
+  const [dueDialog, setDueDialog] = useState<{ ids: string[]; label: string; current: string } | null>(null)
+  const [busyKey, setBusyKey] = useState<string | null>(null)
+  const [fiscal, setFiscal] = useState<{ ready: boolean; missing: string[] } | null>(null)
+
+  /* ------------------------- estado que vive na URL ------------------------- */
+  const tab: FinTab = TABS.includes(params.get('aba') as FinTab) ? (params.get('aba') as FinTab) : 'recebiveis'
+  const sort: FinSort = SORTS.includes(params.get('ordem') as FinSort) ? (params.get('ordem') as FinSort) : 'vencimento'
+  const filters: FinFilters = useMemo(() => ({
+    q: params.get('q') ?? '',
+    situation: (params.get('situacao') ?? '') as FinFilters['situation'],
+    kind: (params.get('tipo') ?? '') as FinFilters['kind'],
+    category: params.get('categoria') ?? '',
+  }), [params])
+
+  const push = useCallback((next: Partial<FinFilters> & { tab?: FinTab; sort?: FinSort; period?: { year: number; month: number } }) => {
+    const m = { ...filters, ...next }
+    const p = next.period ?? period
+    const q = new URLSearchParams()
+    q.set('mes', `${p.year}-${String(p.month).padStart(2, '0')}`)
+    const t = next.tab ?? tab
+    if (t !== 'recebiveis') q.set('aba', t)
+    const s = next.sort ?? sort
+    if (s !== 'vencimento') q.set('ordem', s)
+    if (m.q) q.set('q', m.q)
+    if (m.situation) q.set('situacao', m.situation)
+    if (m.kind) q.set('tipo', m.kind)
+    if (m.category) q.set('categoria', m.category)
     router.replace(`${pathname}?${q.toString()}`, { scroll: false })
-  }, [router, pathname, searchParams])
+    setPage(1)
+  }, [filters, period, tab, sort, router, pathname])
 
+  /* --------------------------------- dados --------------------------------- */
   const load = useCallback((p: { year: number; month: number }) => {
     fetch(`/api/financeiro?month=${p.month}&year=${p.year}`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error('falha'))))
@@ -237,544 +120,13 @@ export default function FinanceiroPanel() {
   }, [])
 
   useEffect(() => { load(period) }, [period, load])
-  // Recarga manual (após uma ação): aí sim a tela volta ao estado de carga
   const reload = useCallback(() => { setLoading(true); setError(null); load(period) }, [load, period])
+
   useEffect(() => {
     if (!flash) return
     const t = setTimeout(() => setFlash(null), 5000)
     return () => clearTimeout(t)
   }, [flash])
-
-  function shiftMonth(delta: number) {
-    const d = new Date(period.year, period.month - 1 + delta, 1)
-    setPeriod({ year: d.getFullYear(), month: d.getMonth() + 1 })
-  }
-
-  /* ------------------------------ derivados do mês ------------------------------ */
-
-  const entries = useMemo(() => data?.entries ?? [], [data])
-  const payments = useMemo(() => data?.clientPayments ?? [], [data])
-  const costEntries = useMemo(() => entries.filter((e) => e.type === 'CUSTO'), [entries])
-  const salaryEntries = useMemo(() => entries.filter((e) => e.type === 'SALARIO'), [entries])
-
-  // Os números do mês vêm prontos do backend (data.summary), fonte única
-  // compartilhada com o Dashboard e o perfil do cliente. Aqui só ficam os
-  // recortes que as abas usam para listar.
-
-  /* --------------------------------- ações --------------------------------- */
-
-  async function togglePayments(paymentIds: string[], newStatus: string) {
-    const res = await fetch('/api/financeiro/pagamentos', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ paymentIds, status: newStatus }),
-    })
-    if (res.ok) reload()
-  }
-
-  async function toggleEntryPaid(entry: Entry) {
-    const endpoint = entry.type === 'SALARIO' ? '/api/financeiro/salarios' : '/api/financeiro/custos'
-    const res = await fetch(endpoint, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ entryId: entry.id, status: entry.status === 'PAGO' ? 'PENDENTE' : 'PAGO' }),
-    })
-    if (res.ok) reload()
-  }
-
-  const tabs = [
-    { key: 'overview', label: 'Resumo' },
-    { key: 'payments', label: 'Recebimentos' },
-    { key: 'costs', label: 'Custos' },
-    { key: 'salaries', label: 'Salários' },
-  ] as const
-
-  return (
-    <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
-
-      {/* Cabeçalho: competência na URL, ações do mês e atalhos administrativos */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <button onClick={() => shiftMonth(-1)} aria-label="Mês anterior"
-            className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors">
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <label className="relative cursor-pointer">
-            <span className="px-4 py-2 rounded-lg border border-gray-200 bg-white text-sm font-semibold text-gray-900 inline-block min-w-[180px] text-center">
-              {MONTHS[period.month - 1]} de {period.year}
-            </span>
-            <input
-              type="month"
-              aria-label="Selecionar mês e ano"
-              value={`${period.year}-${String(period.month).padStart(2, '0')}`}
-              onChange={(e) => {
-                const [y, m] = e.target.value.split('-').map(Number)
-                if (y && m) setPeriod({ year: y, month: m })
-              }}
-              className="absolute inset-0 opacity-0 cursor-pointer"
-            />
-          </label>
-          <button onClick={() => shiftMonth(1)} aria-label="Próximo mês"
-            className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors">
-            <ChevronRight className="w-4 h-4" />
-          </button>
-          {!isCurrentMonth && (
-            <button onClick={() => setPeriod(currentPeriod())}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors">
-              <CalendarDays className="w-3.5 h-3.5" /> Mês atual
-            </button>
-          )}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => setShowAdd(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#030A8C] text-white text-xs font-semibold hover:bg-[#02077a] transition-colors"
-          >
-            <Plus className="w-3.5 h-3.5" /> Adicionar lançamento
-          </button>
-
-          {/* Gerar cobranças: mesma varredura do agendador, idempotente */}
-          <button
-            onClick={async () => {
-              if (runningJob) return
-              setRunningJob(true)
-              try {
-                const res = await fetch('/api/asaas/cobrancas', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ runJob: true }),
-                })
-                const r = await res.json().catch(() => ({}))
-                setFlash(res.ok
-                  ? `Cobranças: ${r.created ?? 0} criada(s), ${r.skipped ?? 0} já existente(s) ou fora da janela, ${r.errors ?? 0} erro(s).`
-                  : r.error || 'Falha ao gerar cobranças.')
-                if (res.ok) reload()
-              } finally {
-                setRunningJob(false)
-              }
-            }}
-            disabled={runningJob}
-            className="px-3 py-2 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors disabled:opacity-50"
-          >
-            {runningJob ? 'Gerando…' : 'Gerar cobranças'}
-          </button>
-
-          {/* Exporta o mês carregado em CSV (recebimentos + custos + salários) */}
-          <button
-            onClick={() => {
-              if (!data) return
-              const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
-              const rows = [
-                ['tipo', 'natureza', 'descricao', 'cliente/colaborador', 'valor', 'vencimento', 'status'].join(';'),
-                ...payments.map((p) => ['recebimento', p.kind === 'AVULSO' ? 'avulso' : 'recorrente', p.service?.serviceName ?? `competencia ${String(p.month).padStart(2, '0')}/${p.year}`, p.client.name, p.amount.toFixed(2), p.dueDate?.slice(0, 10) ?? '', p.status].map(esc).join(';')),
-                ...entries.map((e) => [e.type.toLowerCase(), e.recurring ? 'recorrente' : 'unico', e.name || e.description, e.user?.name ?? e.category, e.amount.toFixed(2), e.dueDate?.slice(0, 10) ?? '', e.status].map(esc).join(';')),
-              ].join('\n')
-              const blob = new Blob([`\ufeff${rows}`], { type: 'text/csv;charset=utf-8' })
-              const a = document.createElement('a')
-              a.href = URL.createObjectURL(blob)
-              a.download = `financeiro-${period.year}-${String(period.month).padStart(2, '0')}.csv`
-              a.click()
-              URL.revokeObjectURL(a.href)
-            }}
-            className="px-3 py-2 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors"
-          >
-            Exportar relatório
-          </button>
-
-          <a href="/financeiro/fiscal" className="text-[11px] font-semibold text-gray-500 hover:text-[#030A8C] px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors">
-            Configuração fiscal
-          </a>
-          <a href="/financeiro/integracoes" className="text-[11px] font-semibold text-gray-500 hover:text-[#030A8C] px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors">
-            Diagnóstico
-          </a>
-        </div>
-      </div>
-
-      {flash && (
-        <p className="text-xs font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5">{flash}</p>
-      )}
-      {error && (
-        <p className="text-sm font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-3 text-center">
-          {error}
-        </p>
-      )}
-
-      {/* Indicadores da competência — todos vindos do resumo do backend */}
-      <FinanceKpis s={data?.summary ?? null} loading={loading} />
-
-      {/* Abas */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="flex flex-wrap border-b border-gray-200">
-          {tabs.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`px-5 py-3 text-sm font-medium transition-colors ${
-                activeTab === tab.key
-                  ? 'text-[#030A8C] border-b-2 border-[#030A8C]'
-                  : 'text-gray-500 hover:text-gray-900'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="p-5">
-          {loading ? (
-            <div className="space-y-3 animate-pulse py-2">
-              {[...Array(4)].map((_, i) => <div key={i} className="h-12 bg-gray-50 rounded-lg" />)}
-            </div>
-          ) : (
-            <>
-              {activeTab === 'overview' && (
-                <OverviewTab
-                  summary={data?.summary ?? null}
-                  upcoming={data?.upcoming ?? []}
-                  recent={data?.recent ?? []}
-                />
-              )}
-              {activeTab === 'payments' && (
-                <PaymentsTab
-                  payments={payments}
-                  charges={data?.asaasCharges ?? []}
-                  period={period}
-                  onToggle={togglePayments}
-                  onChanged={reload}
-                  onFlash={setFlash}
-                />
-              )}
-              {activeTab === 'costs' && (
-                <CostsTab entries={costEntries} period={period} onChanged={reload} onTogglePaid={toggleEntryPaid} />
-              )}
-              {activeTab === 'salaries' && (
-                <SalariesTab
-                  entries={salaryEntries}
-                  users={data?.users ?? []}
-                  period={period}
-                  onChanged={reload}
-                  onTogglePaid={toggleEntryPaid}
-                />
-              )}
-            </>
-          )}
-        </div>
-      </div>
-
-      {showAdd && (
-        <AddEntryModal
-          period={period}
-          onClose={() => setShowAdd(false)}
-          onSaved={(msg) => { setShowAdd(false); setFlash(msg); reload() }}
-        />
-      )}
-
-    </div>
-  )
-}
-
-/* ------------------------------- Integrações ------------------------------- */
-
-interface IntegrationsStatus {
-  asaas: { env: string; configured: boolean; connected: boolean }
-  focus: { env: string; mode: string; configured: boolean; certStatus: string }
-  email: { configured: boolean }
-}
-
-/**
- * Card de integrações com status real (sem tokens). Certificado A1 pendente
- * NÃO é falha da Focus: aparece como "aguardando certificado" e bloqueia
- * apenas a emissão de NFS-e — Asaas e o resto seguem normais.
- */
-const Dot = ({ ok }: { ok: boolean }) => (
-  <span className={`w-2 h-2 rounded-full shrink-0 ${ok ? 'bg-green-500' : 'bg-orange-400'}`} />
-)
-
-function IntegrationsCard() {
-  const [st, setSt] = useState<IntegrationsStatus | null>(null)
-  useEffect(() => {
-    fetch('/api/integracoes/status')
-      .then((r) => (r.ok ? r.json() : null))
-      .then(setSt)
-      .catch(() => {})
-  }, [])
-  if (!st) return null
-
-  return (
-    <div className="border border-gray-100 rounded-xl overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-        <p className="font-semibold text-gray-900 text-sm">Integrações</p>
-        <a href="/financeiro/integracoes" className="text-[11px] text-[#030A8C] hover:underline font-medium">
-          Gerenciar integrações
-        </a>
-      </div>
-      <div className="divide-y divide-gray-100 text-sm">
-        <div className="flex items-center justify-between px-4 py-2.5">
-          <span className="flex items-center gap-2 text-gray-700">
-            <Dot ok={st.asaas.connected} /> Asaas
-          </span>
-          <span className="text-xs text-gray-500">
-            {st.asaas.connected ? 'Conectado' : st.asaas.configured ? 'Configurado' : 'Não configurado'} · {st.asaas.env === 'production' ? 'produção' : 'sandbox'}
-          </span>
-        </div>
-        <div className="flex items-center justify-between px-4 py-2.5">
-          <span className="flex items-center gap-2 text-gray-700">
-            <Dot ok={st.focus.configured} /> Focus NFe
-          </span>
-          <span className="text-xs text-gray-500">
-            {st.focus.configured ? 'Conectado' : 'Não configurado'} · {st.focus.env}
-          </span>
-        </div>
-        <div className="flex items-center justify-between px-4 py-2.5">
-          <span className="flex items-center gap-2 text-gray-700">
-            <Dot ok={st.focus.certStatus === 'OK'} /> Certificado digital A1
-          </span>
-          <span className={`text-xs ${st.focus.certStatus === 'OK' ? 'text-gray-500' : 'text-orange-600 font-medium'}`}>
-            {st.focus.certStatus === 'OK' ? 'Cadastrado' : 'Aguardando certificado'}
-          </span>
-        </div>
-        <div className="flex items-center justify-between px-4 py-2.5">
-          <span className="flex items-center gap-2 text-gray-700">
-            <Dot ok={st.email.configured} /> E-mail transacional
-          </span>
-          <span className="text-xs text-gray-500">
-            {st.email.configured ? 'Configurado' : 'SMTP pendente'}
-          </span>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-/* --------------------------------- Resumo --------------------------------- */
-
-function OverviewTab({
-  summary, upcoming, recent,
-}: {
-  summary: MonthSummary | null
-  upcoming: Entry[]
-  recent: Movement[]
-}) {
-  const brl = (c: number) => formatCurrency(c / 100)
-  const s = summary
-  const rows = s ? [
-    { label: 'Receita recorrente prevista', value: brl(s.previstaRecorrenteCents), bg: 'bg-blue-50', fg: 'text-[#030A8C]' },
-    { label: 'Receita avulsa prevista', value: brl(s.previstaAvulsaCents), bg: 'bg-purple-50', fg: 'text-purple-700' },
-    { label: 'Receita já recebida', value: brl(s.recebidaCents), bg: 'bg-green-50', fg: 'text-green-700' },
-    { label: 'Receita pendente', value: brl(s.pendenteCents), bg: 'bg-orange-50', fg: 'text-orange-700' },
-    { label: 'Receita atrasada', value: brl(s.atrasadaCents), bg: 'bg-red-50', fg: 'text-red-700' },
-    { label: 'Salários', value: `- ${brl(s.salariosPrevistosCents)}`, bg: 'bg-purple-50', fg: 'text-purple-700' },
-    { label: 'Outros custos', value: `- ${brl(Math.max(0, s.custosPrevistosCents - s.salariosPrevistosCents))}`, bg: 'bg-red-50', fg: 'text-red-700' },
-  ] : []
-
-  const maxCategoria = Math.max(1, ...(s?.custosPorCategoria ?? []).map((c) => c.previstoCents))
-
-  return (
-    <div className="space-y-5">
-      {s && (
-        <div className="space-y-2.5">
-          {rows.map((r) => (
-            <div key={r.label} className={`flex items-center justify-between p-3 rounded-lg ${r.bg}`}>
-              <span className="text-sm font-medium text-gray-700">{r.label}</span>
-              <span className={`text-sm font-bold ${r.fg}`}>{r.value}</span>
-            </div>
-          ))}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className={`flex items-center justify-between p-4 rounded-lg border-2 ${s.resultadoPrevistoCents >= 0 ? 'bg-blue-50 border-[#030A8C]/40' : 'bg-red-50 border-red-300'}`}>
-              <span className="text-sm font-bold text-gray-900">Resultado previsto</span>
-              <span className={`text-base font-bold ${s.resultadoPrevistoCents >= 0 ? 'text-[#030A8C]' : 'text-red-700'}`}>{brl(s.resultadoPrevistoCents)}</span>
-            </div>
-            <div className={`flex items-center justify-between p-4 rounded-lg border-2 ${s.lucroRealizadoCents >= 0 ? 'bg-blue-50 border-[#030A8C]' : 'bg-red-50 border-red-400'}`}>
-              <span className="text-sm font-bold text-gray-900">Lucro realizado</span>
-              <span className={`text-base font-bold ${s.lucroRealizadoCents >= 0 ? 'text-[#030A8C]' : 'text-red-700'}`}>{brl(s.lucroRealizadoCents)}</span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Evolução: recorrente, avulso, recebido e custos */}
-      <FinanceChart />
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Custos por categoria da competência */}
-        <div className="border border-gray-100 rounded-xl overflow-hidden">
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
-            <TrendingDown className="w-4 h-4 text-red-500" />
-            <p className="font-semibold text-gray-900 text-sm">Custos por categoria</p>
-          </div>
-          {!s || s.custosPorCategoria.length === 0 ? (
-            <p className="text-xs text-gray-400 text-center py-5">Nenhum custo lançado neste mês</p>
-          ) : (
-            <div className="p-4 space-y-2.5">
-              {s.custosPorCategoria.map((c) => (
-                <div key={c.category}>
-                  <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="text-gray-700 font-medium truncate">{c.category}</span>
-                    <span className="text-gray-900 font-semibold shrink-0 ml-2">
-                      {brl(c.previstoCents)}
-                      {c.pagoCents > 0 && c.pagoCents < c.previstoCents && <span className="text-gray-400 font-normal"> · {brl(c.pagoCents)} pago</span>}
-                    </span>
-                  </div>
-                  <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-red-400 rounded-full" style={{ width: `${(c.previstoCents / maxCategoria) * 100}%` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Cobranças por status (Asaas) */}
-        <div className="border border-gray-100 rounded-xl overflow-hidden">
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
-            <DollarSign className="w-4 h-4 text-[#030A8C]" />
-            <p className="font-semibold text-gray-900 text-sm">Cobranças por status</p>
-          </div>
-          {!s || s.cobrancasPorStatus.length === 0 ? (
-            <p className="text-xs text-gray-400 text-center py-5">Nenhuma cobrança gerada neste mês</p>
-          ) : (
-            <div className="divide-y divide-gray-100">
-              {s.cobrancasPorStatus.map((c) => {
-                const st = ASAAS_STATUS_PT[c.status] ?? { label: c.status, cls: 'bg-gray-100 text-gray-600' }
-                return (
-                  <div key={c.status} className="flex items-center justify-between px-4 py-2.5">
-                    <span className="flex items-center gap-2">
-                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${st.cls}`}>{st.label}</span>
-                      <span className="text-[11px] text-gray-400">{c.count} cobrança(s)</span>
-                    </span>
-                    <span className="text-xs font-bold text-gray-900">{brl(c.cents)}</span>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Segmentação da carteira pela receita recorrente ativa */}
-      {s && s.segments.length > 0 && (
-        <div className="border border-gray-100 rounded-xl overflow-hidden">
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
-            <Users className="w-4 h-4 text-[#030A8C]" />
-            <p className="font-semibold text-gray-900 text-sm">Carteira por grupo</p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
-            {s.segments.map((seg) => (
-              <div key={seg.tier ?? 'sem'} className="p-4">
-                <div className="flex items-center justify-between mb-1.5">
-                  {seg.tier ? <TierBadge tier={seg.tier} size="sm" /> : <span className="text-xs font-semibold text-gray-500">Não classificado</span>}
-                  <span className="text-[11px] text-gray-400">{seg.count} cliente(s)</span>
-                </div>
-                <p className="text-base font-bold text-gray-900">{brl(seg.recurringCents)}<span className="text-[11px] text-gray-400 font-normal">/mês</span></p>
-                <div className="flex items-center gap-2 mt-1.5">
-                  <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                    <div className={`h-full rounded-full ${seg.tier === 'SCALE' ? 'bg-[#F74A13]' : seg.tier ? 'bg-[#030A8C]' : 'bg-gray-300'}`} style={{ width: `${Math.min(seg.share, 100)}%` }} />
-                  </div>
-                  <span className="text-[11px] text-gray-500 font-semibold">{seg.share.toFixed(0)}%</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Próximos vencimentos */}
-        <div className="border border-gray-100 rounded-xl overflow-hidden">
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
-            <CalendarClock className="w-4 h-4 text-[#030A8C]" />
-            <p className="font-semibold text-gray-900 text-sm">Próximos vencimentos</p>
-          </div>
-          {upcoming.length === 0 ? (
-            <p className="text-xs text-gray-400 text-center py-5">Nenhum vencimento pendente</p>
-          ) : (
-            <div className="divide-y divide-gray-100">
-              {upcoming.map((e) => (
-                <div key={e.id} className="flex items-center justify-between px-4 py-2.5">
-                  <div className="min-w-0">
-                    <p className="text-xs font-medium text-gray-900 truncate">{e.name || e.description}</p>
-                    <p className="text-[11px] text-gray-400">
-                      {e.type === 'SALARIO' ? (e.user?.name ?? 'Salário') : e.category}
-                      {e.dueDate ? ` · vence ${formatDate(e.dueDate)}` : ''}
-                    </p>
-                  </div>
-                  <span className={`text-xs font-bold shrink-0 ml-2 ${isOverdue(e) ? 'text-red-600' : 'text-gray-900'}`}>
-                    {formatCurrency(e.amount)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="space-y-4">
-          {/* Movimentações recentes */}
-          <div className="border border-gray-100 rounded-xl overflow-hidden">
-            <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
-              <DollarSign className="w-4 h-4 text-[#030A8C]" />
-              <p className="font-semibold text-gray-900 text-sm">Movimentações recentes</p>
-            </div>
-            {recent.length === 0 ? (
-              <p className="text-xs text-gray-400 text-center py-5">Nenhuma movimentação registrada</p>
-            ) : (
-              <div className="divide-y divide-gray-100">
-                {recent.map((m) => (
-                  <div key={m.id} className="flex items-center justify-between px-4 py-2.5">
-                    <div className="min-w-0">
-                      <p className="text-xs font-medium text-gray-900 truncate">{m.label}</p>
-                      <p className="text-[11px] text-gray-400">
-                        {m.kind === 'recebimento' ? 'Recebimento' : m.kind === 'salario' ? 'Salário pago' : 'Custo pago'}
-                        {' · '}{m.detail}{m.at ? ` · ${formatDate(m.at)}` : ''}
-                      </p>
-                    </div>
-                    <span className={`text-xs font-bold shrink-0 ml-2 ${m.kind === 'recebimento' ? 'text-green-600' : 'text-red-600'}`}>
-                      {m.kind === 'recebimento' ? '+ ' : '- '}{formatCurrency(m.amount)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Integrações — status real, sem tokens */}
-          <IntegrationsCard />
-        </div>
-      </div>
-    </div>
-  )
-}
-
-/* ------------------------------- Recebimentos ------------------------------- */
-
-function PaymentsTab({
-  payments, charges, period, onToggle, onChanged, onFlash,
-}: {
-  payments: Payment[]
-  charges: AsaasChargeRow[]
-  period: { year: number; month: number }
-  onToggle: (ids: string[], status: string) => void
-  onChanged: () => void
-  onFlash: (msg: string) => void
-}) {
-  const [busyCharge, setBusyCharge] = useState<string | null>(null)
-  const [chargeMsg, setChargeMsg] = useState<string | null>(null)
-  const [expanded, setExpanded] = useState<string | null>(null)
-  const [dueDialog, setDueDialog] = useState<{ ids: string[]; label: string; current: string } | null>(null)
-
-  /** Ações sobre as parcelas: vencimento, cancelamento e reenvio da fatura. */
-  async function paymentAction(payload: Record<string, unknown>, okMsg: string) {
-    const res = await fetch('/api/financeiro/pagamentos', {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
-    })
-    const body = await res.json().catch(() => ({}))
-    if (!res.ok) { onFlash(body.error || 'Falha na operação.'); return }
-    onFlash(body.skipped ? `${okMsg} (${body.skipped} parcela(s) já paga(s) mantida(s))` : okMsg)
-    onChanged()
-  }
-  // Prontidão fiscal: sem Inscrição Municipal, alíquota da competência e chave
-  // do Web Service, a emissão fica desabilitada aqui também (o backend recusa).
-  const [fiscal, setFiscal] = useState<{ ready: boolean; missing: string[] } | null>(null)
 
   useEffect(() => {
     fetch('/api/fiscal-config')
@@ -783,292 +135,289 @@ function PaymentsTab({
       .catch(() => {})
   }, [])
 
-  // Uma linha por cliente: soma todas as parcelas/serviços do mês.
-  const groups = useMemo(() => {
-    const map = new Map<string, { client: Payment['client']; items: Payment[] }>()
-    for (const p of payments) {
-      const g = map.get(p.client.id)
-      if (g) g.items.push(p)
-      else map.set(p.client.id, { client: p.client, items: [p] })
-    }
-    // Clientes que só têm cobrança Asaas (sem parcela local) também aparecem
-    for (const c of charges) {
-      if (!map.has(c.clientId)) map.set(c.clientId, { client: { id: c.clientId, name: c.client.name }, items: [] })
-    }
-    return [...map.values()].sort((a, b) => a.client.name.localeCompare(b.client.name, 'pt-BR'))
-  }, [payments, charges])
+  const entries = useMemo(() => data?.entries ?? [], [data])
+  const costs = useMemo(() => entries.filter((e) => e.type === 'CUSTO'), [entries])
+  const salaries = useMemo(() => entries.filter((e) => e.type === 'SALARIO'), [entries])
+  const rows = useMemo(() => buildReceivableRows(data?.clientPayments ?? [], data?.asaasCharges ?? []), [data])
+  const counts = useMemo(() => finTabCounts(rows, costs, salaries), [rows, costs, salaries])
 
-  const chargeByClient = useMemo(() => {
-    const m = new Map<string, AsaasChargeRow>()
-    for (const c of charges) m.set(c.clientId, c)
-    return m
-  }, [charges])
+  /* ------------------------ recorte visível por aba ------------------------ */
+  const receivableRows: ReceivableRow[] = useMemo(() => {
+    const base = tab === 'atrasados' ? rows.filter((r) => r.situation === 'atrasado') : rows
+    return sortReceivables(filterReceivables(base, filters), sort)
+  }, [rows, tab, filters, sort])
 
-  async function chargeAction(fn: () => Promise<Response>, chargeKey: string, okMsg?: string) {
-    setBusyCharge(chargeKey)
-    setChargeMsg(null)
+  const costRows = useMemo(() => {
+    const base = tab === 'atrasados' ? costs.filter((e) => isOverdue(e)) : costs
+    return sortEntries(filterEntries(base, filters), sort)
+  }, [costs, tab, filters, sort])
+
+  const salaryRows = useMemo(() => {
+    const base = tab === 'atrasados' ? salaries.filter((e) => isOverdue(e)) : salaries
+    return sortEntries(filterEntries(base, filters), sort)
+  }, [salaries, tab, filters, sort])
+
+  const lista = tab === 'custos' ? costRows : tab === 'salarios' ? salaryRows : receivableRows
+  const pages = Math.max(1, Math.ceil(lista.length / PAGE))
+  const pageSafe = Math.min(page, pages)
+  const from = (pageSafe - 1) * PAGE
+  const to = pageSafe * PAGE
+  const shown = Math.max(0, Math.min(to, lista.length) - from)
+
+  const activeTile: TileKey | null = filters.situation === 'pago' && tab === 'recebiveis' ? 'recebido'
+    : filters.situation === 'pendente' && tab === 'recebiveis' ? 'receber'
+    : tab === 'atrasados' ? 'atrasado'
+    : tab === 'custos' ? 'custos'
+    : null
+
+  function toggleTile(k: TileKey) {
+    if (activeTile === k) { push({ tab: 'recebiveis', situation: '' }); return }
+    if (k === 'recebido') push({ tab: 'recebiveis', situation: 'pago' })
+    else if (k === 'receber') push({ tab: 'recebiveis', situation: 'pendente' })
+    else if (k === 'atrasado') push({ tab: 'atrasados', situation: '' })
+    else push({ tab: 'custos', situation: '' })
+  }
+
+  /* --------------------------------- ações --------------------------------- */
+
+  async function togglePayments(paymentIds: string[], newStatus: string) {
+    const res = await fetch('/api/financeiro/pagamentos', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ paymentIds, status: newStatus }),
+    })
+    if (res.ok) reload()
+  }
+
+  async function toggleEntryPaid(entry: EntryLike) {
+    const endpoint = entry.type === 'SALARIO' ? '/api/financeiro/salarios' : '/api/financeiro/custos'
+    const res = await fetch(endpoint, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entryId: entry.id, status: entry.status === 'PAGO' ? 'PENDENTE' : 'PAGO' }),
+    })
+    if (res.ok) reload()
+  }
+
+  async function paymentAction(payload: Record<string, unknown>, okMsg: string) {
+    const res = await fetch('/api/financeiro/pagamentos', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+    })
+    const body = await res.json().catch(() => ({}))
+    if (!res.ok) { setFlash(body.error || 'Falha na operação.'); return }
+    setFlash(body.skipped ? `${okMsg} (${body.skipped} parcela(s) já paga(s) mantida(s))` : okMsg)
+    reload()
+  }
+
+  async function chargeAction(fn: () => Promise<Response>, key: string, okMsg?: string) {
+    setBusyKey(key)
     try {
       const res = await fn()
       const body = await res.json().catch(() => ({}))
-      if (!res.ok) setChargeMsg(body.error || 'Falha na operação.')
-      else if (okMsg) setChargeMsg(okMsg)
-      onChanged()
-    } catch {
-      setChargeMsg('Falha de conexão.')
-    } finally {
-      setBusyCharge(null)
-    }
+      if (!res.ok) setFlash(body.error || 'Falha na operação.')
+      else if (okMsg) setFlash(okMsg)
+      reload()
+    } catch { setFlash('Falha de conexão.') } finally { setBusyKey(null) }
   }
 
-  const generate = (clientId: string) => chargeAction(
-    () => fetch('/api/asaas/cobrancas', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ clientId, year: period.year, month: period.month }),
-    }),
-    `gen-${clientId}`,
-    'Cobrança gerada no Asaas.',
-  )
-  const syncCharge = (chargeId: string) => chargeAction(
-    () => fetch('/api/asaas/cobrancas', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chargeId }),
-    }),
-    `sync-${chargeId}`,
-  )
-  const nfseAction = (chargeId: string, action: string, okMsg?: string) => chargeAction(
-    () => fetch(`/api/nfse/${chargeId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action }),
-    }),
-    `${action}-${chargeId}`,
-    okMsg,
-  )
+  async function applyCostEdit(entry: Entry, fields: Record<string, unknown>, scope: 'only' | 'future') {
+    const res = await fetch('/api/financeiro/custos', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ entryId: entry.id, scope, ...fields }),
+    })
+    if (res.ok) { setEditing(null); reload() }
+  }
+
+  async function applySalaryEdit(entry: Entry, scope: 'only' | 'future') {
+    const res = await fetch('/api/financeiro/salarios', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ entryId: entry.id, scope, amount: editAmount }),
+    })
+    if (res.ok) { setEditing(null); setEditAmount(null); reload() }
+  }
+
+  async function deleteCost(entry: Entry, scope: 'only' | 'future') {
+    const res = await fetch(`/api/financeiro/custos?entryId=${entry.id}&scope=${scope}`, { method: 'DELETE' })
+    if (res.ok) reload()
+  }
+
+  async function stopSalary(entry: Entry) {
+    if (!confirm(`Interromper os próximos salários de ${entry.user?.name ?? 'colaborador'} a partir de ${String(period.month).padStart(2, '0')}/${period.year}? O histórico é preservado.`)) return
+    const res = await fetch(`/api/financeiro/salarios?entryId=${entry.id}`, { method: 'DELETE' })
+    if (res.ok) reload()
+  }
+
+  function exportCsv() {
+    if (!data) return
+    const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
+    const linhas = [
+      ['tipo', 'natureza', 'descricao', 'cliente/colaborador', 'valor', 'vencimento', 'status'].join(';'),
+      ...rows.map((r) => ['recebimento', r.kind.toLowerCase(), r.label, r.client.name, r.amount.toFixed(2), r.dueDate?.slice(0, 10) ?? '', r.situation].map(esc).join(';')),
+      ...entries.map((e) => [e.type.toLowerCase(), e.recurring ? 'recorrente' : 'unico', e.name || e.description, e.user?.name ?? e.category, e.amount.toFixed(2), e.dueDate?.slice(0, 10) ?? '', e.status].map(esc).join(';')),
+    ].join('\n')
+    const blob = new Blob([`﻿${linhas}`], { type: 'text/csv;charset=utf-8' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `financeiro-${period.year}-${String(period.month).padStart(2, '0')}.csv`
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }
 
   return (
-    <div className="space-y-2">
-      {chargeMsg && (
-        <p className="text-xs font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">{chargeMsg}</p>
+    <div className="flex-1 min-h-0 flex flex-col">
+      <div className="px-4 sm:px-6 pt-4 pb-3 space-y-3 shrink-0">
+        {/* Período e ações do mês */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <MonthPicker period={period} isCurrent={isCurrentMonth} onChange={(p) => push({ period: p })} onToday={() => push({ period: currentPeriod() })} />
+          <div className="ml-auto flex items-center gap-2">
+            <a href="/financeiro/fiscal" className="h-9 px-3 inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white text-xs font-semibold text-gray-700 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors" title="Configuração fiscal e diagnóstico">
+              <Settings2 className="w-3.5 h-3.5" /><span className="hidden md:inline">Fiscal</span>
+            </a>
+            <button type="button" onClick={exportCsv} className="h-9 px-3 inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white text-xs font-semibold text-gray-700 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors">
+              <Download className="w-3.5 h-3.5" /><span className="hidden md:inline">Exportar</span>
+            </button>
+            <button
+              type="button"
+              disabled={runningJob}
+              onClick={async () => {
+                setRunningJob(true)
+                try {
+                  const res = await fetch('/api/asaas/cobrancas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ runJob: true }) })
+                  const r = await res.json().catch(() => ({}))
+                  setFlash(res.ok
+                    ? `Cobranças: ${r.created ?? 0} criada(s), ${r.skipped ?? 0} já existente(s) ou fora da janela, ${r.errors ?? 0} erro(s).`
+                    : r.error || 'Falha ao gerar cobranças.')
+                  if (res.ok) reload()
+                } finally { setRunningJob(false) }
+              }}
+              className="h-9 px-3 inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white text-xs font-semibold text-gray-700 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${runningJob ? 'animate-spin' : ''}`} />
+              <span className="hidden md:inline">{runningJob ? 'Gerando…' : 'Gerar cobranças'}</span>
+            </button>
+            <button type="button" onClick={() => setShowAdd(true)} className="h-9 px-3 inline-flex items-center gap-1.5 rounded-lg bg-[#030A8C] text-white text-xs font-semibold hover:bg-[#02077a] transition-colors">
+              <Plus className="w-4 h-4" /><span className="hidden sm:inline">Novo lançamento</span>
+            </button>
+          </div>
+        </div>
+
+        {flash && <p className="text-xs font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5">{flash}</p>}
+        {error && <p className="text-sm font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-3 text-center">{error}</p>}
+
+        <FinanceKpis s={data?.summary ?? null} loading={loading} active={activeTile} onToggle={toggleTile} />
+        <FinanceTabs active={tab} counts={counts} onChange={(t) => push({ tab: t })} />
+
+        {tab !== 'visao' && (
+          <>
+            <FinanceFilterRow
+              filters={filters}
+              onChange={push}
+              sort={sort}
+              onSort={(s) => push({ sort: s })}
+              categories={tab === 'custos' ? COST_CATEGORIES : []}
+              showKind={tab !== 'salarios'}
+              addLabel={tab === 'custos' ? 'Novo custo' : tab === 'salarios' ? 'Novo salário' : undefined}
+              onAdd={tab === 'custos' ? () => setShowNewCost(true) : tab === 'salarios' ? () => setShowNewSalary(true) : undefined}
+              placeholder={tab === 'salarios' ? 'Buscar colaborador' : tab === 'custos' ? 'Buscar custo ou categoria' : 'Buscar cliente ou serviço'}
+            />
+            <FinanceChips
+              filters={filters}
+              onRemove={(k) => push({ [k]: '' } as Partial<FinFilters>)}
+              onClear={() => push({ ...EMPTY_FIN_FILTERS })}
+            />
+          </>
+        )}
+      </div>
+
+      <div className="flex-1 min-h-0 flex flex-col px-4 sm:px-6 pb-4">
+        {loading ? (
+          <div className="space-y-3 animate-pulse py-2">
+            {[...Array(5)].map((_, i) => <div key={i} className="h-14 bg-white border border-gray-200 rounded-xl" />)}
+          </div>
+        ) : tab === 'visao' ? (
+          <OverviewTab summary={data?.summary ?? null} upcoming={data?.upcoming ?? []} recent={data?.recent ?? []} />
+        ) : (
+          <>
+            {tab === 'custos' ? (
+              <EntriesTable
+                entries={costRows.slice(from, to)}
+                kind="custo"
+                onTogglePaid={toggleEntryPaid}
+                onEdit={(e) => setEditing(editing?.id === e.id ? null : e)}
+                onDelete={(e) => {
+                  if (e.recurringCostId) setScopeAction({ entry: e, action: 'delete' })
+                  else if (confirm(`Excluir o custo "${e.name || e.description}"?`)) deleteCost(e, 'only')
+                }}
+                deleteLabel="Excluir custo"
+                editingId={editing?.id ?? null}
+                editor={editing ? (
+                  <CostEditForm
+                    entry={editing}
+                    onCancel={() => setEditing(null)}
+                    onSave={(fields) => {
+                      if (editing.recurringCostId) setScopeAction({ entry: editing, action: 'edit', fields })
+                      else applyCostEdit(editing, fields, 'only')
+                    }}
+                  />
+                ) : null}
+              />
+            ) : tab === 'salarios' ? (
+              <EntriesTable
+                entries={salaryRows.slice(from, to)}
+                kind="salario"
+                onTogglePaid={toggleEntryPaid}
+                onEdit={(e) => { setEditing(editing?.id === e.id ? null : e); setEditAmount(e.amount) }}
+                onDelete={stopSalary}
+                deleteLabel="Interromper próximos"
+                editingId={editing?.id ?? null}
+                editor={editing ? (
+                  <SalaryEditForm
+                    value={editAmount}
+                    onChange={setEditAmount}
+                    onCancel={() => setEditing(null)}
+                    onSave={() => setScopeAction({ entry: editing, action: 'edit' })}
+                  />
+                ) : null}
+              />
+            ) : (
+              <ReceivablesTable
+                rows={receivableRows.slice(from, to)}
+                actions={{
+                  busyKey,
+                  fiscalReady: fiscal == null || fiscal.ready,
+                  fiscalMissing: fiscal?.missing ?? [],
+                  onTogglePaid: (r) => r.payment && togglePayments([r.payment.id], r.payment.status === 'PAGO' ? 'PENDENTE' : 'PAGO'),
+                  onChangeDue: (r) => r.payment && setDueDialog({ ids: [r.payment.id], label: `${r.client.name} · ${r.label}`, current: r.dueDate.slice(0, 10) }),
+                  onCancel: (r) => {
+                    if (!r.payment) return
+                    const reason = prompt('Motivo do cancelamento (opcional):') ?? undefined
+                    paymentAction({ paymentIds: [r.payment.id], action: 'cancelar', reason }, 'Parcela cancelada.')
+                  },
+                  onResend: (r) => r.payment && paymentAction({ paymentIds: [r.payment.id], action: 'reenviar' }, 'Fatura reenviada por e-mail.'),
+                  onGenerateCharge: (clientId) => chargeAction(
+                    () => fetch('/api/asaas/cobrancas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientId, year: period.year, month: period.month }) }),
+                    `gen-${clientId}`, 'Cobrança gerada no Asaas.',
+                  ),
+                  onSyncCharge: (chargeId) => chargeAction(
+                    () => fetch('/api/asaas/cobrancas', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chargeId }) }),
+                    `sync-${chargeId}`,
+                  ),
+                  onNfse: (chargeId, action) => chargeAction(
+                    () => fetch(`/api/nfse/${chargeId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action }) }),
+                    `${action}-${chargeId}`,
+                    action === 'emit' ? 'NFS-e enviada para processamento.' : undefined,
+                  ),
+                }}
+              />
+            )}
+            <Pagination page={pageSafe} pages={pages} total={lista.length} shown={shown} onPage={setPage} />
+          </>
+        )}
+      </div>
+
+      {showAdd && (
+        <AddEntryModal period={period} onClose={() => setShowAdd(false)} onSaved={(msg) => { setShowAdd(false); setFlash(msg); reload() }} />
       )}
-      {groups.length === 0 ? (
-        <p className="text-sm text-gray-400 text-center py-6">Nenhum pagamento cadastrado neste mês</p>
-      ) : (
-        groups.map(({ client, items }) => {
-          const total = items.reduce((s, p) => s + p.amount, 0)
-          const paid = items.filter((p) => p.status === 'PAGO')
-          const paidTotal = paid.reduce((s, p) => s + p.amount, 0)
-          const pending = items.filter((p) => p.status !== 'PAGO')
-          const allPaid = items.length > 0 && pending.length === 0
-          const overdue = pending.some((p) => isOverdue(p))
-          const earliestDue = items.length > 0
-            ? items.reduce((min, p) => (new Date(p.dueDate) < new Date(min) ? p.dueDate : min), items[0].dueDate)
-            : null
-          const charge = chargeByClient.get(client.id)
-          const st = charge ? (ASAAS_STATUS_PT[charge.status] ?? { label: charge.status, cls: 'bg-gray-100 text-gray-600' }) : null
-          const nf = charge?.nfse ? (NFSE_STATUS_PT[charge.nfse.status] ?? { label: charge.nfse.status, cls: 'bg-gray-100 text-gray-600' }) : null
-          const busy = busyCharge != null && busyCharge.endsWith(charge?.id ?? client.id)
-
-          return (
-            <div key={client.id} className="border border-gray-200 rounded-lg hover:bg-gray-50">
-              <div className="flex items-center justify-between p-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-semibold text-gray-900 truncate">{client.name}</p>
-                    <TierBadge tier={client.tier} />
-                    {charge && (
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#030A8C]/10 text-[#030A8C]">Asaas</span>
-                    )}
-                  </div>
-                  <p className="text-xs text-gray-400">
-                    {items.length > 0 ? `${items.length} serviço(s)` : 'cobrança Asaas'}
-                    {earliestDue ? ` · vence ${formatDate(earliestDue)}` : charge ? ` · vence ${formatDate(charge.dueDate)}` : ''}
-                    {allPaid
-                      ? paid[0]?.paidAt ? ` · pago em ${formatDate(paid[0].paidAt)}` : ''
-                      : paidTotal > 0 ? ` · ${formatCurrency(paidTotal)} já pago` : ''}
-                    {charge?.netValue != null ? ` · líquido ${formatCurrency(Number(charge.netValue))}` : ''}
-                    {charge?.fee != null ? ` · tarifa ${formatCurrency(Number(charge.fee))}` : ''}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3 shrink-0 ml-2">
-                  <p className="text-sm font-bold text-gray-900">{formatCurrency(items.length > 0 ? total : Number(charge?.value ?? 0))}</p>
-                  {items.length > 0 && (
-                    <button
-                      onClick={() =>
-                        allPaid
-                          ? onToggle(items.map((p) => p.id), 'PENDENTE')
-                          : onToggle(pending.map((p) => p.id), 'PAGO')
-                      }
-                      title={charge ? 'Cobrança Asaas: o status muda pelo webhook; use só para ajuste manual' : allPaid ? 'Marcar tudo como pendente' : 'Marcar tudo como pago'}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                        allPaid
-                          ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                          : overdue
-                            ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                            : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
-                      }`}
-                    >
-                      {allPaid ? <Check className="w-3 h-3" /> : null}
-                      {allPaid ? 'PAGO' : overdue ? 'ATRASADO' : paidTotal > 0 ? 'PARCIAL' : 'PENDENTE'}
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Parcelas do mês, uma por serviço (recorrente × avulso) */}
-              {items.length > 0 && (
-                <div className="px-3 pb-1">
-                  <button
-                    onClick={() => setExpanded(expanded === client.id ? null : client.id)}
-                    className="text-[11px] font-semibold text-gray-500 hover:text-[#030A8C]"
-                  >
-                    {expanded === client.id ? 'Ocultar serviços' : `Ver ${items.length} serviço(s) do mês`}
-                  </button>
-                  {expanded === client.id && (
-                    <div className="mt-1.5 divide-y divide-gray-100 border border-gray-100 rounded-lg bg-white">
-                      {items.map((it) => (
-                        <div key={it.id} className="flex items-center justify-between gap-2 px-3 py-2">
-                          <div className="min-w-0">
-                            <p className="text-xs font-medium text-gray-900 truncate">
-                              {it.service?.billingDescription || it.service?.serviceName || 'Serviço'}
-                            </p>
-                            <p className="text-[11px] text-gray-400">
-                              <span className={`font-semibold ${it.kind === 'AVULSO' ? 'text-purple-600' : 'text-[#030A8C]'}`}>
-                                {it.kind === 'AVULSO' ? 'Avulso' : 'Recorrente'}
-                              </span>
-                              {` · vence ${formatDate(it.dueDate)}`}
-                              {it.paidAt ? ` · pago em ${formatDate(it.paidAt)}` : ''}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className="text-xs font-semibold text-gray-900">{formatCurrency(it.amount)}</span>
-                            <StatusBadge entry={{ status: it.status, dueDate: it.dueDate }} />
-                            {it.status !== 'PAGO' && (
-                              <>
-                                <button
-                                  onClick={() => setDueDialog({ ids: [it.id], label: it.service?.serviceName ?? client.name, current: it.dueDate.slice(0, 10) })}
-                                  title="Alterar vencimento"
-                                  className="p-1 text-gray-400 hover:text-[#030A8C] rounded"
-                                >
-                                  <CalendarDays className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    const reason = prompt('Motivo do cancelamento (opcional):') ?? undefined
-                                    paymentAction({ paymentIds: [it.id], action: 'cancelar', reason }, 'Parcela cancelada.')
-                                  }}
-                                  title="Cancelar parcela"
-                                  className="p-1 text-gray-400 hover:text-red-600 rounded"
-                                >
-                                  <Ban className="w-3.5 h-3.5" />
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Faixa Asaas / NFS-e */}
-              <div className="flex flex-wrap items-center gap-1.5 px-3 pb-2.5">
-                {!charge ? (
-                  <button
-                    onClick={() => generate(client.id)}
-                    disabled={busy}
-                    className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-[#030A8C] text-white hover:bg-[#02077a] disabled:opacity-50 transition-colors"
-                  >
-                    {busy ? 'Gerando...' : 'Gerar cobrança Asaas'}
-                  </button>
-                ) : (
-                  <>
-                    {st && <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${st.cls}`}>{st.label}</span>}
-                    {nf && <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${nf.cls}`}>{nf.label}</span>}
-                    {charge.invoiceUrl && (
-                      <a href={charge.invoiceUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] text-[#030A8C] hover:underline font-medium">Fatura</a>
-                    )}
-                    {charge.bankSlipUrl && (
-                      <a href={charge.bankSlipUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] text-[#030A8C] hover:underline font-medium">Boleto</a>
-                    )}
-                    {charge.identificationField && (
-                      <button
-                        onClick={() => { navigator.clipboard.writeText(charge.identificationField!); setChargeMsg('Linha digitável copiada.') }}
-                        className="text-[11px] text-gray-500 hover:text-[#030A8C] font-medium"
-                      >
-                        Copiar linha digitável
-                      </button>
-                    )}
-                    <button onClick={() => syncCharge(charge.id)} disabled={busy} className="text-[11px] text-gray-500 hover:text-[#030A8C] font-medium disabled:opacity-50">
-                      Sincronizar
-                    </button>
-                    {items.some((p) => p.status !== 'PAGO') && (
-                      <button
-                        onClick={() => paymentAction({ paymentIds: items.filter((p) => p.status !== 'PAGO').map((p) => p.id), action: 'reenviar' }, 'Fatura reenviada por e-mail.')}
-                        className="inline-flex items-center gap-1 text-[11px] text-gray-500 hover:text-[#030A8C] font-medium"
-                      >
-                        <Send className="w-3 h-3" /> Reenviar fatura
-                      </button>
-                    )}
-                    {!charge.nfse && ['CONFIRMED', 'RECEIVED'].includes(charge.status) && (
-                      <button
-                        onClick={() => nfseAction(charge.id, 'emit', 'NFS-e enviada para processamento.')}
-                        disabled={busy || (fiscal != null && !fiscal.ready)}
-                        title={fiscal && !fiscal.ready ? `Configuração fiscal incompleta: ${fiscal.missing.join(', ')}` : undefined}
-                        className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      >
-                        Emitir NFS-e
-                      </button>
-                    )}
-                    {charge.nfse && (
-                      <>
-                        <button onClick={() => nfseAction(charge.id, 'consult')} disabled={busy} className="text-[11px] text-gray-500 hover:text-[#030A8C] font-medium disabled:opacity-50">
-                          Consultar NFS-e
-                        </button>
-                        {charge.nfse.pdfUrl && (
-                          <a href={charge.nfse.pdfUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] text-[#030A8C] hover:underline font-medium">PDF</a>
-                        )}
-                        {charge.nfse.xmlUrl && (
-                          <a href={charge.nfse.xmlUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] text-[#030A8C] hover:underline font-medium">XML</a>
-                        )}
-                        {charge.nfse.status === 'AUTORIZADO' && (
-                          <button onClick={() => nfseAction(charge.id, 'email', 'NFS-e reenviada por e-mail.')} disabled={busy} className="text-[11px] text-gray-500 hover:text-[#030A8C] font-medium disabled:opacity-50">
-                            Reenviar por e-mail
-                          </button>
-                        )}
-                        {charge.nfse.status === 'ERRO_AUTORIZACAO' && (
-                          <button
-                            onClick={() => nfseAction(charge.id, 'emit', 'Nova tentativa de emissão enviada.')}
-                            disabled={busy || (fiscal != null && !fiscal.ready)}
-                            title={fiscal && !fiscal.ready ? `Configuração fiscal incompleta: ${fiscal.missing.join(', ')}` : undefined}
-                            className="text-[11px] font-semibold text-red-600 hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            Tentar novamente
-                          </button>
-                        )}
-                      </>
-                    )}
-                    {(charge.lastError || charge.nfse?.lastError || charge.nfse?.municipalMessage) && (
-                      <button
-                        onClick={() => alert(charge.lastError || charge.nfse?.lastError || charge.nfse?.municipalMessage || '')}
-                        className="text-[11px] text-red-600 hover:underline font-medium"
-                      >
-                        Ver erro
-                      </button>
-                    )}
-                    {charge.status === 'ERROR' && (
-                      <button onClick={() => generate(client.id)} disabled={busy} className="text-[11px] font-semibold text-red-600 hover:underline disabled:opacity-50">
-                        Tentar novamente
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
-          )
-        })
+      {showNewCost && (
+        <NewCostModal period={period} onClose={() => setShowNewCost(false)} onSaved={() => { setShowNewCost(false); reload() }} />
+      )}
+      {showNewSalary && (
+        <NewSalaryModal period={period} users={data?.users ?? []} onClose={() => setShowNewSalary(false)} onSaved={() => { setShowNewSalary(false); reload() }} />
       )}
 
       {dueDialog && (
@@ -1083,601 +432,27 @@ function PaymentsTab({
           }}
         />
       )}
-    </div>
-  )
-}
 
-/** Novo vencimento de parcelas pendentes (parcelas pagas ficam intactas). */
-function DueDateDialog({ label, current, onClose, onConfirm }: {
-  label: string
-  current: string
-  onClose: () => void
-  onConfirm: (date: string) => void
-}) {
-  const [date, setDate] = useState(current)
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl w-full max-w-sm p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <p className="font-semibold text-gray-900 mb-1">Alterar vencimento</p>
-        <p className="text-xs text-gray-500 mb-3 truncate">{label}</p>
-        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="input text-sm" />
-        <div className="flex justify-end gap-2 mt-4">
-          <button onClick={onClose} className="px-3 py-2 text-xs font-medium text-gray-600 hover:text-gray-900">Cancelar</button>
-          <button onClick={() => onConfirm(date)} disabled={!date} className="px-4 py-2 bg-[#030A8C] text-white rounded-lg text-xs font-semibold hover:bg-[#02077a] disabled:opacity-40">
-            Salvar
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-/* ---------------------------------- Custos ---------------------------------- */
-
-function CostsTab({
-  entries, period, onChanged, onTogglePaid,
-}: {
-  entries: Entry[]
-  period: { year: number; month: number }
-  onChanged: () => void
-  onTogglePaid: (e: Entry) => void
-}) {
-  const [showForm, setShowForm] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [formError, setFormError] = useState<string | null>(null)
-  const [statusFilter, setStatusFilter] = useState('todos')
-  const [categoryFilter, setCategoryFilter] = useState('todas')
-  const [typeFilter, setTypeFilter] = useState('todos')
-  const [editing, setEditing] = useState<Entry | null>(null)
-  const [scopeAction, setScopeAction] = useState<{ entry: Entry; action: 'edit' | 'delete' } | null>(null)
-  const [pendingEdit, setPendingEdit] = useState<Record<string, unknown> | null>(null)
-
-  const emptyForm = {
-    name: '', description: '', category: 'Softwares e ferramentas',
-    amount: null as number | null, recurrenceType: 'UNICO',
-    dueDate: `${period.year}-${String(period.month).padStart(2, '0')}-05`,
-    status: 'PENDENTE', paidAt: '',
-    frequency: 'MENSAL', startDate: `${period.year}-${String(period.month).padStart(2, '0')}-01`, endDate: '', dueDay: '5',
-  }
-  const [form, setForm] = useState(emptyForm)
-
-  const filtered = entries.filter((e) => {
-    if (statusFilter === 'pago' && e.status !== 'PAGO') return false
-    if (statusFilter === 'pendente' && (e.status !== 'PENDENTE' || isOverdue(e))) return false
-    if (statusFilter === 'atrasado' && !isOverdue(e)) return false
-    if (categoryFilter !== 'todas' && e.category !== categoryFilter) return false
-    if (typeFilter === 'unico' && e.recurring) return false
-    if (typeFilter === 'recorrente' && !e.recurring) return false
-    return true
-  })
-
-  async function submit() {
-    if (!form.name.trim() || form.amount == null) return
-    setSaving(true)
-    setFormError(null)
-    try {
-      const res = await fetch('/api/financeiro/custos', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      })
-      if (res.ok) {
-        setShowForm(false)
-        setForm(emptyForm)
-        onChanged()
-      } else {
-        const body = await res.json().catch(() => ({}))
-        setFormError(body.error || 'Não foi possível salvar o custo.')
-      }
-    } catch {
-      setFormError('Falha de conexão. Tente de novo.')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  async function applyEdit(entry: Entry, fields: Record<string, unknown>, scope: 'only' | 'future') {
-    const res = await fetch('/api/financeiro/custos', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ entryId: entry.id, scope, ...fields }),
-    })
-    if (res.ok) { setEditing(null); onChanged() }
-  }
-
-  async function applyDelete(entry: Entry, scope: 'only' | 'future') {
-    const res = await fetch(`/api/financeiro/custos?entryId=${entry.id}&scope=${scope}`, { method: 'DELETE' })
-    if (res.ok) onChanged()
-  }
-
-  function requestEdit(entry: Entry, fields: Record<string, unknown>) {
-    if (entry.recurringCostId) {
-      setPendingEdit(fields)
-      setScopeAction({ entry, action: 'edit' })
-    } else {
-      applyEdit(entry, fields, 'only')
-    }
-  }
-
-  function requestDelete(entry: Entry) {
-    if (entry.recurringCostId) {
-      setScopeAction({ entry, action: 'delete' })
-    } else if (confirm(`Excluir o custo "${entry.name || entry.description}"?`)) {
-      applyDelete(entry, 'only')
-    }
-  }
-
-  return (
-    <div>
-      {/* Filtros + adicionar */}
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="input text-xs !w-auto" aria-label="Filtrar por status">
-          <option value="todos">Status: todos</option>
-          <option value="pendente">Pendente</option>
-          <option value="pago">Pago</option>
-          <option value="atrasado">Atrasado</option>
-        </select>
-        <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="input text-xs !w-auto" aria-label="Filtrar por categoria">
-          <option value="todas">Categoria: todas</option>
-          {COST_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-        </select>
-        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="input text-xs !w-auto" aria-label="Filtrar por tipo">
-          <option value="todos">Tipo: todos</option>
-          <option value="unico">Único</option>
-          <option value="recorrente">Recorrente</option>
-        </select>
-        <div className="flex-1" />
-        <button onClick={() => setShowForm((v) => !v)}
-          className="flex items-center gap-1 px-3 py-1.5 bg-[#030A8C] text-white rounded-lg text-xs font-medium hover:bg-[#02077a] transition-colors">
-          <Plus className="w-3.5 h-3.5" /> Adicionar custo
-        </button>
-      </div>
-
-      {/* Formulário */}
-      {showForm && (
-        <div className="bg-gray-50 rounded-lg p-4 mb-4 space-y-3 border border-gray-200">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Nome do custo *</label>
-              <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                className="input text-sm" placeholder="Ex: Assinatura Adobe" />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Categoria</label>
-              <select value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))} className="input text-sm">
-                {COST_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-            <div className="sm:col-span-2">
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Descrição</label>
-              <input value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                className="input text-sm" placeholder="Detalhes do custo" />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Valor *</label>
-              <CurrencyInput value={form.amount} onChange={(v) => setForm((f) => ({ ...f, amount: v }))} className="input text-sm" ariaLabel="Valor do custo" />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Tipo *</label>
-              <select value={form.recurrenceType} onChange={(e) => setForm((f) => ({ ...f, recurrenceType: e.target.value }))} className="input text-sm">
-                <option value="UNICO">Custo único</option>
-                <option value="RECORRENTE">Custo recorrente</option>
-              </select>
-            </div>
-
-            {form.recurrenceType === 'UNICO' ? (
-              <>
-                <div>
-                  <label className="text-xs font-medium text-gray-600 mb-1 block">Data de vencimento *</label>
-                  <input type="date" value={form.dueDate} onChange={(e) => setForm((f) => ({ ...f, dueDate: e.target.value }))} className="input text-sm" />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-600 mb-1 block">Status</label>
-                  <select value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))} className="input text-sm">
-                    <option value="PENDENTE">Pendente</option>
-                    <option value="PAGO">Pago</option>
-                  </select>
-                </div>
-                {form.status === 'PAGO' && (
-                  <div>
-                    <label className="text-xs font-medium text-gray-600 mb-1 block">Data do pagamento</label>
-                    <input type="date" value={form.paidAt} onChange={(e) => setForm((f) => ({ ...f, paidAt: e.target.value }))} className="input text-sm" />
-                  </div>
-                )}
-              </>
-            ) : (
-              <>
-                <div>
-                  <label className="text-xs font-medium text-gray-600 mb-1 block">Frequência *</label>
-                  <select value={form.frequency} onChange={(e) => setForm((f) => ({ ...f, frequency: e.target.value }))} className="input text-sm">
-                    <option value="MENSAL">Mensal</option>
-                    <option value="TRIMESTRAL">Trimestral</option>
-                    <option value="ANUAL">Anual</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-600 mb-1 block">Data de início *</label>
-                  <input type="date" value={form.startDate} onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))} className="input text-sm" />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-600 mb-1 block">Data de término (opcional)</label>
-                  <input type="date" value={form.endDate} onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))} className="input text-sm" />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-600 mb-1 block">Dia do vencimento</label>
-                  <input type="number" min="1" max="31" value={form.dueDay} onChange={(e) => setForm((f) => ({ ...f, dueDay: e.target.value }))} className="input text-sm" />
-                </div>
-              </>
-            )}
-          </div>
-          {formError && (
-            <p className="text-xs font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{formError}</p>
-          )}
-          <div className="flex gap-2 justify-end">
-            <button onClick={() => { setShowForm(false); setFormError(null) }} className="text-xs px-3 py-1.5 text-gray-600 hover:bg-gray-200 rounded-lg">Cancelar</button>
-            <button onClick={submit} disabled={!form.name.trim() || form.amount == null || saving}
-              className="text-xs px-3 py-1.5 bg-[#030A8C] text-white rounded-lg hover:bg-[#02077a] disabled:opacity-50">
-              {saving ? 'Salvando...' : 'Salvar custo'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Lista */}
-      {filtered.length === 0 ? (
-        <p className="text-sm text-gray-400 text-center py-6">
-          {entries.length === 0 ? 'Nenhum custo neste mês' : 'Nenhum custo com esses filtros'}
-        </p>
-      ) : (
-        <div className="space-y-2">
-          {filtered.map((entry) => (
-            <div key={entry.id} className="border border-gray-100 rounded-lg">
-              <div className="flex items-center justify-between p-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-sm font-medium text-gray-900 truncate">{entry.name || entry.description}</p>
-                    <TypeBadge recurring={entry.recurring} />
-                    <StatusBadge entry={entry} />
-                  </div>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    {entry.category}
-                    {entry.dueDate ? ` · vence ${formatDate(entry.dueDate)}` : ''}
-                    {entry.status === 'PAGO' && entry.paidAt ? ` · pago em ${formatDate(entry.paidAt)}` : ''}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 shrink-0 ml-2">
-                  <span className="text-sm font-bold text-red-600">- {formatCurrency(entry.amount)}</span>
-                  <button onClick={() => onTogglePaid(entry)}
-                    title={entry.status === 'PAGO' ? 'Marcar como pendente' : 'Marcar como pago'}
-                    className={`p-1.5 rounded-lg transition-colors ${entry.status === 'PAGO' ? 'text-green-600 bg-green-50 hover:bg-green-100' : 'text-gray-400 hover:text-green-600 hover:bg-green-50'}`}>
-                    <Check className="w-3.5 h-3.5" />
-                  </button>
-                  <button onClick={() => setEditing(editing?.id === entry.id ? null : entry)} title="Editar"
-                    className="p-1.5 text-gray-400 hover:text-[#030A8C] hover:bg-[#030A8C]/5 rounded-lg transition-colors">
-                    <Pencil className="w-3.5 h-3.5" />
-                  </button>
-                  <button onClick={() => requestDelete(entry)} title="Excluir"
-                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-
-              {editing?.id === entry.id && (
-                <CostEditForm
-                  entry={entry}
-                  onCancel={() => setEditing(null)}
-                  onSave={(fields) => requestEdit(entry, fields)}
-                />
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Escopo de edição/exclusão de recorrente */}
       {scopeAction && (
         <ScopeDialog
           title={scopeAction.action === 'delete'
             ? `Excluir "${scopeAction.entry.name || scopeAction.entry.description}"?`
-            : `Alterar "${scopeAction.entry.name || scopeAction.entry.description}"?`}
-          onlyLabel={scopeAction.action === 'delete' ? 'Excluir somente este lançamento' : 'Alterar somente este lançamento'}
-          futureLabel={scopeAction.action === 'delete' ? 'Excluir este e os próximos lançamentos' : 'Alterar este e os próximos lançamentos'}
+            : `Alterar "${scopeAction.entry.user?.name || scopeAction.entry.name || scopeAction.entry.description}"?`}
+          onlyLabel={scopeAction.action === 'delete' ? 'Excluir somente este lançamento' : 'Alterar somente este mês'}
+          futureLabel={scopeAction.action === 'delete' ? 'Excluir este e os próximos lançamentos' : 'Alterar este e os próximos meses'}
           onPick={(scope) => {
-            if (scopeAction.action === 'delete') applyDelete(scopeAction.entry, scope)
-            else if (pendingEdit) applyEdit(scopeAction.entry, pendingEdit, scope)
+            const { entry, action, fields } = scopeAction
+            if (action === 'delete') deleteCost(entry, scope)
+            else if (entry.type === 'SALARIO') applySalaryEdit(entry, scope)
+            else if (fields) applyCostEdit(entry, fields, scope)
             setScopeAction(null)
-            setPendingEdit(null)
           }}
-          onClose={() => { setScopeAction(null); setPendingEdit(null) }}
+          onClose={() => setScopeAction(null)}
         />
       )}
     </div>
   )
 }
 
-function CostEditForm({ entry, onCancel, onSave }: {
-  entry: Entry
-  onCancel: () => void
-  onSave: (fields: Record<string, unknown>) => void
-}) {
-  const [f, setF] = useState({
-    name: entry.name || entry.description,
-    description: entry.description,
-    category: entry.category,
-    amount: entry.amount as number | null,
-    dueDate: entry.dueDate ? String(entry.dueDate).split('T')[0] : '',
-  })
-  return (
-    <div className="border-t border-gray-100 bg-gray-50 p-3 space-y-3">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <input value={f.name} onChange={(e) => setF((p) => ({ ...p, name: e.target.value }))} className="input text-sm" placeholder="Nome *" aria-label="Nome do custo" />
-        <select value={f.category} onChange={(e) => setF((p) => ({ ...p, category: e.target.value }))} className="input text-sm" aria-label="Categoria">
-          {COST_CATEGORIES.includes(f.category) ? null : <option value={f.category}>{f.category}</option>}
-          {COST_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-        </select>
-        <CurrencyInput value={f.amount} onChange={(v) => setF((p) => ({ ...p, amount: v }))} className="input text-sm" ariaLabel="Valor do custo" />
-        <input type="date" value={f.dueDate} onChange={(e) => setF((p) => ({ ...p, dueDate: e.target.value }))} className="input text-sm" aria-label="Vencimento" />
-        <input value={f.description} onChange={(e) => setF((p) => ({ ...p, description: e.target.value }))} className="input text-sm sm:col-span-2" placeholder="Descrição" aria-label="Descrição" />
-      </div>
-      <div className="flex gap-2 justify-end">
-        <button onClick={onCancel} className="text-xs px-3 py-1.5 text-gray-600 hover:bg-gray-200 rounded-lg">Cancelar</button>
-        <button
-          onClick={() => onSave({ name: f.name, description: f.description, category: f.category, amount: f.amount, dueDate: f.dueDate || undefined })}
-          disabled={!f.name.trim() || f.amount == null}
-          className="text-xs px-3 py-1.5 bg-[#030A8C] text-white rounded-lg hover:bg-[#02077a] disabled:opacity-50"
-        >
-          Salvar
-        </button>
-      </div>
-    </div>
-  )
-}
-
-/* --------------------------------- Salários --------------------------------- */
-
-function SalariesTab({
-  entries, users, period, onChanged, onTogglePaid,
-}: {
-  entries: Entry[]
-  users: Collaborator[]
-  period: { year: number; month: number }
-  onChanged: () => void
-  onTogglePaid: (e: Entry) => void
-}) {
-  const [showForm, setShowForm] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [formError, setFormError] = useState<string | null>(null)
-  const [statusFilter, setStatusFilter] = useState('todos')
-  const [userFilter, setUserFilter] = useState('todos')
-  const [editing, setEditing] = useState<Entry | null>(null)
-  const [editAmount, setEditAmount] = useState<number | null>(null)
-  const [scopeFor, setScopeFor] = useState<Entry | null>(null)
-
-  const emptyForm = {
-    userId: '', amount: null as number | null, payDay: '5',
-    startYear: period.year, startMonth: period.month,
-    endDate: '', notes: '', status: 'PENDENTE',
-  }
-  const [form, setForm] = useState(emptyForm)
-
-  const filtered = entries.filter((e) => {
-    if (statusFilter === 'pago' && e.status !== 'PAGO') return false
-    if (statusFilter === 'pendente' && (e.status !== 'PENDENTE' || isOverdue(e))) return false
-    if (statusFilter === 'atrasado' && !isOverdue(e)) return false
-    if (userFilter !== 'todos' && e.user?.id !== userFilter) return false
-    return true
-  })
-
-  const total = entries.reduce((s, e) => s + e.amount, 0)
-
-  function pickUser(userId: string) {
-    const u = users.find((x) => x.id === userId)
-    // Reaproveita o salário do perfil do colaborador, se houver
-    setForm((f) => ({ ...f, userId, amount: f.amount ?? u?.salary ?? null }))
-  }
-
-  async function submit() {
-    if (!form.userId || form.amount == null) return
-    setSaving(true)
-    setFormError(null)
-    try {
-      const res = await fetch('/api/financeiro/salarios', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      })
-      if (res.ok) {
-        setShowForm(false)
-        setForm(emptyForm)
-        onChanged()
-      } else {
-        const body = await res.json().catch(() => ({}))
-        setFormError(body.error || 'Não foi possível cadastrar o salário.')
-      }
-    } catch {
-      setFormError('Falha de conexão. Tente de novo.')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  async function applyEdit(entry: Entry, scope: 'only' | 'future') {
-    const res = await fetch('/api/financeiro/salarios', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ entryId: entry.id, scope, amount: editAmount }),
-    })
-    if (res.ok) { setEditing(null); setEditAmount(null); onChanged() }
-  }
-
-  async function stopSalary(entry: Entry) {
-    if (!confirm(`Interromper os próximos salários de ${entry.user?.name ?? 'colaborador'} a partir de ${String(period.month).padStart(2, '0')}/${period.year}? O histórico é preservado.`)) return
-    const res = await fetch(`/api/financeiro/salarios?entryId=${entry.id}`, { method: 'DELETE' })
-    if (res.ok) onChanged()
-  }
-
-  return (
-    <div>
-      {/* Filtros + adicionar */}
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="input text-xs !w-auto" aria-label="Filtrar por status">
-          <option value="todos">Status: todos</option>
-          <option value="pendente">Pendente</option>
-          <option value="pago">Pago</option>
-          <option value="atrasado">Atrasado</option>
-        </select>
-        <select value={userFilter} onChange={(e) => setUserFilter(e.target.value)} className="input text-xs !w-auto" aria-label="Filtrar por colaborador">
-          <option value="todos">Colaborador: todos</option>
-          {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-        </select>
-        <div className="flex-1" />
-        <button onClick={() => setShowForm((v) => !v)}
-          className="flex items-center gap-1 px-3 py-1.5 bg-[#030A8C] text-white rounded-lg text-xs font-medium hover:bg-[#02077a] transition-colors">
-          <Plus className="w-3.5 h-3.5" /> Adicionar salário
-        </button>
-      </div>
-
-      {/* Formulário */}
-      {showForm && (
-        <div className="bg-gray-50 rounded-lg p-4 mb-4 space-y-3 border border-gray-200">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Colaborador *</label>
-              <select value={form.userId} onChange={(e) => pickUser(e.target.value)} className="input text-sm">
-                <option value="">Selecione...</option>
-                {users.map((u) => (
-                  <option key={u.id} value={u.id}>{u.name}{u.position ? ` — ${u.position}` : ''}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Valor do salário *</label>
-              <CurrencyInput value={form.amount} onChange={(v) => setForm((f) => ({ ...f, amount: v }))} className="input text-sm" ariaLabel="Valor do salário" />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Dia do pagamento</label>
-              <input type="number" min="1" max="31" value={form.payDay} onChange={(e) => setForm((f) => ({ ...f, payDay: e.target.value }))} className="input text-sm" />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Mês inicial</label>
-              <input
-                type="month"
-                value={`${form.startYear}-${String(form.startMonth).padStart(2, '0')}`}
-                onChange={(e) => {
-                  const [y, m] = e.target.value.split('-').map(Number)
-                  if (y && m) setForm((f) => ({ ...f, startYear: y, startMonth: m }))
-                }}
-                className="input text-sm"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Data final (opcional)</label>
-              <input type="date" value={form.endDate} onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))} className="input text-sm" />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Status do mês</label>
-              <select value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))} className="input text-sm">
-                <option value="PENDENTE">Pendente</option>
-                <option value="PAGO">Pago</option>
-              </select>
-            </div>
-            <div className="sm:col-span-2">
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Observação</label>
-              <input value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} className="input text-sm" placeholder="Ex: acordo de horas, bônus incluído..." />
-            </div>
-          </div>
-          {formError && (
-            <p className="text-xs font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{formError}</p>
-          )}
-          <div className="flex gap-2 justify-end">
-            <button onClick={() => { setShowForm(false); setFormError(null) }} className="text-xs px-3 py-1.5 text-gray-600 hover:bg-gray-200 rounded-lg">Cancelar</button>
-            <button onClick={submit} disabled={!form.userId || form.amount == null || saving}
-              className="text-xs px-3 py-1.5 bg-[#030A8C] text-white rounded-lg hover:bg-[#02077a] disabled:opacity-50">
-              {saving ? 'Salvando...' : 'Salvar salário'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Lista */}
-      {filtered.length === 0 ? (
-        <p className="text-sm text-gray-400 text-center py-6">
-          {entries.length === 0 ? 'Nenhum salário cadastrado neste mês' : 'Nenhum salário com esses filtros'}
-        </p>
-      ) : (
-        <div className="space-y-2">
-          {filtered.map((entry) => (
-            <div key={entry.id} className="border border-gray-100 rounded-lg">
-              <div className="flex items-center justify-between p-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-8 h-8 bg-[#030A8C] rounded-full flex items-center justify-center shrink-0">
-                    <span className="text-white text-xs font-bold">{(entry.user?.name ?? '?').charAt(0)}</span>
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-sm font-semibold text-gray-900 truncate">{entry.user?.name ?? entry.name}</p>
-                      <TypeBadge recurring />
-                      <StatusBadge entry={entry} />
-                    </div>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {entry.user?.position ?? 'Colaborador'}
-                      {entry.dueDate ? ` · vence ${formatDate(entry.dueDate)}` : ''}
-                      {entry.status === 'PAGO' && entry.paidAt ? ` · pago em ${formatDate(entry.paidAt)}` : ''}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0 ml-2">
-                  <span className="text-sm font-bold text-red-600">- {formatCurrency(entry.amount)}</span>
-                  <button onClick={() => onTogglePaid(entry)}
-                    title={entry.status === 'PAGO' ? 'Marcar como pendente' : 'Marcar como pago'}
-                    className={`p-1.5 rounded-lg transition-colors ${entry.status === 'PAGO' ? 'text-green-600 bg-green-50 hover:bg-green-100' : 'text-gray-400 hover:text-green-600 hover:bg-green-50'}`}>
-                    <Check className="w-3.5 h-3.5" />
-                  </button>
-                  <button onClick={() => { setEditing(editing?.id === entry.id ? null : entry); setEditAmount(entry.amount) }} title="Alterar salário"
-                    className="p-1.5 text-gray-400 hover:text-[#030A8C] hover:bg-[#030A8C]/5 rounded-lg transition-colors">
-                    <Pencil className="w-3.5 h-3.5" />
-                  </button>
-                  <button onClick={() => stopSalary(entry)} title="Interromper próximos salários"
-                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-
-              {editing?.id === entry.id && (
-                <div className="border-t border-gray-100 bg-gray-50 p-3 flex flex-wrap items-end gap-3">
-                  <div className="flex-1 min-w-[160px]">
-                    <label className="text-xs font-medium text-gray-600 mb-1 block">Novo valor</label>
-                    <CurrencyInput value={editAmount} onChange={setEditAmount} className="input text-sm" ariaLabel="Novo valor do salário" />
-                  </div>
-                  <div className="flex gap-2">
-                    <button onClick={() => setEditing(null)} className="text-xs px-3 py-2 text-gray-600 hover:bg-gray-200 rounded-lg">Cancelar</button>
-                    <button onClick={() => setScopeFor(entry)} disabled={editAmount == null}
-                      className="text-xs px-3 py-2 bg-[#030A8C] text-white rounded-lg hover:bg-[#02077a] disabled:opacity-50">
-                      Salvar
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-          <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg mt-3">
-            <span className="text-sm font-bold text-gray-900">Total Salários do mês</span>
-            <span className="text-sm font-bold text-red-700">{formatCurrency(total)}</span>
-          </div>
-        </div>
-      )}
-
-      {scopeFor && (
-        <ScopeDialog
-          title={`Alterar o salário de ${scopeFor.user?.name ?? 'colaborador'}?`}
-          onlyLabel="Alterar somente o salário deste mês"
-          futureLabel="Alterar a partir deste mês (meses anteriores preservados)"
-          onPick={(scope) => { applyEdit(scopeFor, scope); setScopeFor(null) }}
-          onClose={() => setScopeFor(null)}
-        />
-      )}
-    </div>
-  )
-}
+/** Situação da linha — reexport para os testes de fumaça da página. */
+export { situationOf }

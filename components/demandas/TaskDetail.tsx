@@ -195,7 +195,7 @@ export default function TaskDetail({
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto">
-      <div className="max-w-4xl mx-auto w-full p-4 sm:p-6">
+      <div className="w-full p-4 sm:p-6">
       <Link href="/demandas" className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-[#030A8C] mb-3">
         <ArrowLeft className="w-3.5 h-3.5" /> Voltar para demandas
       </Link>

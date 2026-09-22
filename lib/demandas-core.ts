@@ -42,8 +42,8 @@ export const STAGES: Array<{
   dot: string
 }> = [
   { key: 'BACKLOG',      label: 'Backlog',      short: 'Backlog',   actor: null,        hint: 'Ainda não priorizada',      color: 'text-gray-500',   bg: 'bg-gray-100',  dot: 'bg-gray-400' },
-  { key: 'TODO',         label: 'A fazer',      short: 'A fazer',   actor: 'produtor',  hint: 'Produtor começa',           color: 'text-blue-600',   bg: 'bg-blue-50',   dot: 'bg-blue-500' },
-  { key: 'EM_ANDAMENTO', label: 'Em andamento', short: 'Fazendo',   actor: 'produtor',  hint: 'Produtor entrega o Drive',  color: 'text-orange-600', bg: 'bg-orange-50', dot: 'bg-orange-500' },
+  { key: 'TODO',         label: 'A fazer',      short: 'A fazer',   actor: 'produtor',  hint: 'Produtor começa',           color: 'text-gray-600',   bg: 'bg-gray-100',  dot: 'bg-gray-400' },
+  { key: 'EM_ANDAMENTO', label: 'Em andamento', short: 'Fazendo',   actor: 'produtor',  hint: 'Produtor entrega o Drive',  color: 'text-amber-600',  bg: 'bg-amber-50',  dot: 'bg-amber-400' },
   { key: 'EM_REVISAO',   label: 'Em revisão',   short: 'Revisão',   actor: 'revisor',   hint: 'Revisor aprova ou devolve', color: 'text-purple-600', bg: 'bg-purple-50', dot: 'bg-purple-500' },
   { key: 'APROVADO',     label: 'Aprovado',     short: 'Aprovado',  actor: 'agendador', hint: 'Agendador publica',         color: 'text-teal-600',   bg: 'bg-teal-50',   dot: 'bg-teal-500' },
   { key: 'CONCLUIDO',    label: 'Concluído',    short: 'Concluído', actor: null,        hint: 'Publicada',                 color: 'text-green-600',  bg: 'bg-green-50',  dot: 'bg-green-500' },
@@ -162,6 +162,17 @@ export function currentActor(task: TaskLike): UserRef | null {
   if (PRODUCTION_STATUSES.includes(task.status)) return task.producer ?? task.assignee ?? null
   if (task.status === 'EM_REVISAO') return task.reviewer ?? null
   return task.scheduler ?? task.assignee ?? null
+}
+
+/**
+ * Demanda em revisão some da lista de quem produziu: a bola está com o
+ * revisor. Admin vê tudo; o revisor vê a dele.
+ */
+export function canSee(task: TaskLike, userId: string, isAdmin: boolean): boolean {
+  if (isAdmin) return true
+  if (task.status !== 'EM_REVISAO') return true
+  const dono = task.reviewer ?? task.assignee
+  return dono?.id === userId
 }
 
 /* ---------------------------------- filtros ---------------------------------- */

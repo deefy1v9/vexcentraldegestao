@@ -1,9 +1,9 @@
 'use client'
 
-import {
-  TrendingUp, TrendingDown, DollarSign, Users, AlertTriangle, Wallet, PiggyBank, Repeat,
-} from 'lucide-react'
+import { useState } from 'react'
+import { TrendingUp, TrendingDown, ChevronDown } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
+import { IconFinanceiro, IconClientes, IconServicos, IconLogs } from '@/components/icons/duotone'
 
 export interface MonthSummary {
   year: number
@@ -40,6 +40,8 @@ export interface MonthSummary {
   } | null
 }
 
+export type TileKey = 'recebido' | 'receber' | 'atrasado' | 'custos'
+
 const brl = (cents: number) => formatCurrency(cents / 100)
 
 /** Variação real contra o mês anterior. Sem base de comparação, não inventa. */
@@ -64,109 +66,111 @@ function Trend({ current, previous, invert = false }: { current: number; previou
 }
 
 /**
- * Sete indicadores da competência, todos vindos do resumo do backend
- * (lib/finance-summary) — mesma regra do Dashboard e do perfil do cliente.
- * A comparação é sempre com o mês anterior real; nunca projetada.
+ * Quatro números do mês, clicáveis (cada um filtra a tabela), e os demais
+ * indicadores num bloco que abre quando precisa. Tudo vem do resumo do
+ * backend (lib/finance-summary) — mesma regra do Dashboard.
  */
-export default function FinanceKpis({ s, loading }: { s: MonthSummary | null; loading: boolean }) {
+export default function FinanceKpis({
+  s, loading, active, onToggle,
+}: {
+  s: MonthSummary | null
+  loading: boolean
+  active: TileKey | null
+  onToggle: (k: TileKey) => void
+}) {
+  const [aberto, setAberto] = useState(false)
+
   if (loading || !s) {
     return (
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {[...Array(7)].map((_, i) => <div key={i} className="h-[104px] bg-white border border-gray-200 rounded-xl animate-pulse" />)}
+        {[...Array(4)].map((_, i) => <div key={i} className="h-[96px] bg-white border border-gray-200 rounded-xl animate-pulse" />)}
       </div>
     )
   }
 
   const p = s.previous
-  const cards = [
+  const tiles: Array<{ key: TileKey; label: string; value: string; sub: string; trend: React.ReactNode; icon: React.ElementType; tone: string }> = [
     {
-      key: 'prevista',
-      label: 'Receita prevista',
-      value: brl(s.previstaCents),
-      sub: `${brl(s.previstaRecorrenteCents)} recorrente · ${brl(s.previstaAvulsaCents)} avulso`,
-      trend: <Trend current={s.previstaCents} previous={p?.previstaCents} />,
-      icon: Users, color: 'text-[#030A8C] bg-blue-50',
-    },
-    {
-      key: 'recebida',
-      label: 'Receita recebida',
-      value: brl(s.recebidaCents),
+      key: 'recebido', label: 'Recebido', value: brl(s.recebidaCents),
       sub: `${s.previstaCents > 0 ? Math.round((s.recebidaCents / s.previstaCents) * 100) : 0}% do previsto`,
       trend: <Trend current={s.recebidaCents} previous={p?.recebidaCents} />,
-      icon: TrendingUp, color: 'text-green-600 bg-green-50',
+      icon: IconFinanceiro, tone: 'text-green-600 bg-green-50',
     },
     {
-      key: 'pendente',
-      label: 'Receita pendente',
-      value: brl(s.pendenteCents),
+      key: 'receber', label: 'A receber', value: brl(s.pendenteCents),
       sub: 'em aberto dentro do prazo',
       trend: <Trend current={s.pendenteCents} previous={p?.pendenteCents} invert />,
-      icon: Wallet, color: 'text-orange-600 bg-orange-50',
+      icon: IconClientes, tone: 'text-orange-600 bg-orange-50',
     },
     {
-      key: 'atrasada',
-      label: 'Receita atrasada',
-      value: brl(s.atrasadaCents),
+      key: 'atrasado', label: 'Atrasado', value: brl(s.atrasadaCents),
       sub: s.previstaCents > 0 ? `${((s.atrasadaCents / s.previstaCents) * 100).toFixed(1)}% de inadimplência` : 'sem previsão no mês',
       trend: <Trend current={s.atrasadaCents} previous={p?.atrasadaCents} invert />,
-      icon: AlertTriangle, color: 'text-red-600 bg-red-50',
+      icon: IconLogs, tone: 'text-red-600 bg-red-50',
     },
     {
-      key: 'custos',
-      label: 'Custos totais',
-      value: brl(s.custosPrevistosCents),
+      key: 'custos', label: 'Custos e salários', value: brl(s.custosPrevistosCents),
       sub: `${brl(s.custosPagosCents)} pago · ${brl(Math.max(0, s.custosPrevistosCents - s.custosPagosCents))} pendente`,
       trend: <Trend current={s.custosPrevistosCents} previous={p?.custosPrevistosCents} invert />,
-      icon: TrendingDown, color: 'text-red-600 bg-red-50',
-    },
-    {
-      key: 'resultado',
-      label: 'Resultado previsto',
-      value: brl(s.resultadoPrevistoCents),
-      sub: 'receita prevista − custos previstos',
-      trend: <Trend current={s.resultadoPrevistoCents} previous={p?.resultadoPrevistoCents} />,
-      icon: DollarSign, color: s.resultadoPrevistoCents >= 0 ? 'text-[#030A8C] bg-blue-50' : 'text-red-600 bg-red-50',
-      negative: s.resultadoPrevistoCents < 0,
-    },
-    {
-      key: 'lucro',
-      label: 'Lucro realizado',
-      value: brl(s.lucroRealizadoCents),
-      sub: 'recebido − custos pagos',
-      trend: <Trend current={s.lucroRealizadoCents} previous={p?.lucroRealizadoCents} />,
-      icon: PiggyBank, color: s.lucroRealizadoCents >= 0 ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50',
-      negative: s.lucroRealizadoCents < 0,
+      icon: IconServicos, tone: 'text-purple-600 bg-purple-50',
     },
   ]
 
-  return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-      {cards.map((c) => (
-        <div key={c.key} className="bg-white rounded-xl border border-gray-200 p-4">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-medium text-gray-500">{c.label}</p>
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${c.color}`}>
-              <c.icon className="w-4 h-4" />
-            </div>
-          </div>
-          <p className={`text-xl font-bold ${c.negative ? 'text-red-600' : 'text-gray-900'}`}>{c.value}</p>
-          <p className="text-[11px] text-gray-400 mt-0.5 truncate" title={c.sub}>{c.sub}</p>
-          <div className="mt-1">{c.trend}</div>
-        </div>
-      ))}
+  const extras = [
+    { label: 'Receita prevista', value: brl(s.previstaCents), sub: `${brl(s.previstaRecorrenteCents)} recorrente · ${brl(s.previstaAvulsaCents)} avulso`, trend: <Trend current={s.previstaCents} previous={p?.previstaCents} /> },
+    { label: 'Resultado previsto', value: brl(s.resultadoPrevistoCents), sub: 'receita prevista − custos previstos', trend: <Trend current={s.resultadoPrevistoCents} previous={p?.resultadoPrevistoCents} />, negative: s.resultadoPrevistoCents < 0 },
+    { label: 'Lucro realizado', value: brl(s.lucroRealizadoCents), sub: 'recebido − custos pagos', trend: <Trend current={s.lucroRealizadoCents} previous={p?.lucroRealizadoCents} />, negative: s.lucroRealizadoCents < 0 },
+    { label: 'Receita recorrente (MRR)', value: brl(s.mrrCents), sub: `${s.activeClients} cliente(s) ativo(s)`, trend: <Trend current={s.mrrCents} previous={p?.mrrCents} /> },
+  ]
 
-      {/* MRR fecha a grade: recorrente ativo hoje, independente da competência */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-xs font-medium text-gray-500">Receita recorrente (MRR)</p>
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center text-[#030A8C] bg-blue-50">
-            <Repeat className="w-4 h-4" />
-          </div>
-        </div>
-        <p className="text-xl font-bold text-gray-900">{brl(s.mrrCents)}</p>
-        <p className="text-[11px] text-gray-400 mt-0.5">{s.activeClients} cliente(s) ativo(s)</p>
-        <div className="mt-1"><Trend current={s.mrrCents} previous={p?.mrrCents} /></div>
+  return (
+    <div className="space-y-2">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {tiles.map((t) => {
+          const Icon = t.icon
+          const on = active === t.key
+          return (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => onToggle(t.key)}
+              aria-pressed={on}
+              className={`text-left bg-white rounded-xl border p-4 transition-colors ${on ? 'border-[#030A8C] ring-1 ring-[#030A8C]/30' : 'border-gray-200 hover:border-gray-300'}`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{t.label}</p>
+                <span className={`w-8 h-8 rounded-lg flex items-center justify-center ${t.tone}`}><Icon className="w-4 h-4" /></span>
+              </div>
+              <p className="text-xl font-bold text-gray-900">{t.value}</p>
+              <p className="text-[11px] text-gray-400 mt-0.5 truncate" title={t.sub}>{t.sub}</p>
+              <div className="mt-1">{t.trend}</div>
+            </button>
+          )
+        })}
       </div>
+
+      <button
+        type="button"
+        onClick={() => setAberto((v) => !v)}
+        aria-expanded={aberto}
+        className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-gray-500 hover:text-[#030A8C]"
+      >
+        <ChevronDown className={`w-3.5 h-3.5 transition-transform ${aberto ? 'rotate-180' : ''}`} />
+        {aberto ? 'Ocultar' : 'Ver'} previsto, resultado e MRR
+      </button>
+
+      {aberto && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {extras.map((e) => (
+            <div key={e.label} className="bg-white rounded-xl border border-gray-200 p-4">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{e.label}</p>
+              <p className={`text-lg font-bold mt-1 ${e.negative ? 'text-red-600' : 'text-gray-900'}`}>{e.value}</p>
+              <p className="text-[11px] text-gray-400 mt-0.5 truncate" title={e.sub}>{e.sub}</p>
+              <div className="mt-1">{e.trend}</div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

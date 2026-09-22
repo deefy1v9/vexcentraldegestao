@@ -159,3 +159,14 @@ test('ação da linha segue a etapa e a vez do usuário', async () => {
   assert.equal(actionFor({ ...t, status: 'APROVADO' }, 'g').label, 'Agendar')
   assert.equal(actionFor({ ...t, status: 'CONCLUIDO' }, 'g').label, 'Ver')
 })
+
+test('demanda em revisão some para quem produziu, fica para revisor e admin', async () => {
+  const { canSee } = await import('../../lib/demandas-core')
+  const t = task({ status: 'EM_REVISAO', dueDate: at('2026-09-25') })
+  assert.equal(canSee(t, 'g', false), false)
+  assert.equal(canSee(t, 'a', false), true)
+  assert.equal(canSee(t, 'g', true), true)
+  assert.equal(canSee({ ...t, status: 'TODO' }, 'g', false), true)
+  // Sem revisor definido, quem responde pela demanda continua vendo
+  assert.equal(canSee({ ...t, reviewer: null }, 'g', false), true)
+})

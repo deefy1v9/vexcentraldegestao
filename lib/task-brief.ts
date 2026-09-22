@@ -30,6 +30,10 @@ const CABECALHOS: Array<{ re: RegExp; kind: BriefKind }> = [
   { re: /^CTA\b/i, kind: 'cta' },
   { re: /^IMAGEM\b/i, kind: 'imagem' },
   { re: /^DIRE[ÇC][ÃA]O VISUAL\b/i, kind: 'imagem' },
+  { re: /^PLANEJAMENTO\b/i, kind: 'texto' },
+  { re: /^DRIVE DO CLIENTE\b/i, kind: 'texto' },
+  { re: /^ENTREGAS DO M[ÊE]S\b/i, kind: 'texto' },
+  { re: /^COMO FUNCIONA\b/i, kind: 'texto' },
 ]
 
 function detectar(linha: string): { title: string; kind: BriefKind } | null {

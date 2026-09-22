@@ -87,8 +87,11 @@ export function DemandasTopBar({
 
 /* ----------------------------------- abas ----------------------------------- */
 
-export function DemandasTabs({ active, counts, onChange }: { active: ListTab; counts: Record<ListTab, number>; onChange: (t: ListTab) => void }) {
-  const tabs: ListTab[] = ['todas', 'atrasadas', 'hoje', 'revisao', 'concluidas']
+export function DemandasTabs({ active, counts, isAdmin, onChange }: { active: ListTab; counts: Record<ListTab, number>; isAdmin: boolean; onChange: (t: ListTab) => void }) {
+  // "Em revisão" é a caixa do revisor: o colaborador não acompanha essa fila
+  const tabs: ListTab[] = isAdmin
+    ? ['todas', 'atrasadas', 'hoje', 'revisao', 'concluidas']
+    : ['todas', 'atrasadas', 'hoje', 'concluidas']
   return (
     <div className="flex items-center gap-1 border-b border-gray-200 -mx-1 overflow-x-auto" role="tablist">
       {tabs.map((t) => {
