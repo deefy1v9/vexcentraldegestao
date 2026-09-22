@@ -1,8 +1,9 @@
+import { Suspense } from 'react'
 import { CLIENT_LINK_SELECT } from '@/lib/client-links'
 import { prisma } from '@/lib/prisma'
 import { auth } from '@/lib/auth'
 import Header from '@/components/layout/Header'
-import KanbanBoard from '@/components/demandas/KanbanBoard'
+import DemandasWorkspace from '@/components/demandas/DemandasWorkspace'
 
 export default async function DemandasPage() {
   const session = await auth()
@@ -34,14 +35,17 @@ export default async function DemandasPage() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <Header title="Demandas" subtitle="Gestão de tarefas e entregas dos colaboradores" />
-      <KanbanBoard
-        initialTasks={tasks}
-        clients={clients}
-        users={users}
-        currentUserId={session?.user?.id ?? ''}
-        isAdmin={session?.user?.role === 'ADMIN'}
-      />
+      <Header title="Demandas" subtitle="Fila, quadro e calendário das entregas" />
+      {/* Filtros e visão vivem na URL (useSearchParams) */}
+      <Suspense fallback={<p className="p-6 text-sm text-gray-400">Carregando demandas…</p>}>
+        <DemandasWorkspace
+          initialTasks={tasks}
+          clients={clients}
+          users={users}
+          currentUserId={session?.user?.id ?? ''}
+          isAdmin={session?.user?.role === 'ADMIN'}
+        />
+      </Suspense>
     </div>
   )
 }
