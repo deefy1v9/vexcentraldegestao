@@ -112,21 +112,30 @@ export default function Sidebar() {
       >
 
         {/* Logo — mesma altura do cabeçalho das páginas */}
-        <div className={cn('h-[72px] flex items-center border-b border-[var(--border)] shrink-0', recolhido ? 'justify-center px-2' : 'px-5 justify-between')}>
+        <div className={cn('h-[72px] flex items-center border-b border-[var(--border)] shrink-0', recolhido ? 'justify-center px-2' : 'px-4 justify-between')}>
           {recolhido ? (
             <button
               type="button"
               onClick={toggleCollapsed}
               aria-label="Expandir menu"
               title="Expandir menu"
-              className="w-10 h-10 rounded-xl bg-[#030A8C] text-white font-black text-base flex items-center justify-center hover:bg-[#02077a] transition-colors"
+              className="w-11 h-11 rounded-xl overflow-hidden shadow-sm ring-1 ring-black/5 hover:ring-[#030A8C]/40 transition-shadow"
             >
-              V
+              {/* eslint-disable-next-line @next/next/no-img-element -- logo estático, sem ganho em otimizar */}
+              <img src="/logo-mark.png" alt="VEX" className="w-full h-full object-cover" />
             </button>
           ) : (
             <>
-              {/* eslint-disable-next-line @next/next/no-img-element -- logo estático, sem ganho em otimizar */}
-              <img src="/logo.png" alt="Logo" className="h-4 w-auto object-contain" />
+              <Link href="/dashboard" className="flex items-center gap-3 min-w-0">
+                <span className="w-11 h-11 rounded-xl overflow-hidden shrink-0 shadow-sm ring-1 ring-black/5">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- logo estático, sem ganho em otimizar */}
+                  <img src="/logo-mark.png" alt="VEX" className="w-full h-full object-cover" />
+                </span>
+                <span className="min-w-0 leading-tight">
+                  <span className="block text-[15px] font-bold text-[var(--text)] tracking-tight">VEX Growth</span>
+                  <span className="block text-[11px] font-light text-[var(--text-secondary)]">Marketing digital</span>
+                </span>
+              </Link>
               <button
                 type="button"
                 onClick={toggleCollapsed}

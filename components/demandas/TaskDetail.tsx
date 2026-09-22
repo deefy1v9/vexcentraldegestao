@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import {
-  X, Pencil, Save, Paperclip, Download, Trash2, ImageIcon, FileText, File as FileIcon, Link2,
+  ArrowLeft, Pencil, Save, Paperclip, Download, Trash2, ImageIcon, FileText, File as FileIcon, Link2,
   Eye, CalendarCheck, Send, CheckCircle2, History, Check, Clock,
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
@@ -63,15 +64,14 @@ function Stepper({ task }: { task: Task }) {
 
 /* ---------------------------------- modal ---------------------------------- */
 
-export default function TaskDetailModal({
-  task, users, clients, currentUserId, isAdmin, onClose, onApply, onDelete, onStatusChange,
+export default function TaskDetail({
+  task, users, clients, currentUserId, isAdmin, onApply, onDelete, onStatusChange,
 }: {
   task: Task
   users: Option[]
   clients: Option[]
   currentUserId: string
   isAdmin: boolean
-  onClose: () => void
   onApply: (updated: Task) => void
   onDelete: (id: string) => void
   onStatusChange: (id: string, status: TaskStatus) => Promise<void>
@@ -121,11 +121,6 @@ export default function TaskDetailModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [task.id])
 
-  useEffect(() => {
-    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', esc)
-    return () => document.removeEventListener('keydown', esc)
-  }, [onClose])
 
   async function refreshEvents() {
     const res = await fetch(`/api/demandas/${task.id}`)
@@ -199,8 +194,12 @@ export default function TaskDetailModal({
   const canChangeStatus = isAdmin || (task.assignee?.id === currentUserId && PRODUCTION_STATUSES.includes(task.status))
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 sm:p-4" onClick={onClose}>
-      <div className="bg-white w-full h-full sm:h-auto sm:max-h-[92dvh] sm:max-w-3xl sm:rounded-2xl sm:border sm:border-gray-200 sm:shadow-2xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={task.title}>
+    <div className="flex-1 min-h-0 overflow-y-auto">
+      <div className="max-w-4xl mx-auto w-full p-4 sm:p-6">
+      <Link href="/demandas" className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-[#030A8C] mb-3">
+        <ArrowLeft className="w-3.5 h-3.5" /> Voltar para demandas
+      </Link>
+      <div className="bg-white rounded-2xl border border-gray-200 flex flex-col overflow-hidden">
 
         {/* Cabeçalho */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 gap-2">
@@ -227,11 +226,10 @@ export default function TaskDetailModal({
                 </button>
               </>
             )}
-            <button onClick={onClose} aria-label="Fechar" className="p-1.5 hover:bg-gray-100 rounded-lg"><X className="w-4 h-4 text-gray-400" /></button>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5 space-y-5">
+        <div className="p-5 sm:p-6 space-y-5">
           {!editMode ? (
             <>
               <div>
@@ -569,6 +567,7 @@ export default function TaskDetailModal({
             <button onClick={() => { if (confirm('Remover esta demanda?')) onDelete(task.id) }} className="w-full py-2 text-sm text-red-500 hover:text-red-600 hover:bg-red-50 rounded-xl font-medium">Excluir demanda</button>
           </div>
         )}
+      </div>
       </div>
     </div>
   )

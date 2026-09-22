@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { ListChecks, Users } from 'lucide-react'
 import AiImportModal from '@/components/demandas/AiImportModal'
@@ -15,7 +15,6 @@ import BoardView from './BoardView'
 import ListView from './ListView'
 import CalendarTab from './CalendarTab'
 import NewTaskModal from './NewTaskModal'
-import TaskDetailModal from './TaskDetailModal'
 import type { Option, Task, View } from './types'
 
 const VIEWS: View[] = ['fila', 'lista', 'quadro', 'calendario']
@@ -42,7 +41,6 @@ export default function DemandasWorkspace({
   const params = useSearchParams()
 
   const [tasks, setTasks] = useState<Task[]>(initialTasks)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [showNew, setShowNew] = useState(false)
   const [showAiImport, setShowAiImport] = useState(false)
   const [asideTab, setAsideTab] = useState<'equipe' | 'fila'>(isAdmin ? 'equipe' : 'fila')
@@ -87,18 +85,11 @@ export default function DemandasWorkspace({
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
   }, [filters, view, sort, isAdmin, router, pathname])
 
-  // Abertura direta por link (?task=id): o calendário e as notificações
-  // apontam para cá. Roda uma vez por id.
+  // Links antigos (?task=id) continuam valendo: vão para a página da demanda
   const deepLinkId = params.get('task')
-  const openedRef = useRef<string | null>(null)
   useEffect(() => {
-    if (!deepLinkId || openedRef.current === deepLinkId) return
-    if (!tasks.some((t) => t.id === deepLinkId)) return
-    openedRef.current = deepLinkId
-    // Abrir a demanda do link é o efeito pretendido — uma vez por id
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSelectedId(deepLinkId)
-  }, [deepLinkId, tasks])
+    if (deepLinkId) router.replace(`/demandas/${deepLinkId}`)
+  }, [deepLinkId, router])
 
   /* --------------------------------- dados --------------------------------- */
   const tab: ListTab = tabFromFilters(filters)
@@ -112,11 +103,6 @@ export default function DemandasWorkspace({
     return tab === 'todas' && view !== 'quadro' ? f.filter((t) => t.status !== 'CONCLUIDO') : f
   }, [tasks, filters, currentUserId, tab, view])
   const sorted = useMemo(() => sortTasks(visible, sort), [visible, sort])
-  const selectedTask = selectedId ? tasks.find((t) => t.id === selectedId) ?? null : null
-
-  const applyTask = useCallback((updated: Task) => {
-    setTasks((prev) => prev.map((t) => (t.id === updated.id ? { ...t, ...updated } : t)))
-  }, [])
 
   async function reloadTasks() {
     const res = await fetch('/api/demandas')
@@ -140,20 +126,14 @@ export default function DemandasWorkspace({
     alert(body.error || 'Movimento não permitido pelo fluxo da demanda.')
   }
 
-  async function deleteTask(id: string) {
-    await fetch(`/api/demandas/${id}`, { method: 'DELETE' })
-    setTasks((prev) => prev.filter((t) => t.id !== id))
-    setSelectedId(null)
-  }
-
-  const open = useCallback((t: Task) => setSelectedId(t.id), [])
-  const close = useCallback(() => setSelectedId(null), [])
+  // Cada demanda abre em página própria
+  const open = useCallback((t: Task) => router.push(`/demandas/${t.id}`), [router])
 
   // "Iniciar" já move para Em andamento e abre o detalhe; as outras ações
   // abrem o detalhe, onde fica o formulário da etapa
   async function rowAction(t: Task, kind: ActionKind) {
     if (kind === 'iniciar' && t.status !== 'EM_ANDAMENTO') await updateTaskStatus(t.id, 'EM_ANDAMENTO')
-    setSelectedId(t.id)
+    router.push(`/demandas/${t.id}`)
   }
 
   const aside = asideTab === 'equipe' && isAdmin
@@ -226,28 +206,13 @@ export default function DemandasWorkspace({
         {view === 'calendario' && <CalendarTab tasks={sorted} onOpen={open} />}
       </main>
 
-      {selectedTask && (
-        <TaskDetailModal
-          key={selectedTask.id}
-          task={selectedTask}
-          users={users}
-          clients={clients}
-          currentUserId={currentUserId}
-          isAdmin={isAdmin}
-          onClose={close}
-          onApply={applyTask}
-          onDelete={deleteTask}
-          onStatusChange={updateTaskStatus}
-        />
-      )}
-
       {showNew && isAdmin && (
         <NewTaskModal
           clients={clients}
           users={users}
           defaultAssignee={filters.assignee && filters.assignee !== 'none' ? filters.assignee : ''}
           onClose={() => setShowNew(false)}
-          onCreated={(t) => { setTasks((prev) => [t, ...prev]); setShowNew(false); setSelectedId(t.id) }}
+          onCreated={(t) => { setTasks((prev) => [t, ...prev]); setShowNew(false); router.push(`/demandas/${t.id}`) }}
         />
       )}
 

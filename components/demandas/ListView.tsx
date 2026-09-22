@@ -117,7 +117,7 @@ export default function ListView({
                             <button type="button" onClick={() => { close(); onOpen(t) }} className="w-full text-left px-3 py-2 text-gray-700 hover:bg-gray-50">Abrir detalhe</button>
                             <button
                               type="button"
-                              onClick={() => { close(); navigator.clipboard?.writeText(`${window.location.origin}/demandas?task=${t.id}`).catch(() => {}) }}
+                              onClick={() => { close(); navigator.clipboard?.writeText(`${window.location.origin}/demandas/${t.id}`).catch(() => {}) }}
                               className="w-full text-left px-3 py-2 text-gray-700 hover:bg-gray-50"
                             >
                               Copiar link

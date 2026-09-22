@@ -1,7 +1,8 @@
 'use client'
 import { useSession } from 'next-auth/react'
 import { getInitials } from '@/lib/utils'
-import { Bell, Search, Mail, X, AlertCircle, CheckCircle2, Sun, Moon, Menu } from 'lucide-react'
+import { X, AlertCircle, CheckCircle2, Menu } from 'lucide-react'
+import { IconBell, IconMail, IconSun, IconMoon, IconSearch } from '@/components/icons/duotone'
 import { useState, useEffect, useRef } from 'react'
 import { useMobileNav } from './MobileNav'
 
@@ -95,7 +96,7 @@ export default function Header({ title, subtitle }: HeaderProps) {
 
       <div className="flex items-center gap-1 sm:gap-2 shrink-0">
         <div className="hidden lg:flex items-center gap-2 bg-gray-100 rounded-full h-10 px-4 mr-2 text-sm text-gray-400 w-60">
-          <Search className="w-4 h-4" />
+          <IconSearch className="w-4 h-4" />
           <span>Buscar...</span>
           <span className="ml-auto text-[10px] bg-white rounded-md px-1.5 py-0.5 text-gray-400 border border-gray-200">⌘F</span>
         </div>
@@ -107,12 +108,12 @@ export default function Header({ title, subtitle }: HeaderProps) {
           className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
         >
           {dark
-            ? <Sun className="w-[18px] h-[18px] text-gray-600" />
-            : <Moon className="w-[18px] h-[18px] text-gray-600" />}
+            ? <IconSun className="w-5 h-5 text-gray-600" />
+            : <IconMoon className="w-5 h-5 text-gray-600" />}
         </button>
 
         <button className="hidden sm:flex w-10 h-10 items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors" aria-label="Mensagens">
-          <Mail className="w-[18px] h-[18px] text-gray-600" />
+          <IconMail className="w-5 h-5 text-gray-600" />
         </button>
 
         {/* Notification bell */}
@@ -122,7 +123,7 @@ export default function Header({ title, subtitle }: HeaderProps) {
             aria-label="Notificações"
             className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors relative"
           >
-            <Bell className="w-[18px] h-[18px] text-gray-600" />
+            <IconBell className="w-5 h-5 text-gray-600" />
             {count > 0 && (
               <span className="absolute top-1 right-1 min-w-[16px] h-4 bg-[#F74A13] rounded-full flex items-center justify-center px-1">
                 <span className="text-white text-[9px] font-bold leading-none">{count > 9 ? '9+' : count}</span>
@@ -150,7 +151,7 @@ export default function Header({ title, subtitle }: HeaderProps) {
               <div className="max-h-[400px] overflow-y-auto">
                 {visible.length === 0 ? (
                   <div className="px-4 py-10 text-center">
-                    <Bell className="w-8 h-8 text-gray-200 mx-auto mb-2" />
+                    <IconBell className="w-8 h-8 text-gray-200 mx-auto mb-2" />
                     <p className="text-sm text-gray-400">Nenhuma notificação</p>
                   </div>
                 ) : (

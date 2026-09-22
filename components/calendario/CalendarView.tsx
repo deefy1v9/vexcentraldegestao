@@ -310,7 +310,7 @@ export default function CalendarView({
           {dayTasks.slice(0, limit).map((t) => (
             <div
               key={t.id}
-              onClick={(e) => { e.stopPropagation(); router.push(`/demandas?task=${t.id}`) }}
+              onClick={(e) => { e.stopPropagation(); router.push(`/demandas/${t.id}`) }}
               title={`${t.title} · ${TASK_LABEL[t.status] ?? t.status}`}
               className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium truncate border cursor-pointer hover:brightness-95 transition-all ${TASK_BG[t.status] ?? TASK_BG.TODO}`}
             >
@@ -485,7 +485,7 @@ export default function CalendarView({
             {dayTasks.map((t) => (
               <button
                 key={t.id}
-                onClick={() => router.push(`/demandas?task=${t.id}`)}
+                onClick={() => router.push(`/demandas/${t.id}`)}
                 className="w-full text-left border border-gray-100 rounded-xl p-3 bg-white hover:border-gray-200 transition-colors"
               >
                 <p className="text-sm font-semibold text-gray-900 flex items-center gap-2">
