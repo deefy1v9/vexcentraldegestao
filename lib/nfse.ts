@@ -299,10 +299,12 @@ async function emitForChargeAsaas(charge: {
   await syncCustomer(charge.client.id)
 
   const ref = asaasNfseRef(charge.id)
-  // Já existe lá (timeout anterior)? Reaproveita — exceto se deu erro ou foi
-  // cancelada, aí é uma nota nova
+  // Já existe lá? Autorizada/em processamento: reaproveita. Com erro ou ainda
+  // agendada: corrige a mesma nota (o Asaas só aceita uma por cobrança).
+  // Cancelada: nota nova.
   const found = await asaas.findInvoiceByExternalRef(ref).catch(() => null)
-  const existing = found && !['ERROR', 'CANCELED', 'CANCELLATION_DENIED'].includes(found.status) ? found : null
+  const fixable = found && ['ERROR', 'SCHEDULED'].includes(found.status) ? found : null
+  const existing = found && !fixable && !['CANCELED', 'CANCELLATION_DENIED'].includes(found.status) ? found : null
   const invoice = charge.nfse
     ? await prisma.nfseInvoice.findUniqueOrThrow({ where: { id: charge.nfse.id } })
     : await prisma.nfseInvoice.create({
@@ -331,7 +333,9 @@ async function emitForChargeAsaas(charge: {
       aliquotaIss: aliquota,
       cfg,
     })
-    const created = await asaas.createInvoice(payload)
+    const created = fixable
+      ? await asaas.updateInvoice(fixable.id, { serviceDescription: payload.serviceDescription, value: payload.value, deductions: payload.deductions, effectiveDate: payload.effectiveDate, municipalServiceCode: payload.municipalServiceCode, taxes: payload.taxes })
+      : await asaas.createInvoice(payload)
     await prisma.nfseInvoice.update({
       where: { id: invoice.id },
       data: { provider: 'ASAAS', focusRef: `asaas:${created.id}`, status: 'PROCESSANDO', raw: created as object },

@@ -346,3 +346,18 @@ export async function ensureWebhookEvents(url: string, events: string[]): Promis
   await log('ensureWebhookEvents', url, true)
   return { updated: true }
 }
+
+/**
+ * Corrige uma nota ainda não autorizada (agendada, sincronizada ou com erro)
+ * — o Asaas não deixa criar outra para a mesma cobrança enquanto esta existir.
+ */
+export async function updateInvoice(id: string, payload: Record<string, unknown>): Promise<AsaasInvoice> {
+  try {
+    const data = (await asaasFetch(`/invoices/${id}`, { method: 'PUT', body: JSON.stringify(payload) })) as AsaasInvoice
+    await log('updateInvoice', id, true)
+    return data
+  } catch (err) {
+    await log('updateInvoice', id, false, String(err))
+    throw err
+  }
+}
