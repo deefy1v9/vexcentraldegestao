@@ -4,6 +4,21 @@ import {
   applyCompetenceToDescription, requiresCodigoServicoMunicipal,
 } from './billing-core'
 import * as focus from './focus-nfe'
+import * as asaas from './asaas'
+import { getSettings } from './settings'
+import { asaasNfseRef, applyAsaasInvoice, buildAsaasInvoicePayload } from './nfse-asaas'
+
+export type NfseProvider = 'focus' | 'asaas'
+
+/**
+ * Quem emite a nota: Focus NFe (API própria) ou o Asaas (Portal Nacional,
+ * vinculada à cobrança). Padrão: Focus — a troca é explícita em
+ * NFSE_PROVIDER para nunca sair nota em dobro.
+ */
+export async function getNfseProvider(): Promise<NfseProvider> {
+  const s = await getSettings(['NFSE_PROVIDER'])
+  return (s.NFSE_PROVIDER || process.env.NFSE_PROVIDER || 'focus').toLowerCase() === 'asaas' ? 'asaas' : 'focus'
+}
 
 /**
  * Emissão de NFS-e via Focus.
@@ -41,7 +56,10 @@ function competenceLabel(year: number, month: number) {
  */
 export async function fiscalReadiness(competence?: { year: number; month: number }) {
   const cfg = await getFiscalConfig()
-  const missing = missingFiscalConfigFields(cfg)
+  const provider = await getNfseProvider()
+  // Pelo Asaas a autenticação na prefeitura e o serviço ficam na conta Asaas
+  const missing = missingFiscalConfigFields(cfg).filter((m) =>
+    provider !== 'asaas' || !/Web Service|Código municipal do serviço/.test(m))
 
   const now = new Date()
   const ref = competence ?? {
@@ -165,6 +183,8 @@ export async function emitForCharge(chargeId: string): Promise<{ invoiceId: stri
     return { invoiceId: charge.nfse.id, status: charge.nfse.status }
   }
 
+  if ((await getNfseProvider()) === 'asaas') return emitForChargeAsaas(charge)
+
   // Prontidão avaliada na competência da própria cobrança (a alíquota efetiva
   // do ISS muda mês a mês no Simples Nacional)
   const { cfg, missing, ready, aliquota } = await fiscalReadiness({
@@ -244,6 +264,83 @@ export async function emitForCharge(chargeId: string): Promise<{ invoiceId: stri
   }
 }
 
+/**
+ * Emissão pelo Asaas: a nota é vinculada à cobrança já existente lá. O
+ * tomador é o cadastro do cliente no Asaas (CPF/CNPJ + nome); endereço não
+ * é exigido. Idempotente pela referência externa.
+ */
+async function emitForChargeAsaas(charge: {
+  id: string; year: number; month: number; asaasId: string | null; value: unknown
+  nfse: { id: string; status: string } | null
+  items: Array<{ description: string; cents: number }>
+  client: { name: string; legalName: string | null; cnpj: string | null; billingEmail: string | null; email: string | null; fiscalDescription: string | null; asaasCustomerId: string | null }
+}): Promise<{ invoiceId: string; status: string }> {
+  if (!charge.asaasId) throw new NfseBlockedError('A cobrança ainda não foi gerada no Asaas.')
+
+  const { cfg, missing, ready, aliquota } = await fiscalReadiness({ year: charge.year, month: charge.month })
+  if (!ready || aliquota == null) {
+    throw new NfseBlockedError(`Configuração fiscal incompleta: ${missing.join(', ')}`)
+  }
+  const faltam: string[] = []
+  if (!(charge.client.cnpj ?? '').replace(/\D/g, '')) faltam.push('CPF/CNPJ')
+  if (!(charge.client.legalName || charge.client.name)) faltam.push('Nome/razão social')
+  if (!(charge.client.billingEmail || charge.client.email)) faltam.push('E-mail')
+  if (!charge.client.asaasCustomerId) faltam.push('Cliente sincronizado no Asaas')
+  if (faltam.length > 0) throw new NfseBlockedError(`Cadastro fiscal do cliente incompleto: ${faltam.join(', ')}`)
+
+  const ref = asaasNfseRef(charge.id)
+  // Já existe lá (timeout anterior)? Reaproveita em vez de emitir de novo
+  const existing = await asaas.findInvoiceByExternalRef(ref).catch(() => null)
+  const invoice = charge.nfse
+    ? await prisma.nfseInvoice.findUniqueOrThrow({ where: { id: charge.nfse.id } })
+    : await prisma.nfseInvoice.create({
+      data: { chargeId: charge.id, provider: 'ASAAS', focusRef: existing ? `asaas:${existing.id}` : ref, status: 'PROCESSANDO' },
+    }).catch(async () => {
+      const raced = await prisma.nfseInvoice.findUnique({ where: { chargeId: charge.id } })
+      if (raced) return raced
+      throw new Error('Não foi possível registrar a NFS-e.')
+    })
+
+  if (existing) {
+    await prisma.nfseInvoice.update({ where: { id: invoice.id }, data: { provider: 'ASAAS', focusRef: `asaas:${existing.id}` } })
+    await applyAsaasInvoice(invoice.id, existing)
+    const updated = await prisma.nfseInvoice.findUniqueOrThrow({ where: { id: invoice.id } })
+    return { invoiceId: updated.id, status: updated.status }
+  }
+
+  try {
+    const payload = buildAsaasInvoicePayload({
+      chargeId: charge.id,
+      paymentId: charge.asaasId,
+      value: Number(charge.value),
+      competencia: `${String(charge.month).padStart(2, '0')}/${charge.year}`,
+      description: charge.client.fiscalDescription || cfg.descricaoPadrao || '',
+      items: charge.items,
+      aliquotaIss: aliquota,
+      cfg,
+    })
+    const created = await asaas.createInvoice(payload)
+    await prisma.nfseInvoice.update({
+      where: { id: invoice.id },
+      data: { provider: 'ASAAS', focusRef: `asaas:${created.id}`, status: 'PROCESSANDO', raw: created as object },
+    })
+    // Agendada para hoje → autoriza na hora; o resultado final vem pelo webhook
+    const authorized = await asaas.authorizeInvoice(created.id).catch(() => created)
+    await applyAsaasInvoice(invoice.id, authorized)
+    const updated = await prisma.nfseInvoice.findUniqueOrThrow({ where: { id: invoice.id } })
+    return { invoiceId: updated.id, status: updated.status }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    if (msg !== 'TIMEOUT') {
+      await prisma.nfseInvoice.update({
+        where: { id: invoice.id },
+        data: { status: 'ERRO_AUTORIZACAO', lastError: msg.slice(0, 500) },
+      })
+    }
+    throw err
+  }
+}
+
 /** Aplica um payload da Focus (webhook ou consulta) na nota. */
 export async function applyFocusPayload(invoiceId: string, body: Record<string, unknown>) {
   const status = mapFocusStatus(body.status as string | undefined)
@@ -289,10 +386,12 @@ export async function maybeEmitForCharge(chargeId: string, trigger: 'ON_CONFIRME
   if (!charge || charge.nfse) return
   if (!charge.client.nfseEnabled) return
 
-  // Certificado digital pendente: bloqueio silencioso — sem tentativa, sem
-  // log repetido pelo cron/webhook. Libera ao gravar FOCUS_CERT_STATUS=OK.
-  const { certStatus } = await import('./focus-nfe').then((m) => m.getFocusConfig())
-  if (certStatus !== 'OK') return
+  // Certificado digital pendente (Focus): bloqueio silencioso — sem tentativa,
+  // sem log repetido pelo cron/webhook. Pelo Asaas o certificado vive lá.
+  if ((await getNfseProvider()) === 'focus') {
+    const { certStatus } = await import('./focus-nfe').then((m) => m.getFocusConfig())
+    if (certStatus !== 'OK') return
+  }
 
   const cfg = await getFiscalConfig()
   if (!cfg.autoEmit) return

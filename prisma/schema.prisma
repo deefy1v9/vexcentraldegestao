@@ -348,7 +348,9 @@ model FiscalAliquota {
 model NfseInvoice {
   id                String    @id @default(cuid())
   chargeId          String    @unique
-  focusRef          String    @unique // nfse:{chargeId}
+  // FOCUS | ASAAS — quem emitiu (a referência abaixo segue o padrão de cada um)
+  provider          String    @default("FOCUS")
+  focusRef          String    @unique // Focus: nfse:{chargeId} · Asaas: asaas:{invoiceId}
   // PROCESSANDO | AUTORIZADO | ERRO_AUTORIZACAO | CANCELADO | ERRO_CANCELAMENTO
   status            String    @default("PROCESSANDO")
   numero            String?

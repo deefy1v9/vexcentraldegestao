@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
-import { emitForCharge, applyFocusPayload, NfseBlockedError } from '@/lib/nfse'
+import { emitForCharge, applyFocusPayload, getNfseProvider, NfseBlockedError } from '@/lib/nfse'
+import { consultAsaasInvoice, cancelAsaasInvoice } from '@/lib/nfse-asaas'
 import * as focus from '@/lib/focus-nfe'
 import { validateEmails } from '@/lib/billing-core'
 
@@ -25,9 +26,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cha
   if (!charge) return NextResponse.json({ error: 'Cobrança não encontrada.' }, { status: 404 })
 
   try {
+    const provider = await getNfseProvider()
+    const viaAsaas = (nf: { provider?: string; focusRef: string } | null) => nf?.provider === 'ASAAS' || !!nf?.focusRef.startsWith('asaas:')
+
     if (action === 'emit') {
       const { certStatus } = await (await import('@/lib/focus-nfe')).getFocusConfig()
-      if (certStatus !== 'OK') {
+      if (provider === 'focus' && certStatus !== 'OK') {
         return NextResponse.json(
           { error: 'Emissão bloqueada: aguardando o certificado digital e-CNPJ A1 ser cadastrado na Focus NFe.' },
           { status: 409 },
@@ -41,6 +45,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cha
 
     if (action === 'consult') {
       if (!charge.nfse) return NextResponse.json({ error: 'Nenhuma NFS-e para esta cobrança.' }, { status: 404 })
+      if (viaAsaas(charge.nfse)) {
+        await consultAsaasInvoice(charge.nfse.id)
+        const nfse = await prisma.nfseInvoice.findUnique({ where: { id: charge.nfse.id } })
+        return NextResponse.json({ ok: true, nfse })
+      }
       const r = await focus.consultNfse(charge.nfse.focusRef)
       if (r.status === 404) {
         return NextResponse.json({ error: 'Nota não encontrada na Focus.' }, { status: 404 })
@@ -64,7 +73,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cha
       }
 
       try {
-        await focus.resendNfseEmail(charge.nfse.focusRef, ok)
+        if (viaAsaas(charge.nfse)) {
+          // Nota do Asaas: o PDF/XML vai pelo próprio sistema, no layout da marca
+          const { notifyNfseIssued } = await import('@/lib/email-notify')
+          const sent = await notifyNfseIssued(charge.nfse.id)
+          if (!sent) throw new Error('Não foi possível enviar o e-mail da nota.')
+        } else {
+          await focus.resendNfseEmail(charge.nfse.focusRef, ok)
+        }
         await prisma.nfseInvoice.update({
           where: { id: charge.nfse.id },
           data: {
@@ -95,13 +111,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cha
       if (justificativa.length < 15) {
         return NextResponse.json({ error: 'Informe a justificativa do cancelamento (mínimo 15 caracteres).' }, { status: 400 })
       }
-      const r = await focus.cancelNfse(charge.nfse.focusRef, justificativa)
-      const st = (r.body as { status?: string })?.status
-      await prisma.nfseInvoice.update({
-        where: { id: charge.nfse.id },
-        data: { status: st === 'cancelado' ? 'CANCELADO' : 'ERRO_CANCELAMENTO' },
-      })
-      if (st === 'cancelado') {
+      let cancelada: boolean
+      if (viaAsaas(charge.nfse)) {
+        const body = await cancelAsaasInvoice(charge.nfse.id)
+        cancelada = body.status === 'CANCELED'
+      } else {
+        const r = await focus.cancelNfse(charge.nfse.focusRef, justificativa)
+        const st = (r.body as { status?: string })?.status
+        cancelada = st === 'cancelado'
+        await prisma.nfseInvoice.update({
+          where: { id: charge.nfse.id },
+          data: { status: cancelada ? 'CANCELADO' : 'ERRO_CANCELAMENTO' },
+        })
+      }
+      if (cancelada) {
         const { notifyNfseCancelled } = await import('@/lib/email-notify')
         await notifyNfseCancelled(charge.nfse.id, justificativa).catch(() => {})
       }

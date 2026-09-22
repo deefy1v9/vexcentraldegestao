@@ -3,6 +3,8 @@ import crypto from 'crypto'
 import { prisma } from '@/lib/prisma'
 import { getAsaasConfig } from '@/lib/asaas'
 import { processAsaasEvent } from '@/lib/billing-asaas'
+import { applyAsaasInvoice } from '@/lib/nfse-asaas'
+import { INVOICE_WEBHOOK_EVENTS } from '@/lib/asaas'
 import { webhookEventKey } from '@/lib/billing-core'
 
 export const maxDuration = 60
@@ -37,9 +39,10 @@ export async function POST(req: NextRequest) {
 
   const event: string = body.event ?? ''
   const payment = body.payment ?? {}
+  const invoice = body.invoice ?? null
   const eventKey = body.id
     ? `ASAAS:${body.id}`
-    : webhookEventKey('ASAAS', [event, payment.id, payment.status, body.dateCreated])
+    : webhookEventKey('ASAAS', [event, payment.id ?? invoice?.id, payment.status ?? invoice?.status, body.dateCreated])
 
   // Idempotência: evento repetido não processa duas vezes
   let stored
@@ -54,6 +57,18 @@ export async function POST(req: NextRequest) {
   if (HANDLED.has(event) && payment?.id) {
     try {
       await processAsaasEvent(event, payment)
+      await prisma.webhookEvent.update({ where: { id: stored.id }, data: { processedAt: new Date() } })
+    } catch (err) {
+      await prisma.webhookEvent.update({
+        where: { id: stored.id },
+        data: { error: (err instanceof Error ? err.message : String(err)).slice(0, 500) },
+      }).catch(() => {})
+    }
+  } else if (INVOICE_WEBHOOK_EVENTS.includes(event) && invoice?.id) {
+    // Nota fiscal emitida pelo Asaas: sincroniza status, PDF/XML e avisa o cliente
+    try {
+      const nf = await prisma.nfseInvoice.findUnique({ where: { focusRef: `asaas:${invoice.id}` } })
+      if (nf) await applyAsaasInvoice(nf.id, invoice)
       await prisma.webhookEvent.update({ where: { id: stored.id }, data: { processedAt: new Date() } })
     } catch (err) {
       await prisma.webhookEvent.update({

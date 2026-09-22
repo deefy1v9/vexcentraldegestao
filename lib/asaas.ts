@@ -242,3 +242,107 @@ export async function ensureWebhook(url: string, authToken: string, alertEmail: 
   await log('ensureWebhook', url, true)
   return { created: true }
 }
+
+/* --------------------------------- NFS-e --------------------------------- */
+
+/**
+ * Nota fiscal de serviço emitida pelo próprio Asaas (Portal Nacional).
+ * SCHEDULED → SYNCHRONIZED/AUTHORIZED; ERROR traz `statusDescription`.
+ */
+export interface AsaasInvoice {
+  id: string
+  status: string
+  customer?: string
+  payment?: string
+  number?: string | null
+  validationCode?: string | null
+  pdfUrl?: string | null
+  xmlUrl?: string | null
+  rpsSerie?: string | null
+  rpsNumber?: string | null
+  statusDescription?: string | null
+  effectiveDate?: string
+  value?: number
+  serviceDescription?: string
+  externalReference?: string
+  taxes?: { retainIss?: boolean; iss?: number; cofins?: number; csll?: number; inss?: number; ir?: number; pis?: number }
+}
+
+export async function createInvoice(payload: {
+  payment: string
+  serviceDescription: string
+  observations?: string
+  value: number
+  deductions: number
+  effectiveDate: string
+  externalReference: string
+  municipalServiceCode?: string
+  municipalServiceName?: string
+  taxes: { retainIss: boolean; iss: number; cofins: number; csll: number; inss: number; ir: number; pis: number }
+}): Promise<AsaasInvoice> {
+  try {
+    const data = (await asaasFetch('/invoices', { method: 'POST', body: JSON.stringify(payload) })) as AsaasInvoice
+    await log('createInvoice', data.id, true)
+    return data
+  } catch (err) {
+    await log('createInvoice', payload.externalReference, false, String(err))
+    throw err
+  }
+}
+
+/** Emite agora uma nota agendada (sem esperar a data de emissão). */
+export async function authorizeInvoice(id: string): Promise<AsaasInvoice> {
+  try {
+    const data = (await asaasFetch(`/invoices/${id}/authorize`, { method: 'POST', body: '{}' })) as AsaasInvoice
+    await log('authorizeInvoice', id, true)
+    return data
+  } catch (err) {
+    await log('authorizeInvoice', id, false, String(err))
+    throw err
+  }
+}
+
+export async function getInvoice(id: string): Promise<AsaasInvoice> {
+  return (await asaasFetch(`/invoices/${id}`)) as AsaasInvoice
+}
+
+export async function findInvoiceByExternalRef(externalReference: string): Promise<AsaasInvoice | null> {
+  const data = await asaasFetch(`/invoices?externalReference=${encodeURIComponent(externalReference)}&limit=1`)
+  return (data as { data?: AsaasInvoice[] })?.data?.[0] ?? null
+}
+
+export async function cancelInvoice(id: string): Promise<AsaasInvoice> {
+  try {
+    const data = (await asaasFetch(`/invoices/${id}/cancel`, { method: 'POST', body: '{}' })) as AsaasInvoice
+    await log('cancelInvoice', id, true)
+    return data
+  } catch (err) {
+    await log('cancelInvoice', id, false, String(err))
+    throw err
+  }
+}
+
+/** Eventos de nota fiscal que o webhook do sistema precisa receber. */
+export const INVOICE_WEBHOOK_EVENTS = [
+  'INVOICE_CREATED', 'INVOICE_UPDATED', 'INVOICE_SYNCHRONIZED', 'INVOICE_AUTHORIZED',
+  'INVOICE_PROCESSING_CANCELLATION', 'INVOICE_CANCELED', 'INVOICE_CANCELLATION_DENIED', 'INVOICE_ERROR',
+]
+
+/**
+ * Garante que o webhook do sistema assine também os eventos de nota fiscal
+ * (o cadastro original só tinha os de cobrança). Idempotente.
+ */
+export async function ensureWebhookEvents(url: string, events: string[]): Promise<{ updated: boolean }> {
+  const data = await asaasFetch('/webhooks')
+  const list = ((data as { data?: Array<{ id: string; url?: string; events?: string[] }> })?.data) ?? []
+  const hook = list.find((w) => w.url === url)
+  if (!hook) return { updated: false }
+  const missing = events.filter((e) => !(hook.events ?? []).includes(e))
+  if (missing.length === 0) return { updated: false }
+  await asaasFetch(`/webhooks/${hook.id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ events: [...(hook.events ?? []), ...missing] }),
+  })
+  await log('ensureWebhookEvents', url, true)
+  return { updated: true }
+}
