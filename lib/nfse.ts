@@ -273,7 +273,12 @@ async function emitForChargeAsaas(charge: {
   id: string; year: number; month: number; asaasId: string | null; value: unknown
   nfse: { id: string; status: string } | null
   items: Array<{ description: string; cents: number }>
-  client: { name: string; legalName: string | null; cnpj: string | null; billingEmail: string | null; email: string | null; fiscalDescription: string | null; asaasCustomerId: string | null }
+  client: {
+    id: string; name: string; legalName: string | null; cnpj: string | null; billingEmail: string | null; email: string | null
+    fiscalDescription: string | null; asaasCustomerId: string | null
+    zipCode: string | null; street: string | null; addressNumber: string | null; district: string | null
+    city: string | null; state: string | null; ibgeCode: string | null
+  }
 }): Promise<{ invoiceId: string; status: string }> {
   if (!charge.asaasId) throw new NfseBlockedError('A cobrança ainda não foi gerada no Asaas.')
 
@@ -285,12 +290,19 @@ async function emitForChargeAsaas(charge: {
   if (!(charge.client.cnpj ?? '').replace(/\D/g, '')) faltam.push('CPF/CNPJ')
   if (!(charge.client.legalName || charge.client.name)) faltam.push('Nome/razão social')
   if (!(charge.client.billingEmail || charge.client.email)) faltam.push('E-mail')
-  if (!charge.client.asaasCustomerId) faltam.push('Cliente sincronizado no Asaas')
+  // O Portal Nacional exige endereço completo do tomador (CEP válido)
+  faltam.push(...missingNfseFields(charge.client))
   if (faltam.length > 0) throw new NfseBlockedError(`Cadastro fiscal do cliente incompleto: ${faltam.join(', ')}`)
 
+  // O tomador é o cadastro no Asaas: garante que ele reflita o endereço atual
+  const { syncCustomer } = await import('./billing-asaas')
+  await syncCustomer(charge.client.id)
+
   const ref = asaasNfseRef(charge.id)
-  // Já existe lá (timeout anterior)? Reaproveita em vez de emitir de novo
-  const existing = await asaas.findInvoiceByExternalRef(ref).catch(() => null)
+  // Já existe lá (timeout anterior)? Reaproveita — exceto se deu erro ou foi
+  // cancelada, aí é uma nota nova
+  const found = await asaas.findInvoiceByExternalRef(ref).catch(() => null)
+  const existing = found && !['ERROR', 'CANCELED', 'CANCELLATION_DENIED'].includes(found.status) ? found : null
   const invoice = charge.nfse
     ? await prisma.nfseInvoice.findUniqueOrThrow({ where: { id: charge.nfse.id } })
     : await prisma.nfseInvoice.create({

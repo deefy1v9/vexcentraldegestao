@@ -36,16 +36,17 @@ function isoDateSP(d: Date): string {
 }
 
 /**
- * Código de tributação nacional no formato que o Portal Nacional espera
- * (6 dígitos): "17.06" → "170600". Se a configuração já tiver o código
- * tributário explícito, ele prevalece.
+ * Código de tributação nacional (Lista de Serviços Nacional da NFS-e): três
+ * níveis, 6 dígitos — item 17.06 é "17.06.01" → "170601". O código explícito
+ * da configuração prevalece; sem ele, o item da LC 116 ganha o desdobro 01
+ * (o mais comum; se a prefeitura recusar, cadastrar o código exato).
  */
 export function nationalServiceCode(cfg: { codigoTributacao?: string | null; itemListaServico?: string | null }): string | undefined {
   const explicit = (cfg.codigoTributacao ?? '').replace(/\D/g, '')
-  if (explicit) return explicit
+  if (explicit.length === 6) return explicit
   const item = (cfg.itemListaServico ?? '').replace(/\D/g, '')
   if (!item) return undefined
-  return item.padEnd(6, '0')
+  return item.length >= 6 ? item.slice(0, 6) : `${item.padStart(4, '0')}01`
 }
 
 /** Monta o payload da nota para uma cobrança (valor e descrição vêm dela). */
