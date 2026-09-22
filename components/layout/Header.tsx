@@ -77,7 +77,7 @@ export default function Header({ title, subtitle }: HeaderProps) {
   }
 
   return (
-    <header className="h-[72px] bg-white/85 backdrop-blur-md border-b border-gray-200/70 px-4 sm:px-6 flex items-center justify-between gap-2 shrink-0">
+    <header className="h-[72px] bg-[var(--surface)]/85 backdrop-blur-md border-b border-[var(--border)] px-4 sm:px-6 flex items-center justify-between gap-2 shrink-0">
       <div className="flex items-center gap-2 min-w-0">
         {/* Hambúrguer: abre a sidebar como drawer no mobile. */}
         <button
@@ -88,8 +88,8 @@ export default function Header({ title, subtitle }: HeaderProps) {
           <Menu className="w-5 h-5 text-gray-600" />
         </button>
         <div className="min-w-0">
-          <h1 className="text-lg sm:text-xl font-bold text-gray-900 leading-tight truncate">{title}</h1>
-          {subtitle && <p className="text-xs text-gray-400 mt-0.5 truncate">{subtitle}</p>}
+          <h1 className="text-lg sm:text-xl font-bold text-[var(--text)] leading-tight truncate">{title}</h1>
+          {subtitle && <p className="text-xs text-[var(--text-secondary)] mt-0.5 truncate">{subtitle}</p>}
         </div>
       </div>
 
@@ -183,13 +183,13 @@ export default function Header({ title, subtitle }: HeaderProps) {
         </div>
 
         {/* User */}
-        <div className="flex items-center gap-2.5 ml-2 pl-3 border-l border-gray-100">
+        <div className="flex items-center gap-2.5 ml-2 pl-3 border-l border-[var(--border)]">
           <div className="w-9 h-9 bg-[#030A8C] rounded-full flex items-center justify-center shadow-sm">
             <span className="text-white text-xs font-bold">{getInitials(name)}</span>
           </div>
           <div className="hidden sm:block">
-            <p className="text-sm font-semibold text-gray-900 leading-tight">{name}</p>
-            <p className="text-[11px] text-gray-400 leading-none">{email}</p>
+            <p className="text-sm font-semibold text-[var(--text)] leading-tight">{name}</p>
+            <p className="text-[11px] text-[var(--text-secondary)] leading-none">{email}</p>
           </div>
         </div>
       </div>

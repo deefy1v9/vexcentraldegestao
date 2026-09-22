@@ -324,6 +324,87 @@ export function teamSummary(tasks: TaskLike[], users: UserRef[], now: Date = new
   return { rows, unassigned: open.filter((t) => !t.assignee).length }
 }
 
+/* ------------------------------- lista ------------------------------- */
+
+export type SortKey = 'prazo' | 'prioridade' | 'cliente' | 'recentes'
+
+export const SORT_LABEL: Record<SortKey, string> = {
+  prazo: 'Prazo mais próximo',
+  prioridade: 'Prioridade',
+  cliente: 'Cliente',
+  recentes: 'Mais recentes',
+}
+
+const PRIORITY_WEIGHT: Record<TaskPriority, number> = { URGENTE: 0, ALTA: 1, MEDIA: 2, BAIXA: 3 }
+
+export function sortTasks<T extends TaskLike>(tasks: T[], key: SortKey, now: Date = new Date()): T[] {
+  const list = [...tasks]
+  if (key === 'prioridade') {
+    return list.sort((a, b) => PRIORITY_WEIGHT[a.priority] - PRIORITY_WEIGHT[b.priority] || compareTasks(a, b, now))
+  }
+  if (key === 'cliente') {
+    return list.sort((a, b) => (a.client?.name ?? '~').localeCompare(b.client?.name ?? '~') || compareTasks(a, b, now))
+  }
+  if (key === 'recentes') {
+    const t = (x: TaskLike) => (x.createdAt ? new Date(x.createdAt as string).getTime() : 0)
+    return list.sort((a, b) => t(b) - t(a))
+  }
+  return list.sort((a, b) => compareTasks(a, b, now))
+}
+
+export type ListTab = 'todas' | 'atrasadas' | 'hoje' | 'revisao' | 'concluidas'
+
+export const LIST_TAB_LABEL: Record<ListTab, string> = {
+  todas: 'Todas', atrasadas: 'Atrasadas', hoje: 'Hoje', revisao: 'Em revisão', concluidas: 'Concluídas',
+}
+
+/** Contadores das abas, sobre o recorte atual (minhas ou equipe). */
+export function tabCounts(tasks: TaskLike[], now: Date = new Date()): Record<ListTab, number> {
+  const open = tasks.filter((t) => t.status !== 'CONCLUIDO')
+  return {
+    todas: open.length,
+    atrasadas: open.filter((t) => isLate(t, now)).length,
+    hoje: open.filter((t) => daysLeft(stageDeadline(t), now) === 0).length,
+    revisao: open.filter((t) => t.status === 'EM_REVISAO').length,
+    concluidas: tasks.length - open.length,
+  }
+}
+
+export function tabFromFilters(f: DemandasFilters): ListTab {
+  if (f.late) return 'atrasadas'
+  if (f.period === 'hoje') return 'hoje'
+  if (f.status === 'EM_REVISAO') return 'revisao'
+  if (f.status === 'CONCLUIDO') return 'concluidas'
+  return 'todas'
+}
+
+export function filtersForTab(f: DemandasFilters, tab: ListTab): DemandasFilters {
+  const base: DemandasFilters = { ...f, late: false, period: f.period === 'hoje' ? '' : f.period, status: ['EM_REVISAO', 'CONCLUIDO'].includes(f.status) ? '' : f.status }
+  if (tab === 'atrasadas') return { ...base, late: true }
+  if (tab === 'hoje') return { ...base, period: 'hoje' }
+  if (tab === 'revisao') return { ...base, status: 'EM_REVISAO' }
+  if (tab === 'concluidas') return { ...base, status: 'CONCLUIDO' }
+  return base
+}
+
+export type ActionKind = 'iniciar' | 'entregar' | 'revisar' | 'agendar' | 'abrir' | 'ver'
+
+/** Botão da linha: o que a pessoa faz agora nessa demanda. */
+export function actionFor(task: TaskLike, userId: string): { label: string; kind: ActionKind } {
+  if (task.status === 'CONCLUIDO') return { label: 'Ver', kind: 'ver' }
+  const r = roleFor(task, userId)
+  if (!r) return { label: 'Abrir', kind: 'abrir' }
+  if (task.status === 'BACKLOG' || task.status === 'TODO') return { label: 'Iniciar', kind: 'iniciar' }
+  if (task.status === 'EM_ANDAMENTO') return { label: 'Entregar', kind: 'entregar' }
+  if (task.status === 'EM_REVISAO') return { label: 'Revisar', kind: 'revisar' }
+  return { label: 'Agendar', kind: 'agendar' }
+}
+
+/** "18 set", para a coluna de prazo. */
+export function shortDate(value: Date | string): string {
+  return new Date(value as string).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '')
+}
+
 /** Concluídas recentes (7 dias) para a coluna não virar arquivo morto. */
 export function isRecentlyDone(task: TaskLike, now: Date = new Date()): boolean {
   if (task.status !== 'CONCLUIDO') return false

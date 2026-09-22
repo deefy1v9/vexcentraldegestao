@@ -121,3 +121,41 @@ test('concluída recente fica 7 dias na coluna', () => {
   assert.equal(isRecentlyDone(task({ status: 'CONCLUIDO', updatedAt: at('2026-09-01') }), NOW), false)
   assert.equal(isRecentlyDone(task({ status: 'TODO' }), NOW), false)
 })
+
+test('ordenação da lista: prioridade, cliente e recentes', async () => {
+  const { sortTasks } = await import('../../lib/demandas-core')
+  const a = task({ title: 'a', priority: 'BAIXA', dueDate: at('2026-10-10'), client: { id: 'c2', name: 'Zeta' }, createdAt: at('2026-09-01') })
+  const b = task({ title: 'b', priority: 'URGENTE', dueDate: at('2026-10-20'), client: { id: 'c1', name: 'Alfa' }, createdAt: at('2026-09-10') })
+  assert.deepEqual(sortTasks([a, b], 'prioridade', NOW).map((t) => t.title), ['b', 'a'])
+  assert.deepEqual(sortTasks([a, b], 'cliente', NOW).map((t) => t.title), ['b', 'a'])
+  assert.deepEqual(sortTasks([a, b], 'recentes', NOW).map((t) => t.title), ['b', 'a'])
+  assert.deepEqual(sortTasks([a, b], 'prazo', NOW).map((t) => t.title), ['b', 'a'])
+})
+
+test('abas: contadores, ida e volta com os filtros', async () => {
+  const { tabCounts, tabFromFilters, filtersForTab } = await import('../../lib/demandas-core')
+  const tasks = [
+    task({ dueDate: at('2026-09-20') }),
+    task({ dueDate: at('2026-09-24') }),
+    task({ dueDate: at('2026-09-23'), status: 'EM_REVISAO' }),
+    task({ dueDate: at('2026-09-10'), status: 'CONCLUIDO' }),
+  ]
+  assert.deepEqual(tabCounts(tasks, NOW), { todas: 3, atrasadas: 1, hoje: 2, revisao: 1, concluidas: 1 })
+  const f = { ...EMPTY_DEMANDAS_FILTERS, client: 'c1' }
+  for (const tab of ['todas', 'atrasadas', 'hoje', 'revisao', 'concluidas'] as const) {
+    const next = filtersForTab(f, tab)
+    assert.equal(tabFromFilters(next), tab)
+    assert.equal(next.client, 'c1')
+  }
+})
+
+test('ação da linha segue a etapa e a vez do usuário', async () => {
+  const { actionFor } = await import('../../lib/demandas-core')
+  const t = task({ dueDate: at('2026-09-25') })
+  assert.equal(actionFor(t, 'g').label, 'Iniciar')
+  assert.equal(actionFor({ ...t, status: 'EM_ANDAMENTO' }, 'g').label, 'Entregar')
+  assert.equal(actionFor({ ...t, status: 'EM_REVISAO' }, 'a').label, 'Revisar')
+  assert.equal(actionFor({ ...t, status: 'EM_REVISAO' }, 'g').label, 'Abrir')
+  assert.equal(actionFor({ ...t, status: 'APROVADO' }, 'g').label, 'Agendar')
+  assert.equal(actionFor({ ...t, status: 'CONCLUIDO' }, 'g').label, 'Ver')
+})
