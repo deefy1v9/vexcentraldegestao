@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { auth } from '@/lib/auth'
 import Header from '@/components/layout/Header'
 import TaskPage from '@/components/demandas/TaskPage'
+import { canSee } from '@/lib/demandas-core'
 
 /** Demanda em página própria (link compartilhável, sem popup). */
 export default async function DemandaPage({ params }: { params: Promise<{ id: string }> }) {
@@ -25,7 +26,9 @@ export default async function DemandaPage({ params }: { params: Promise<{ id: st
     prisma.client.findMany({ where: { status: 'ATIVO' }, select: { id: true, name: true }, orderBy: { name: 'asc' } }),
     prisma.user.findMany({ where: { isActive: true }, select: { id: true, name: true }, orderBy: { name: 'asc' } }),
   ])
-  if (!task) notFound()
+  const isAdmin = session?.user?.role === 'ADMIN'
+  // Demanda de outra pessoa não existe para o colaborador
+  if (!task || !canSee(task, session?.user?.id ?? '', isAdmin)) notFound()
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -35,7 +38,7 @@ export default async function DemandaPage({ params }: { params: Promise<{ id: st
         users={users}
         clients={clients}
         currentUserId={session?.user?.id ?? ''}
-        isAdmin={session?.user?.role === 'ADMIN'}
+        isAdmin={isAdmin}
       />
     </div>
   )

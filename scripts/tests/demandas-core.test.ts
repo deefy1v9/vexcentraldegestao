@@ -170,3 +170,18 @@ test('demanda em revisão some para quem produziu, fica para revisor e admin', a
   // Sem revisor definido, quem responde pela demanda continua vendo
   assert.equal(canSee({ ...t, reviewer: null }, 'g', false), true)
 })
+
+test('colaborador só vê as demandas em que tem papel; admin vê tudo', async () => {
+  const { canSee, visibilityWhere } = await import('../../lib/demandas-core')
+  const N = { id: 'n', name: 'Nathan' }
+  const doCeo = task({ assignee: A, producer: A, reviewer: A, scheduler: A })
+  assert.equal(canSee(doCeo, 'g', false), false)
+  assert.equal(canSee(doCeo, 'a', false), true)
+  assert.equal(canSee(doCeo, 'g', true), true)
+  // Papel em qualquer etapa basta para enxergar
+  assert.equal(canSee(task({ assignee: N, producer: N, reviewer: A, scheduler: G }), 'g', false), true)
+  assert.deepEqual(visibilityWhere('g', true), {})
+  assert.deepEqual(visibilityWhere('g', false), {
+    OR: [{ assigneeId: 'g' }, { producerId: 'g' }, { reviewerId: 'g' }, { schedulerId: 'g' }],
+  })
+})

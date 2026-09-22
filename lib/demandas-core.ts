@@ -165,14 +165,33 @@ export function currentActor(task: TaskLike): UserRef | null {
 }
 
 /**
- * Demanda em revisão some da lista de quem produziu: a bola está com o
- * revisor. Admin vê tudo; o revisor vê a dele.
+ * O que o colaborador enxerga: só as demandas em que ele tem papel
+ * (responsável, produção, revisão ou agendamento) — a operação dos outros,
+ * inclusive a dos diretores, não aparece. E demanda em revisão some para
+ * quem produziu: a bola está com o revisor. Admin vê tudo.
+ *
+ * Isto é conveniência de tela; o servidor filtra pelas mesmas regras.
  */
 export function canSee(task: TaskLike, userId: string, isAdmin: boolean): boolean {
   if (isAdmin) return true
+  const meu = [task.assignee?.id, task.producer?.id, task.reviewer?.id, task.scheduler?.id].includes(userId)
+  if (!meu) return false
   if (task.status !== 'EM_REVISAO') return true
   const dono = task.reviewer ?? task.assignee
   return dono?.id === userId
+}
+
+/** Mesmo recorte do `canSee`, em formato de `where` do Prisma. */
+export function visibilityWhere(userId: string, isAdmin: boolean) {
+  if (isAdmin) return {}
+  return {
+    OR: [
+      { assigneeId: userId },
+      { producerId: userId },
+      { reviewerId: userId },
+      { schedulerId: userId },
+    ],
+  }
 }
 
 /* ---------------------------------- filtros ---------------------------------- */

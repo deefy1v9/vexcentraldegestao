@@ -62,7 +62,8 @@ export default function DemandasWorkspace({
       status: params.get('etapa') ?? '',
       late: params.get('atrasadas') === '1',
       // Colaborador começa nas próprias demandas; admin começa na equipe
-      mine: escopo ? escopo === 'minhas' : !isAdmin,
+      // Colaborador só tem as próprias demandas: escopo fixo
+      mine: isAdmin ? escopo === 'minhas' : true,
       action: params.get('vez') === '1',
     }
   }, [params, isAdmin])
@@ -81,7 +82,7 @@ export default function DemandasWorkspace({
     if (m.tier) q.set('grupo', m.tier)
     if (m.status) q.set('etapa', m.status)
     if (m.late) q.set('atrasadas', '1')
-    if (m.mine !== !isAdmin) q.set('escopo', m.mine ? 'minhas' : 'equipe')
+    if (isAdmin && m.mine) q.set('escopo', 'minhas')
     if (m.action) q.set('vez', '1')
     const qs = q.toString()
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false })

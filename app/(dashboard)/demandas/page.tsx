@@ -4,12 +4,17 @@ import { prisma } from '@/lib/prisma'
 import { auth } from '@/lib/auth'
 import Header from '@/components/layout/Header'
 import DemandasWorkspace from '@/components/demandas/DemandasWorkspace'
+import { visibilityWhere } from '@/lib/demandas-core'
 
 export default async function DemandasPage() {
   const session = await auth()
+  const isAdmin = session?.user?.role === 'ADMIN'
+  const userId = session?.user?.id ?? ''
 
   const [tasks, clients, users] = await Promise.all([
     prisma.task.findMany({
+      // Colaborador só recebe as demandas em que tem papel
+      where: visibilityWhere(userId, isAdmin),
       include: {
         client: { select: { id: true, name: true, tier: true, ...CLIENT_LINK_SELECT } },
         assignee: { select: { id: true, name: true } },

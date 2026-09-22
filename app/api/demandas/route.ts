@@ -6,6 +6,7 @@ import { logActivity } from '@/lib/activity'
 import { isConfigured, uazSendText } from '@/lib/uazapi'
 import { defaultAssignments, logTaskEvent, maybeImmediateReminder, taskShortId } from '@/lib/task-flow'
 import { tierPriority } from '@/lib/client-tier'
+import { visibilityWhere } from '@/lib/demandas-core'
 
 export async function GET(req: NextRequest) {
   const session = await auth()
@@ -17,6 +18,8 @@ export async function GET(req: NextRequest) {
 
   const tasks = await prisma.task.findMany({
     where: {
+      // Colaborador só enxerga as demandas em que tem papel
+      ...visibilityWhere(session.user.id, session.user.role === 'ADMIN'),
       ...(clientId ? { clientId } : {}),
       ...(assigneeId ? { assigneeId } : {}),
     },

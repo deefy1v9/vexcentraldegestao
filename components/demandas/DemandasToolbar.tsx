@@ -33,6 +33,8 @@ export function DemandasTopBar({
 }) {
   return (
     <div className="flex items-center gap-2 flex-wrap">
+      {/* Escopo é do admin: o colaborador só tem as próprias demandas */}
+      {isAdmin && (
       <div className="inline-flex rounded-lg border border-gray-200 bg-white p-0.5" role="group" aria-label="Escopo">
         {([[true, 'Minhas demandas', User], [false, 'Toda a equipe', Users]] as const).map(([m, label, Icon]) => (
           <button
@@ -46,6 +48,7 @@ export function DemandasTopBar({
           </button>
         ))}
       </div>
+      )}
 
       <div className="ml-auto flex items-center gap-2">
         <div className="inline-flex rounded-lg border border-gray-200 bg-white p-0.5" role="tablist" aria-label="Visualização">
