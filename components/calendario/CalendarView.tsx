@@ -1,5 +1,6 @@
 'use client'
 import TierBadge from '@/components/ui/TierBadge'
+import { calendarTone, CALENDAR_TONE_LABEL, type CalendarTone } from '@/lib/demandas-core'
 import SearchSelect from '@/components/ui/SearchSelect'
 import PlannerWizard from '@/components/calendario/PlannerWizard'
 import PlannerConfigPanel from '@/components/calendario/PlannerConfigPanel'
@@ -58,14 +59,30 @@ const TYPE_BG: Record<string, string> = {
   OUTROS: 'bg-gray-500/10 border-gray-500/20',
 }
 
-/** Cores das demandas por etapa do fluxo (mesmas do Kanban). */
-const TASK_BG: Record<string, string> = {
-  BACKLOG: 'bg-gray-500/10 border-gray-500/20 text-gray-600',
-  TODO: 'bg-blue-500/10 border-blue-500/20 text-blue-600',
-  EM_ANDAMENTO: 'bg-amber-500/10 border-amber-500/20 text-amber-700',
-  EM_REVISAO: 'bg-purple-500/10 border-purple-500/20 text-purple-600',
-  APROVADO: 'bg-teal-500/10 border-teal-500/20 text-teal-700',
-  CONCLUIDO: 'bg-green-500/10 border-green-500/20 text-green-700',
+/** Cores das demandas pelo prazo: cinza padrão, amarelo a 2 dias,
+ *  verde quando feita, vermelho quando atrasada (regra em calendarTone). */
+const TONE_BG: Record<CalendarTone, string> = {
+  normal: 'bg-gray-500/10 border-gray-500/20 text-gray-600',
+  proximo: 'bg-amber-500/10 border-amber-500/30 text-amber-700',
+  feito: 'bg-green-500/10 border-green-500/30 text-green-700',
+  atrasado: 'bg-red-500/10 border-red-500/30 text-red-700',
+}
+const TONE_DOT: Record<CalendarTone, string> = {
+  normal: 'bg-gray-400', proximo: 'bg-amber-500', feito: 'bg-green-500', atrasado: 'bg-red-500',
+}
+const TONE_PILL: Record<CalendarTone, string> = {
+  normal: 'text-[#030A8C] bg-[#030A8C]/5',
+  proximo: 'text-amber-800 bg-amber-100',
+  feito: 'text-green-800 bg-green-100',
+  atrasado: 'text-red-800 bg-red-100',
+}
+/** Tom mais grave entre as demandas do dia (atrasado > próximo > normal > feito). */
+function dayTone(tasks: CalTask[], now: Date): CalendarTone {
+  const tones = tasks.map((t) => calendarTone(t, now))
+  if (tones.includes('atrasado')) return 'atrasado'
+  if (tones.includes('proximo')) return 'proximo'
+  if (tones.length > 0 && tones.every((x) => x === 'feito')) return 'feito'
+  return 'normal'
 }
 const TASK_LABEL: Record<string, string> = {
   BACKLOG: 'Backlog', TODO: 'A fazer', EM_ANDAMENTO: 'Em andamento',
@@ -314,7 +331,7 @@ export default function CalendarView({
         {!detalhado && total > 0 && (
           <button type="button" onClick={abrirDia} className="w-full text-left space-y-0.5" title="Ver o dia">
             {dayTasks.length > 0 && (
-              <span className="block text-[10px] font-semibold text-[#030A8C] bg-[#030A8C]/5 rounded px-1.5 py-0.5 truncate">
+              <span className={`block text-[10px] font-semibold rounded px-1.5 py-0.5 truncate ${TONE_PILL[dayTone(dayTasks, today)]}`}>
                 {dayTasks.length} demanda{dayTasks.length === 1 ? '' : 's'}
               </span>
             )}
@@ -331,8 +348,8 @@ export default function CalendarView({
             <div
               key={t.id}
               onClick={(e) => { e.stopPropagation(); router.push(`/demandas/${t.id}`) }}
-              title={`${t.title} · ${TASK_LABEL[t.status] ?? t.status}`}
-              className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium truncate border cursor-pointer hover:brightness-95 transition-all ${TASK_BG[t.status] ?? TASK_BG.TODO}`}
+              title={`${t.title} · ${TASK_LABEL[t.status] ?? t.status} · ${CALENDAR_TONE_LABEL[calendarTone(t, today)]}`}
+              className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium truncate border cursor-pointer hover:brightness-95 transition-all ${TONE_BG[calendarTone(t, today)]}`}
             >
               {aiSet.has(t.id) && <Sparkles className="w-2.5 h-2.5 shrink-0" />}
               {t.client?.operationalGroup && (
@@ -488,9 +505,9 @@ export default function CalendarView({
 
       {/* Legenda */}
       <div className="px-3 sm:px-6 py-2 border-b border-gray-100 shrink-0 flex items-center gap-3 flex-wrap text-[10px] text-gray-500 overflow-x-auto">
-        {Object.entries(TASK_LABEL).map(([k, v]) => (
+        {(Object.keys(CALENDAR_TONE_LABEL) as CalendarTone[]).map((k) => (
           <span key={k} className="flex items-center gap-1 whitespace-nowrap">
-            <span className={`w-2 h-2 rounded-full ${(TASK_BG[k] ?? '').split(' ')[0].replace('/10', '')}`} /> {v}
+            <span className={`w-2 h-2 rounded-full ${TONE_DOT[k]}`} /> {CALENDAR_TONE_LABEL[k]}
           </span>
         ))}
         <span className="flex items-center gap-1 whitespace-nowrap"><Sparkles className="w-3 h-3" /> criada pela IA</span>
@@ -521,6 +538,7 @@ export default function CalendarView({
                 className="w-full text-left border border-gray-100 rounded-xl p-3 bg-white hover:border-gray-200 transition-colors"
               >
                 <p className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${TONE_DOT[calendarTone(t, today)]}`} title={CALENDAR_TONE_LABEL[calendarTone(t, today)]} />
                   {aiSet.has(t.id) && <Sparkles className="w-3.5 h-3.5 text-purple-500 shrink-0" />}
                   <span className="truncate">#{t.number} {t.title}</span>
                 </p>

@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   buildQueue, compareTasks, filterTasks, isLate, roleFor, stageDeadline, summarize, teamSummary,
-  EMPTY_DEMANDAS_FILTERS, isRecentlyDone, type TaskLike,
+  EMPTY_DEMANDAS_FILTERS, isRecentlyDone, calendarTone, type TaskLike,
 } from '../../lib/demandas-core'
 
 const NOW = new Date('2026-09-22T12:00:00')
@@ -184,4 +184,15 @@ test('colaborador só vê as demandas em que tem papel; admin vê tudo', async (
   assert.deepEqual(visibilityWhere('g', false), {
     OR: [{ assigneeId: 'g' }, { producerId: 'g' }, { reviewerId: 'g' }, { schedulerId: 'g' }],
   })
+})
+
+test('calendarTone: cinza padrão, amarelo a 2 dias, verde feito, vermelho atrasado', () => {
+  const now = new Date('2026-09-23T15:00:00-03:00')
+  const t = (dueDate: string | null, status = 'TODO') => ({ status, dueDate: dueDate ? `${dueDate}T12:00:00Z` : null } as unknown as TaskLike)
+  assert.equal(calendarTone(t('2026-09-01', 'CONCLUIDO'), now), 'feito')
+  assert.equal(calendarTone(t('2026-09-22'), now), 'atrasado')
+  assert.equal(calendarTone(t('2026-09-23'), now), 'proximo')
+  assert.equal(calendarTone(t('2026-09-25'), now), 'proximo')
+  assert.equal(calendarTone(t('2026-09-26'), now), 'normal')
+  assert.equal(calendarTone(t(null), now), 'normal')
 })

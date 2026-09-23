@@ -448,3 +448,18 @@ export function isRecentlyDone(task: TaskLike, now: Date = new Date()): boolean 
 export function isoDay(value: Date | string, timeZone = 'America/Sao_Paulo'): string {
   return new Date(value as string).toLocaleDateString('en-CA', { timeZone })
 }
+
+/** Tom da demanda no calendário: cinza por padrão, amarelo a 2 dias do prazo,
+ *  verde quando concluída, vermelho quando passou do prazo. */
+export type CalendarTone = 'normal' | 'proximo' | 'feito' | 'atrasado'
+export const CALENDAR_TONE_LABEL: Record<CalendarTone, string> = {
+  normal: 'No prazo', proximo: 'Vence em 2 dias', feito: 'Feito', atrasado: 'Atrasado',
+}
+export function calendarTone(task: { status: string; dueDate?: Date | string | null }, now: Date = new Date()): CalendarTone {
+  if (task.status === 'CONCLUIDO') return 'feito'
+  if (!task.dueDate) return 'normal'
+  const hoje = isoDay(now), dia = isoDay(task.dueDate)
+  if (dia < hoje) return 'atrasado'
+  const diff = Math.round((Date.parse(dia) - Date.parse(hoje)) / DAY)
+  return diff <= 2 ? 'proximo' : 'normal'
+}
