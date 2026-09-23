@@ -1,5 +1,6 @@
 'use client'
 import TierBadge from '@/components/ui/TierBadge'
+import SearchSelect from '@/components/ui/SearchSelect'
 import PlannerWizard from '@/components/calendario/PlannerWizard'
 import PlannerConfigPanel from '@/components/calendario/PlannerConfigPanel'
 import { useMemo, useState } from 'react'
@@ -276,6 +277,10 @@ export default function CalendarView({
     const weekday = new Date(`${iso}T12:00:00Z`).getUTCDay()
     const isWeekend = weekday === 0 || weekday === 6
     const limit = compact ? 3 : 12
+    // Sem cliente escolhido a grade fica limpa: só quantos itens tem no dia.
+    // Com cliente, cada post/entrega aparece no seu dia.
+    const detalhado = !!filters.clientId
+    const abrirDia = (e: React.MouseEvent) => { e.stopPropagation(); setCursor(new Date(cell.year, cell.month, cell.day)); setMode('dia') }
 
     return (
       <div
@@ -306,7 +311,22 @@ export default function CalendarView({
           </div>
         </div>
 
-        <div className="space-y-0.5 overflow-hidden">
+        {!detalhado && total > 0 && (
+          <button type="button" onClick={abrirDia} className="w-full text-left space-y-0.5" title="Ver o dia">
+            {dayTasks.length > 0 && (
+              <span className="block text-[10px] font-semibold text-[#030A8C] bg-[#030A8C]/5 rounded px-1.5 py-0.5 truncate">
+                {dayTasks.length} demanda{dayTasks.length === 1 ? '' : 's'}
+              </span>
+            )}
+            {dayEvents.length > 0 && (
+              <span className="block text-[10px] font-semibold text-gray-600 bg-gray-100 rounded px-1.5 py-0.5 truncate">
+                {dayEvents.length} evento{dayEvents.length === 1 ? '' : 's'}
+              </span>
+            )}
+          </button>
+        )}
+
+        {detalhado && <div className="space-y-0.5 overflow-hidden">
           {dayTasks.slice(0, limit).map((t) => (
             <div
               key={t.id}
@@ -318,7 +338,8 @@ export default function CalendarView({
               {t.client?.operationalGroup && (
                 <span className="text-[8px] font-bold opacity-70 shrink-0">{t.client.operationalGroup}</span>
               )}
-              <span className="truncate">{t.title}</span>
+              <span className="truncate">{t.title.replace(/^[^·]+· /, '')}</span>
+              {t.contentType && <span className="text-[8px] opacity-70 shrink-0">· {t.contentType}</span>}
             </div>
           ))}
           {dayEvents.slice(0, Math.max(0, limit - dayTasks.length)).map((ev) => (
@@ -334,7 +355,7 @@ export default function CalendarView({
           {total > limit && (
             <p className="text-[9px] text-gray-400 px-1">+{total - limit} mais</p>
           )}
-        </div>
+        </div>}
       </div>
     )
   }
@@ -347,7 +368,18 @@ export default function CalendarView({
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-2 flex-wrap px-3 py-3 sm:px-6 sm:py-4 border-b border-gray-100 shrink-0">
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-2 min-w-0 flex-wrap">
+          {/* Cliente em destaque: com cliente, o dia mostra cada entrega;
+              sem cliente, só a quantidade por dia */}
+          <SearchSelect
+            options={clients}
+            value={filters.clientId}
+            onChange={(id) => setFilters((f) => ({ ...f, clientId: id }))}
+            placeholder="Todos os clientes"
+            allLabel="Todos os clientes (só quantidades)"
+            searchPlaceholder="Buscar cliente"
+            shortLabel={false}
+          />
           <h2 className="text-base sm:text-xl font-bold text-gray-900 truncate">{periodLabel}</h2>
           <div className="flex items-center gap-1 shrink-0">
             <button onClick={() => move(-1)} aria-label="Período anterior" className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
