@@ -2,6 +2,40 @@ import { GoogleGenAI, type Content, type Part } from '@google/genai'
 import type Anthropic from '@anthropic-ai/sdk'
 import { toGeminiFunctionDeclarations } from './media'
 
+/** Modelos de reserva quando o escolhido está sobrecarregado (503/429). */
+export const GEMINI_FALLBACKS = ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.8-flash']
+
+export function isTransient(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err)
+  return /"code":\s*(503|429)|UNAVAILABLE|RESOURCE_EXHAUSTED|high demand|overloaded/i.test(msg)
+}
+
+/**
+ * Chama o modelo com retentativa curta e, se continuar sobrecarregado, troca
+ * para um modelo de reserva. Um pico de demanda no Gemini não pode derrubar o
+ * comando de quem está no WhatsApp esperando resposta.
+ */
+export async function generateWithFallback<T>(
+  model: string,
+  call: (model: string) => Promise<T>,
+): Promise<T> {
+  const models = [model, ...GEMINI_FALLBACKS.filter((m) => m !== model)]
+  let last: unknown
+  for (const m of models) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        return await call(m)
+      } catch (err) {
+        last = err
+        if (!isTransient(err)) throw err
+        await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)))
+      }
+    }
+    console.warn(`[ai] gemini ${m} sobrecarregado, tentando reserva`)
+  }
+  throw last
+}
+
 /**
  * Gemini como motor do assistente: mesmo conjunto de ferramentas do agente
  * Anthropic, mesmo executor. Só muda o transporte da conversa.
@@ -34,15 +68,15 @@ export async function runGeminiLoop(p: GeminiLoopParams): Promise<string> {
   let reply = ''
 
   for (let turn = 0; turn < p.maxTurns; turn++) {
-    const response = await ai.models.generateContent({
-      model: p.model,
+    const response = await generateWithFallback(p.model, (model) => ai.models.generateContent({
+      model,
       contents,
       config: {
         systemInstruction: p.system,
         tools: [{ functionDeclarations }],
         temperature: 0.2,
       },
-    })
+    }))
 
     const text = (response.text ?? '').trim()
     if (text) reply = text
@@ -79,8 +113,8 @@ export async function transcribeAudio(params: {
   mimeType: string
 }): Promise<string> {
   const ai = new GoogleGenAI({ apiKey: params.apiKey })
-  const response = await ai.models.generateContent({
-    model: params.model,
+  const response = await generateWithFallback(params.model, (model) => ai.models.generateContent({
+    model,
     contents: [{
       role: 'user',
       parts: [
@@ -89,7 +123,7 @@ export async function transcribeAudio(params: {
       ],
     }],
     config: { temperature: 0 },
-  })
+  }))
   const text = (response.text ?? '').trim()
   return /^\[sem fala\]$/i.test(text) ? '' : text
 }

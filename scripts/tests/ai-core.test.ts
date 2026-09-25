@@ -42,3 +42,18 @@ test('prazo: YYYY-MM-DD vira meio-dia UTC; formato errado é nulo', () => {
   assert.equal(parseDueDay('30/09/2026'), null)
   assert.equal(parseDueDay(undefined), null)
 })
+
+test('gemini: só sobrecarga e cota contam como erro passageiro', async () => {
+  const { isTransient, generateWithFallback, GEMINI_FALLBACKS } = await import('../../lib/ai/gemini')
+  assert.equal(isTransient(new Error('{"error":{"code":503,"message":"high demand","status":"UNAVAILABLE"}}')), true)
+  assert.equal(isTransient(new Error('{"error":{"code":429,"status":"RESOURCE_EXHAUSTED"}}')), true)
+  assert.equal(isTransient(new Error('{"error":{"code":400,"message":"invalid argument"}}')), false)
+  const tentados: string[] = []
+  const out = await generateWithFallback('gemini-3.5-flash', async (m) => {
+    tentados.push(m)
+    if (m === 'gemini-3.5-flash') throw new Error('{"error":{"code":503,"status":"UNAVAILABLE"}}')
+    return `ok:${m}`
+  })
+  assert.equal(out, `ok:${GEMINI_FALLBACKS[0]}`)
+  assert.deepEqual(tentados, ['gemini-3.5-flash', 'gemini-3.5-flash', GEMINI_FALLBACKS[0]])
+})
