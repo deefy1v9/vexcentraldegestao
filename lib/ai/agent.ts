@@ -3,6 +3,7 @@ import { prisma } from '../prisma'
 import { deliverMessage } from '../crm-delivery'
 import { getAiConfig, nowInBrazil, normalizeNumber, type AiConfig } from './config'
 import { TOOL_DEFINITIONS, ToolError, executeTool, type ToolContext } from './tools'
+import { runGeminiLoop } from './gemini'
 
 /** Teto de idas e vindas com ferramentas em um único comando. */
 const MAX_TURNS = 8
@@ -16,16 +17,24 @@ const HISTORY_LIMIT = 20
  */
 const SYSTEM_PROMPT = `Você é a assistente da VEX Growth, uma agência de marketing, e opera dentro do WhatsApp da agência.
 
-Quem fala com você é alguém da equipe, por um número autorizado. Você executa pedidos sobre o CRM: enviar mensagens, agendar mensagens para clientes e criar atividades de relacionamento.
+Quem fala com você é alguém da equipe (normalmente um dos sócios), por um número autorizado. Você executa pedidos sobre a operação: criar demandas para a equipe, listar demandas abertas, enviar e agendar mensagens de WhatsApp e criar atividades de relacionamento no CRM.
 
 REGRA CENTRAL — nada sai sem confirmação:
-- "enviar_mensagem" e "agendar_mensagem" NÃO executam nada. Elas registram uma ação pendente.
+- "enviar_mensagem", "agendar_mensagem" e "criar_demanda" NÃO executam nada. Elas registram uma ação pendente.
 - Depois de chamá-las, mostre ao usuário exatamente para QUEM vai, QUANDO vai e o TEXTO completo, e pergunte se pode executar.
 - Só chame "confirmar_acao" quando o usuário confirmar de forma clara ("pode mandar", "confirma", "isso", "sim").
 - Se ele pedir ajuste, chame "cancelar_acao" e monte a ação de novo com a correção.
 - Nunca invente que a mensagem foi enviada. Ela só foi enviada quando "confirmar_acao" retornar sucesso.
 
-Criar atividade, listar e cancelar agendamento não mandam nada para ninguém — pode fazer direto.
+Criar atividade, listar demandas, listar e cancelar agendamento não mandam nada para ninguém — pode fazer direto.
+
+Sobre demandas:
+- Demanda é uma tarefa de produção (post, carrossel, reels, site...) para alguém da equipe, ligada a um cliente da agência.
+- Ache a pessoa com "buscar_equipe" e o cliente com "buscar_clientes" antes de chamar "criar_demanda". Não invente ids.
+- Se o usuário não disser o prazo, pergunte. Se não disser para quem, pergunte. Se não citar cliente, pode criar sem cliente.
+- O pedido pode vir de um áudio transcrito: nomes podem chegar com grafia parecida ("Giovana", "Geovana"). Use a busca para resolver.
+- Coloque no título o assunto do conteúdo e, na descrição, tudo que o usuário detalhou (ângulo, referências, observações).
+- Ao pedir confirmação, liste em linhas curtas: título, para quem, cliente, prazo e tipo.
 
 Sobre destinatários:
 - Se o usuário citar a pessoa pelo nome, use "buscar_contatos" para achar o número. Não adivinhe número.
@@ -98,29 +107,50 @@ export async function runCommandAgent(params: {
   cfg?: AiConfig
 }): Promise<string> {
   const cfg = params.cfg ?? (await getAiConfig())
-  if (!cfg.apiKey) throw new Error('ANTHROPIC_API_KEY não configurada')
-
-  const client = new Anthropic({ apiKey: cfg.apiKey })
+  if (cfg.provider === 'gemini' && !cfg.geminiApiKey) throw new Error('GEMINI_API_KEY não configurada')
+  if (cfg.provider === 'anthropic' && !cfg.apiKey) throw new Error('ANTHROPIC_API_KEY não configurada')
 
   // Vincula o número a um usuário do sistema, quando houver, para que as ações
-  // fiquem atribuídas a uma pessoa real.
+  // fiquem atribuídas a uma pessoa real (compara os 8 últimos dígitos).
   const chatDigits = normalizeNumber(params.commandChat)
-  const owner = await prisma.user.findFirst({
+  const people = await prisma.user.findMany({
     where: { isActive: true, phone: { not: null } },
     select: { id: true, phone: true },
-    orderBy: { createdAt: 'asc' },
   })
-  const ownerId =
-    owner?.phone && chatDigits.endsWith(normalizeNumber(owner.phone).slice(-8)) ? owner.id : null
+  const ownerId = people.find((u) => u.phone && chatDigits.endsWith(normalizeNumber(u.phone).slice(-8)))?.id ?? null
 
   const ctx: ToolContext = { commandChat: chatDigits, userId: ownerId }
 
   const history = await loadHistory(params.conversationId, params.since)
   const context = `[contexto: agora é ${nowInBrazil()} (horário de Brasília)]${await pendingActionsBlock(chatDigits)}`
 
+  const userText = `${context}\n\n${params.incomingText}`
+
+  if (cfg.provider === 'gemini') {
+    const reply = await runGeminiLoop({
+      apiKey: cfg.geminiApiKey,
+      model: cfg.agentModel,
+      system: SYSTEM_PROMPT,
+      history,
+      userText,
+      tools: TOOL_DEFINITIONS,
+      maxTurns: MAX_TURNS,
+      execute: async (name, input) => {
+        try {
+          return { output: await executeTool(name, input, ctx), isError: false }
+        } catch (err) {
+          const msg = err instanceof ToolError ? err.message : `Erro inesperado: ${err instanceof Error ? err.message : String(err)}`
+          return { output: msg, isError: true }
+        }
+      },
+    })
+    return reply || 'Não consegui concluir esse pedido. Pode reformular?'
+  }
+
+  const client = new Anthropic({ apiKey: cfg.apiKey })
   const messages: Anthropic.MessageParam[] = [
     ...history,
-    { role: 'user', content: `${context}\n\n${params.incomingText}` },
+    { role: 'user', content: userText },
   ]
 
   let reply = ''

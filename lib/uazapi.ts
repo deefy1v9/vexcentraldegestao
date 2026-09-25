@@ -70,6 +70,43 @@ export async function uazSendText(number: string, text: string) {
   return r.json()
 }
 
+/**
+ * Baixa a mídia de uma mensagem recebida. A UAZAPI devolve, conforme a versão,
+ * um link temporário ou o arquivo em base64; aqui normalizamos para base64.
+ */
+export async function uazDownloadMedia(messageId: string): Promise<{ base64: string; mimeType?: string } | null> {
+  const { base, token } = await getConfig()
+  const r = await fetch(`${base}/message/download`, {
+    method: 'POST',
+    headers: h(token),
+    body: JSON.stringify({ id: messageId, return_base64: true }),
+  })
+  if (!r.ok) {
+    console.error('[uazapi] download falhou', r.status, (await r.text()).slice(0, 200))
+    return null
+  }
+  const j = (await r.json().catch(() => ({}))) as Record<string, unknown>
+  const pick = (...ks: string[]) => ks.map((k) => j[k]).find((v): v is string => typeof v === 'string' && v.length > 0)
+  const mimeType = pick('mimetype', 'mimeType', 'mime')
+  const b64 = pick('base64', 'fileBase64', 'data')
+  if (b64) return { base64: b64.replace(/^data:[^;]+;base64,/, ''), mimeType }
+  const url = pick('fileURL', 'fileUrl', 'url', 'mediaUrl')
+  if (!url) return null
+  return fetchAsBase64(url, mimeType)
+}
+
+/** Busca um arquivo por URL (ou data URL) e devolve em base64. */
+export async function fetchAsBase64(url: string, mimeHint?: string): Promise<{ base64: string; mimeType?: string } | null> {
+  const data = url.match(/^data:([^;]+);base64,(.+)$/)
+  if (data) return { base64: data[2], mimeType: data[1] }
+  if (!url.startsWith('http')) return { base64: url, mimeType: mimeHint }
+  const r = await fetch(url)
+  if (!r.ok) return null
+  const buf = Buffer.from(await r.arrayBuffer())
+  if (buf.length > 25 * 1024 * 1024) return null
+  return { base64: buf.toString('base64'), mimeType: r.headers.get('content-type')?.split(';')[0] || mimeHint }
+}
+
 export async function uazSendMedia(
   number: string,
   type: string,

@@ -11,6 +11,10 @@ import { decryptSecret } from '../crypto'
 export const DEFAULT_AGENT_MODEL = 'claude-sonnet-5'
 /** Rascunhos revisados por humano: tarefa mais simples, modelo mais barato. */
 export const DEFAULT_DRAFT_MODEL = 'claude-haiku-4-5'
+/** Gemini: agente e transcrição de áudio no mesmo modelo (entende áudio nativo). */
+export const DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash'
+
+export type AiProvider = 'anthropic' | 'gemini'
 
 export const AI_SETTING_KEYS = [
   'AI_ENABLED',
@@ -19,15 +23,20 @@ export const AI_SETTING_KEYS = [
   'AI_AGENT_MODEL',
   'AI_DRAFT_MODEL',
   'ANTHROPIC_API_KEY',
+  'AI_PROVIDER',
+  'GEMINI_API_KEY',
 ] as const
 
 /** Chaves guardadas cifradas em SystemSettings. */
-export const AI_ENCRYPTED_KEYS = new Set<string>(['ANTHROPIC_API_KEY'])
+export const AI_ENCRYPTED_KEYS = new Set<string>(['ANTHROPIC_API_KEY', 'GEMINI_API_KEY'])
 
 export interface AiConfig {
   enabled: boolean
   draftsEnabled: boolean
+  /** Motor do assistente de comando. Rascunhos seguem na Anthropic. */
+  provider: AiProvider
   apiKey: string
+  geminiApiKey: string
   agentModel: string
   draftModel: string
   /** Números autorizados a comandar a IA, só dígitos. */
@@ -51,11 +60,17 @@ export async function getAiConfig(): Promise<AiConfig> {
     return (AI_ENCRYPTED_KEYS.has(key) ? decryptSecret(raw) : raw) ?? ''
   }
 
+  const provider: AiProvider = read('AI_PROVIDER') === 'gemini' ? 'gemini' : 'anthropic'
+  const agentModel = read('AI_AGENT_MODEL')
+  // Modelo salvo para outro provedor não serve: cai no padrão do provedor atual
+  const modelMatches = provider === 'gemini' ? /^gemini/.test(agentModel) : /^claude/.test(agentModel)
   return {
     enabled: read('AI_ENABLED') === 'true',
     draftsEnabled: read('AI_DRAFTS_ENABLED') === 'true',
+    provider,
     apiKey: read('ANTHROPIC_API_KEY'),
-    agentModel: read('AI_AGENT_MODEL') || DEFAULT_AGENT_MODEL,
+    geminiApiKey: read('GEMINI_API_KEY'),
+    agentModel: modelMatches && agentModel ? agentModel : provider === 'gemini' ? DEFAULT_GEMINI_MODEL : DEFAULT_AGENT_MODEL,
     draftModel: read('AI_DRAFT_MODEL') || DEFAULT_DRAFT_MODEL,
     commandNumbers: read('AI_COMMAND_NUMBERS')
       .split(',')

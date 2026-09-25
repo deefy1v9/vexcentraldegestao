@@ -4,6 +4,8 @@ import { isValidWebhookToken } from '@/lib/webhook-secret'
 import { getAiConfig, isCommandNumber } from '@/lib/ai/config'
 import { processAiJob } from '@/lib/ai/agent'
 import { generateDraft } from '@/lib/ai/drafts'
+import { isAudioMessage } from '@/lib/ai/media'
+import { handleIncomingAudio } from '@/lib/ai/audio'
 
 export async function POST(req: NextRequest) {
   try {
@@ -63,7 +65,8 @@ export async function POST(req: NextRequest) {
       data?.body ?? data?.text ??
       (typeof data?.content === 'string' ? data.content : data?.content?.text) ??
       data?.caption ?? data?.conversation
-    const content: string = typeof rawContent === 'string' && rawContent.trim() ? rawContent : '[Mídia]'
+    const audio = !fromMe && isAudioMessage(data)
+    const content: string = typeof rawContent === 'string' && rawContent.trim() ? rawContent : audio ? '[Áudio]' : '[Mídia]'
     const uazapiMsgId: string | undefined = data?.id ?? data?.messageid
 
     // Confirmação de cobrança via WhatsApp foi DESATIVADA: o pagamento é
@@ -125,7 +128,7 @@ export async function POST(req: NextRequest) {
       if (jaRegistrada) return NextResponse.json({ ok: true })
     }
 
-    await prisma.crmMessage.create({
+    const saved = await prisma.crmMessage.create({
       data: {
         conversationId,
         senderName: fromMe ? 'Você' : contactName,
@@ -144,7 +147,17 @@ export async function POST(req: NextRequest) {
     // Só mensagens recebidas disparam a IA; o que nós enviamos, não.
     if (!fromMe) {
       const cfg = await getAiConfig().catch(() => null)
-      if (cfg?.enabled && cfg.apiKey) {
+      const hasKey = !!cfg && (cfg.provider === 'gemini' ? !!cfg.geminiApiKey : !!cfg.apiKey)
+      if (cfg?.enabled && hasKey && audio) {
+        // Áudio: transcreve em segundo plano e só então chama o assistente
+        // (ou o rascunho). Só gasta transcrição com quem a IA atende.
+        const isCommand = isCommandNumber(cfg, number)
+        if (isCommand || cfg.draftsEnabled) {
+          void handleIncomingAudio({
+            messageId: saved.id, conversationId, number, uazapiMsgId, payload: data, isCommand, cfg,
+          }).catch((err) => console.error('[ai] áudio falhou', err))
+        }
+      } else if (cfg?.enabled && hasKey) {
         if (isCommandNumber(cfg, number)) {
           // Chat de comando: enfileira e processa em background. O job fica
           // gravado antes de responder, então uma queda do container no meio

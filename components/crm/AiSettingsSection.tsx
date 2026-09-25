@@ -24,6 +24,8 @@ interface AiForm {
   AI_AGENT_MODEL: string
   AI_DRAFT_MODEL: string
   ANTHROPIC_API_KEY: string
+  AI_PROVIDER: string
+  GEMINI_API_KEY: string
 }
 
 const EMPTY: AiForm = {
@@ -33,7 +35,15 @@ const EMPTY: AiForm = {
   AI_AGENT_MODEL: 'claude-sonnet-5',
   AI_DRAFT_MODEL: 'claude-haiku-4-5',
   ANTHROPIC_API_KEY: '',
+  AI_PROVIDER: 'anthropic',
+  GEMINI_API_KEY: '',
 }
+
+const GEMINI_MODELS = [
+  { value: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash — rápido, entende áudio (recomendado)' },
+  { value: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash — mais novo' },
+  { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash — mais barato' },
+]
 
 export default function AiSettingsSection() {
   const [form, setForm] = useState<AiForm>(EMPTY)
@@ -43,6 +53,7 @@ export default function AiSettingsSection() {
   // A chave da API é write-only: o GET devolve só ANTHROPIC_API_KEY_SET, nunca
   // o valor. Guardamos se já existe uma salva para orientar o placeholder.
   const [keyIsSet, setKeyIsSet] = useState(false)
+  const [geminiKeyIsSet, setGeminiKeyIsSet] = useState(false)
 
   useEffect(() => {
     fetch('/api/settings')
@@ -55,8 +66,11 @@ export default function AiSettingsSection() {
           AI_AGENT_MODEL: d.AI_AGENT_MODEL || 'claude-sonnet-5',
           AI_DRAFT_MODEL: d.AI_DRAFT_MODEL || 'claude-haiku-4-5',
           ANTHROPIC_API_KEY: '',
+          AI_PROVIDER: d.AI_PROVIDER === 'gemini' ? 'gemini' : 'anthropic',
+          GEMINI_API_KEY: '',
         })
         setKeyIsSet(d.ANTHROPIC_API_KEY_SET === 'true')
+        setGeminiKeyIsSet(d.GEMINI_API_KEY_SET === 'true')
       })
       .catch(() => {})
   }, [])
@@ -65,9 +79,10 @@ export default function AiSettingsSection() {
     setSaving(true)
     // Campo da chave em branco = "não mexi": não sobrescreve a que já existe.
     // O backend também ignora segredo vazio, mas nem enviamos.
-    const { ANTHROPIC_API_KEY, ...rest } = form
+    const { ANTHROPIC_API_KEY, GEMINI_API_KEY, ...rest } = form
     const payload: Record<string, string> = { ...rest }
     if (ANTHROPIC_API_KEY.trim()) payload.ANTHROPIC_API_KEY = ANTHROPIC_API_KEY.trim()
+    if (GEMINI_API_KEY.trim()) payload.GEMINI_API_KEY = GEMINI_API_KEY.trim()
 
     await fetch('/api/settings', {
       method: 'PUT',
@@ -77,6 +92,7 @@ export default function AiSettingsSection() {
     setSaving(false)
     setSaved(true)
     if (ANTHROPIC_API_KEY.trim()) setKeyIsSet(true)
+    if (GEMINI_API_KEY.trim()) setGeminiKeyIsSet(true)
     setTimeout(() => setSaved(false), 3000)
   }
 
@@ -104,6 +120,35 @@ export default function AiSettingsSection() {
         <Sparkles className="w-3.5 h-3.5 text-purple-600" />
         Assistente de IA
       </p>
+
+      <div>
+        <label className="block text-xs text-gray-500 mb-1">Motor do assistente</label>
+        <select
+          value={form.AI_PROVIDER}
+          onChange={(e) => {
+            const provider = e.target.value
+            setForm((f) => ({ ...f, AI_PROVIDER: provider, AI_AGENT_MODEL: provider === 'gemini' ? 'gemini-3.5-flash' : 'claude-sonnet-5' }))
+          }}
+          className="w-full border border-gray-200 rounded-lg px-2 py-2 text-xs text-gray-900 outline-none focus:border-[#030A8C] bg-white"
+        >
+          <option value="gemini">Google Gemini — comandos por texto e áudio</option>
+          <option value="anthropic">Anthropic Claude — comandos por texto (áudio precisa da chave Gemini)</option>
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-xs text-gray-500 mb-1">Chave da API Gemini</label>
+        <input
+          value={form.GEMINI_API_KEY}
+          onChange={(e) => set('GEMINI_API_KEY', e.target.value)}
+          placeholder={geminiKeyIsSet ? '•••••••• (salva — preencha para trocar)' : 'AIza... ou AQ....'}
+          type="password"
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 outline-none focus:border-[#030A8C] bg-white"
+        />
+        <p className="text-[10px] text-gray-400 mt-1">
+          Guardada criptografada. Transcreve os áudios recebidos e, se for o motor escolhido, executa os comandos.
+        </p>
+      </div>
 
       <div>
         <label className="block text-xs text-gray-500 mb-1">Chave da API Anthropic</label>
@@ -154,7 +199,7 @@ export default function AiSettingsSection() {
           onChange={(e) => set('AI_AGENT_MODEL', e.target.value)}
           className="w-full border border-gray-200 rounded-lg px-2 py-2 text-xs text-gray-900 outline-none focus:border-[#030A8C] bg-white"
         >
-          {AGENT_MODELS.map((m) => (
+          {(form.AI_PROVIDER === 'gemini' ? GEMINI_MODELS : AGENT_MODELS).map((m) => (
             <option key={m.value} value={m.value}>{m.label}</option>
           ))}
         </select>

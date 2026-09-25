@@ -2,6 +2,10 @@ import type Anthropic from '@anthropic-ai/sdk'
 import { prisma } from '../prisma'
 import { deliverMessage, findContactByNumber } from '../crm-delivery'
 import { formatBr, normalizeNumber } from './config'
+import { parseDueDay } from './media'
+import { defaultAssignments, logTaskEvent, maybeImmediateReminder, taskShortId } from '../task-flow'
+import { tierPriority } from '../client-tier'
+import { isConfigured as uazConfigured, uazSendText } from '../uazapi'
 
 export interface ToolContext {
   /** Número do chat de comando que está falando com a IA. */
@@ -14,6 +18,9 @@ export interface ToolContext {
 export class ToolError extends Error {}
 
 const ACTIVITY_TYPES = ['LIGACAO', 'FOLLOWUP', 'REUNIAO', 'PROPOSTA', 'OUTRO']
+const TASK_TYPES = ['post', 'carrossel', 'reels', 'story', 'vídeo', 'artigo', 'site', 'anúncio', 'outro']
+const TASK_PRIORITIES = ['BAIXA', 'MEDIA', 'ALTA', 'URGENTE']
+const dayBr = (d: Date) => d.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
 
 /**
  * Exige fuso explícito. Sem isso, "2026-08-25T09:00:00" seria interpretado no
@@ -147,6 +154,55 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
     },
   },
   {
+    name: 'buscar_clientes',
+    description:
+      'Busca clientes da agência pelo nome (parte do nome basta). Use antes de criar uma demanda quando o usuário citar o cliente, para obter o id certo.',
+    input_schema: {
+      type: 'object',
+      properties: { termo: { type: 'string', description: 'Parte do nome do cliente. Vazio lista os ativos.' } },
+    },
+  },
+  {
+    name: 'buscar_equipe',
+    description:
+      'Lista as pessoas da equipe (colaboradores e administradores) com id, para atribuir demandas. Use quando o usuário disser para quem a demanda vai.',
+    input_schema: {
+      type: 'object',
+      properties: { termo: { type: 'string', description: 'Parte do nome. Vazio lista todos os ativos.' } },
+    },
+  },
+  {
+    name: 'criar_demanda',
+    description:
+      'Prepara a criação de uma demanda (tarefa de produção) para alguém da equipe. NÃO cria na hora: registra uma ação pendente que só é executada depois que o usuário confirmar. Depois de chamar, mostre título, responsável, cliente, prazo e tipo, e pergunte se pode criar.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        titulo: { type: 'string', description: 'Título curto e claro da demanda. Ex: "Carrossel · lavagem de couro"' },
+        responsavelId: { type: 'string', description: 'id da pessoa que vai produzir (de buscar_equipe).' },
+        clienteId: { type: 'string', description: 'id do cliente (de buscar_clientes). Omita se não houver cliente.' },
+        prazo: { type: 'string', description: 'Data final no formato YYYY-MM-DD. Converta "amanhã", "sexta" etc. pela data atual do contexto.' },
+        tipo: { type: 'string', enum: TASK_TYPES, description: 'Tipo do conteúdo.' },
+        plataforma: { type: 'string', description: 'Instagram, LinkedIn, Facebook, Site... Omita se não souber.' },
+        descricao: { type: 'string', description: 'Briefing: o que precisa ser feito, referências, observações do usuário.' },
+        prioridade: { type: 'string', enum: TASK_PRIORITIES, description: 'Só informe se o usuário indicar urgência.' },
+      },
+      required: ['titulo', 'responsavelId', 'prazo'],
+    },
+  },
+  {
+    name: 'listar_demandas',
+    description:
+      'Lista demandas abertas (não concluídas), das mais urgentes para as mais distantes. Filtra por pessoa ou cliente quando informado.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        responsavelId: { type: 'string', description: 'id da pessoa (de buscar_equipe).' },
+        clienteId: { type: 'string', description: 'id do cliente (de buscar_clientes).' },
+      },
+    },
+  },
+  {
     name: 'listar_atividades',
     description: 'Lista as atividades de CRM pendentes, das mais próximas para as mais distantes.',
     input_schema: { type: 'object', properties: {} },
@@ -219,7 +275,55 @@ async function executePendingPayload(
     return `Mensagem agendada para ${numero} em ${formatBr(quando)} (id: ${sched.id}).`
   }
 
+  if (toolName === 'criar_demanda') {
+    return createTaskFromPayload(payload, ctx)
+  }
+
   throw new ToolError(`Ação "${toolName}" não pode ser executada`)
+}
+
+/** Cria a demanda de fato: mesmas regras do formulário (papéis, prioridade herdada, lembrete, aviso). */
+async function createTaskFromPayload(payload: Input, ctx: ToolContext): Promise<string> {
+  const titulo = requireText(payload.titulo, 'titulo', 200)
+  const responsavelId = requireText(payload.responsavelId, 'responsavelId', 60)
+  const prazo = parseDueDay(payload.prazo)
+  if (!prazo) throw new ToolError('prazo precisa estar no formato YYYY-MM-DD')
+  const responsavel = await prisma.user.findFirst({ where: { id: responsavelId, isActive: true }, select: { id: true, name: true, phone: true } })
+  if (!responsavel) throw new ToolError('Responsável não encontrado. Use buscar_equipe.')
+  const clienteId = typeof payload.clienteId === 'string' && payload.clienteId ? payload.clienteId : null
+  const cliente = clienteId ? await prisma.client.findUnique({ where: { id: clienteId }, select: { id: true, name: true, tier: true } }) : null
+  if (clienteId && !cliente) throw new ToolError('Cliente não encontrado. Use buscar_clientes.')
+
+  const defaults = await defaultAssignments()
+  // Quem pediu pelo WhatsApp revisa, se for da equipe; senão o revisor padrão
+  const reviewerId = ctx.userId ?? defaults.reviewerId
+  const creatorId = ctx.userId ?? defaults.reviewerId ?? responsavel.id
+  const prioridade = typeof payload.prioridade === 'string' && TASK_PRIORITIES.includes(payload.prioridade)
+    ? payload.prioridade : tierPriority(cliente?.tier)
+  const tipo = typeof payload.tipo === 'string' && payload.tipo ? payload.tipo : null
+  const plataforma = typeof payload.plataforma === 'string' && payload.plataforma ? payload.plataforma : null
+  const descricao = typeof payload.descricao === 'string' && payload.descricao.trim() ? payload.descricao.trim() : null
+  const curto = cliente ? cliente.name.split(' /')[0] : ''
+  const title = cliente && !titulo.toLowerCase().startsWith(curto.split(' ')[0].toLowerCase()) ? `${curto} · ${titulo}` : titulo
+
+  const task = await prisma.task.create({
+    data: {
+      title, description: descricao, status: 'TODO', priority: prioridade as 'BAIXA' | 'MEDIA' | 'ALTA' | 'URGENTE',
+      dueDate: prazo, scheduledFor: prazo, clientId: cliente?.id ?? null,
+      assigneeId: responsavel.id, producerId: responsavel.id, schedulerId: responsavel.id, reviewerId,
+      creatorId, platform: plataforma, contentType: tipo, tags: ['WhatsApp'],
+    },
+  })
+  await logTaskEvent(task.id, 'CRIACAO', 'Demanda criada pelo assistente no WhatsApp', ctx.userId)
+  maybeImmediateReminder(task.id).catch(() => {})
+  if (responsavel.phone && (await uazConfigured().catch(() => false))) {
+    const linhas = [
+      `📋 *Nova demanda atribuída a você* ${taskShortId(task.number)}`, '', `*${task.title}*`, descricao,
+      '', `• Prazo: ${dayBr(prazo)}`, cliente ? `• Cliente: ${cliente.name}` : null, tipo ? `• Tipo: ${tipo}` : null,
+    ].filter((l): l is string => l !== null)
+    uazSendText(responsavel.phone, linhas.join('\n')).catch(() => {})
+  }
+  return `Demanda ${taskShortId(task.number)} "${task.title}" criada para ${responsavel.name}, prazo ${dayBr(prazo)}.`
 }
 
 export async function executeTool(
@@ -401,6 +505,67 @@ export async function executeTool(
         },
       })
       return `Atividade "${titulo}" criada para ${contact.name ?? numero} em ${formatBr(data)} (id: ${activity.id}).`
+    }
+
+    case 'buscar_clientes': {
+      const termo = typeof input.termo === 'string' ? input.termo.trim() : ''
+      const list = await prisma.client.findMany({
+        where: { status: 'ATIVO', ...(termo ? { OR: [{ name: { contains: termo, mode: 'insensitive' as const } }, { legalName: { contains: termo, mode: 'insensitive' as const } }] } : {}) },
+        select: { id: true, name: true, tier: true },
+        orderBy: { name: 'asc' },
+        take: 20,
+      })
+      if (list.length === 0) return 'Nenhum cliente encontrado.'
+      return list.map((c) => `- ${c.name} | id: ${c.id}${c.tier ? ` | grupo ${c.tier}` : ''}`).join('\n')
+    }
+
+    case 'buscar_equipe': {
+      const termo = typeof input.termo === 'string' ? input.termo.trim() : ''
+      const list = await prisma.user.findMany({
+        where: { isActive: true, ...(termo ? { name: { contains: termo, mode: 'insensitive' as const } } : {}) },
+        select: { id: true, name: true, role: true },
+        orderBy: { name: 'asc' },
+        take: 20,
+      })
+      if (list.length === 0) return 'Ninguém encontrado na equipe.'
+      return list.map((u) => `- ${u.name} | id: ${u.id} | ${u.role === 'ADMIN' ? 'administrador' : 'colaborador'}`).join('\n')
+    }
+
+    case 'criar_demanda': {
+      const titulo = requireText(input.titulo, 'titulo', 200)
+      const responsavelId = requireText(input.responsavelId, 'responsavelId', 60)
+      const prazo = parseDueDay(input.prazo)
+      if (!prazo) throw new ToolError('prazo precisa estar no formato YYYY-MM-DD')
+      const responsavel = await prisma.user.findFirst({ where: { id: responsavelId, isActive: true }, select: { name: true } })
+      if (!responsavel) throw new ToolError('Responsável não encontrado. Use buscar_equipe para achar o id.')
+      const clienteId = typeof input.clienteId === 'string' && input.clienteId ? input.clienteId : null
+      const cliente = clienteId ? await prisma.client.findUnique({ where: { id: clienteId }, select: { name: true } }) : null
+      if (clienteId && !cliente) throw new ToolError('Cliente não encontrado. Use buscar_clientes para achar o id.')
+      const payload: Input = {
+        titulo, responsavelId, clienteId, prazo: prazo.toISOString().slice(0, 10),
+        tipo: input.tipo, plataforma: input.plataforma, descricao: input.descricao, prioridade: input.prioridade,
+      }
+      const partes = [`Criar demanda "${titulo}" para ${responsavel.name}`, cliente ? `cliente ${cliente.name}` : 'sem cliente', `prazo ${dayBr(prazo)}`]
+      if (typeof input.tipo === 'string' && input.tipo) partes.push(`tipo ${input.tipo}`)
+      if (typeof input.prioridade === 'string' && input.prioridade) partes.push(`prioridade ${input.prioridade}`)
+      return createPendingAction(ctx, 'criar_demanda', payload, partes.join(' · '))
+    }
+
+    case 'listar_demandas': {
+      const responsavelId = typeof input.responsavelId === 'string' && input.responsavelId ? input.responsavelId : null
+      const clienteId = typeof input.clienteId === 'string' && input.clienteId ? input.clienteId : null
+      const list = await prisma.task.findMany({
+        where: {
+          status: { not: 'CONCLUIDO' },
+          ...(responsavelId ? { OR: [{ assigneeId: responsavelId }, { producerId: responsavelId }] } : {}),
+          ...(clienteId ? { clientId: clienteId } : {}),
+        },
+        orderBy: [{ dueDate: { sort: 'asc', nulls: 'last' } }, { number: 'asc' }],
+        take: 25,
+        include: { client: { select: { name: true } }, assignee: { select: { name: true } } },
+      })
+      if (list.length === 0) return 'Nenhuma demanda aberta com esse filtro.'
+      return list.map((t) => `- ${taskShortId(t.number)} | ${t.dueDate ? dayBr(t.dueDate) : 'sem prazo'} | ${t.status} | ${t.title} | ${t.assignee?.name ?? 'sem responsável'}`).join('\n')
     }
 
     case 'listar_atividades': {
