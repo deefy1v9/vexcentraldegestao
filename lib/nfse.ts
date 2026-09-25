@@ -334,7 +334,7 @@ async function emitForChargeAsaas(charge: {
       cfg,
     })
     const created = fixable
-      ? await asaas.updateInvoice(fixable.id, { serviceDescription: payload.serviceDescription, value: payload.value, deductions: payload.deductions, effectiveDate: payload.effectiveDate, municipalServiceCode: payload.municipalServiceCode, taxes: payload.taxes })
+      ? await asaas.updateInvoice(fixable.id, { serviceDescription: payload.serviceDescription, value: payload.value, deductions: payload.deductions, effectiveDate: payload.effectiveDate, municipalServiceCode: payload.municipalServiceCode, municipalServiceName: payload.municipalServiceName, taxes: payload.taxes })
       : await asaas.createInvoice(payload)
     await prisma.nfseInvoice.update({
       where: { id: invoice.id },

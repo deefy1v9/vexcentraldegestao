@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { asaasNfseRef, buildAsaasInvoicePayload, mapAsaasInvoiceStatus, nationalServiceCode } from '../../lib/nfse-asaas'
+import { asaasNfseRef, asaasServiceFields, buildAsaasInvoicePayload, mapAsaasInvoiceStatus, nationalServiceCode, serviceListItem } from '../../lib/nfse-asaas'
 
 test('status do Asaas vira o vocabulário interno', () => {
   assert.equal(mapAsaasInvoiceStatus('SCHEDULED'), 'PROCESSANDO')
@@ -40,4 +40,21 @@ test('payload da nota: cobrança, competência na descrição, itens e ISS', () 
   assert.match(p.serviceDescription, /Social media — R\$\s?5,00/)
   assert.deepEqual(p.taxes, { retainIss: false, iss: 2.01, cofins: 0, csll: 0, inss: 0, ir: 0, pis: 0 })
   assert.match(p.effectiveDate, /^\d{4}-\d{2}-\d{2}$/)
+})
+
+test('web service da prefeitura: item da LC 116 com nome (Osasco aceita "17.06")', () => {
+  assert.equal(serviceListItem({ itemListaServico: '17.06' }), '17.06')
+  assert.equal(serviceListItem({ itemListaServico: '1706' }), '17.06')
+  assert.equal(serviceListItem({ itemListaServico: '1.04' }), '1.04')
+  assert.equal(serviceListItem({ itemListaServico: null }), undefined)
+  const m = asaasServiceFields({ itemListaServico: '17.06', codigoTributacao: '17.06.01', wsKeyConfigured: true })
+  assert.equal(m.municipalServiceCode, '17.06')
+  assert.match(m.municipalServiceName ?? '', /^Propaganda e publicidade/)
+  assert.deepEqual(asaasServiceFields({ itemListaServico: '17.06', wsKeyConfigured: false }), { municipalServiceCode: '170601' })
+  const p = buildAsaasInvoicePayload({
+    chargeId: 'ch2', paymentId: 'pay_2', value: 5, competencia: '09/2026', description: 'Serviços', items: [],
+    aliquotaIss: 2.01, cfg: { itemListaServico: '17.06', wsKeyConfigured: true },
+  })
+  assert.equal(p.municipalServiceCode, '17.06')
+  assert.ok(p.municipalServiceName)
 })

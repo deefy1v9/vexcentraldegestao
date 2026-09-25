@@ -49,6 +49,36 @@ export function nationalServiceCode(cfg: { codigoTributacao?: string | null; ite
   return item.length >= 6 ? item.slice(0, 6) : `${item.padStart(4, '0')}01`
 }
 
+/** Nome oficial dos itens da LC 116 usados pela VEX (o Asaas exige o nome no fluxo municipal). */
+const LC116_NAMES: Record<string, string> = {
+  '17.06': 'Propaganda e publicidade, inclusive promoção de vendas, planejamento de campanhas ou sistemas de publicidade, elaboração de desenhos, textos e demais materiais publicitários',
+  '10.08': 'Agenciamento de publicidade e propaganda, inclusive o agenciamento de veiculação por quaisquer meios',
+}
+
+/** Item da LC 116 no formato da prefeitura: "1706" ou "17.06" → "17.06". */
+export function serviceListItem(cfg: { itemListaServico?: string | null }): string | undefined {
+  const d = (cfg.itemListaServico ?? '').replace(/\D/g, '')
+  if (d.length < 3) return undefined
+  const item = d.slice(0, 4)
+  return `${item.slice(0, -2)}.${item.slice(-2)}`
+}
+
+/**
+ * Serviço da nota conforme o caminho de emissão da conta Asaas:
+ * - web service da prefeitura (wsKeyConfigured): item da LC 116 + nome, como
+ *   Osasco aceita ("17.06" + descrição oficial);
+ * - Portal Nacional: código de tributação nacional de 6 dígitos.
+ */
+export function asaasServiceFields(cfg: { codigoTributacao?: string | null; itemListaServico?: string | null; wsKeyConfigured?: boolean | null }): { municipalServiceCode?: string; municipalServiceName?: string } {
+  if (cfg.wsKeyConfigured) {
+    const item = serviceListItem(cfg)
+    if (!item) return {}
+    return { municipalServiceCode: item, municipalServiceName: LC116_NAMES[item] ?? `Serviço ${item} da Lista de Serviços (LC 116/2003)` }
+  }
+  const code = nationalServiceCode(cfg)
+  return code ? { municipalServiceCode: code } : {}
+}
+
 /** Monta o payload da nota para uma cobrança (valor e descrição vêm dela). */
 export function buildAsaasInvoicePayload(params: {
   chargeId: string
@@ -58,14 +88,13 @@ export function buildAsaasInvoicePayload(params: {
   description: string
   items: Array<{ description: string; cents: number }>
   aliquotaIss: number
-  cfg: { codigoTributacao?: string | null; itemListaServico?: string | null; issRetido?: boolean | null; descricaoPadrao?: string | null }
+  cfg: { codigoTributacao?: string | null; itemListaServico?: string | null; wsKeyConfigured?: boolean | null; issRetido?: boolean | null; descricaoPadrao?: string | null }
 }) {
   const { chargeId, paymentId, value, competencia, description, items, aliquotaIss, cfg } = params
   const itemsLine = items.length > 0
     ? ` Itens: ${items.map((i) => `${i.description} — ${(i.cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`).join('; ')}`
     : ''
   const serviceDescription = `${applyCompetenceToDescription(description || cfg.descricaoPadrao || 'Prestação de serviços', competencia)}${itemsLine}`.slice(0, 2000)
-  const code = nationalServiceCode(cfg)
   return {
     payment: paymentId,
     serviceDescription,
@@ -73,7 +102,7 @@ export function buildAsaasInvoicePayload(params: {
     deductions: 0,
     effectiveDate: isoDateSP(new Date()),
     externalReference: asaasNfseRef(chargeId),
-    ...(code ? { municipalServiceCode: code } : {}),
+    ...asaasServiceFields(cfg),
     taxes: {
       retainIss: !!cfg.issRetido,
       iss: aliquotaIss,

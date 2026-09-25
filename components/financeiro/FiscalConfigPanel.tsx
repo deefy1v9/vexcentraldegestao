@@ -434,7 +434,9 @@ export default function FiscalConfigPanel() {
         <h2 className="font-bold text-gray-900">Web Service da prefeitura</h2>
         <p className="text-xs text-gray-400">
           Gere a chave em <b>Notas Fiscais → Web Service → Gerar Chave Autenticação</b> no portal da prefeitura e
-          cadastre-a na Focus NFe. A chave nunca é digitada nem armazenada aqui — só o estado do cadastro.
+          cadastre-a no emissor (Asaas: token da prefeitura; Focus: chave do Web Service). A chave nunca é digitada
+          nem armazenada aqui — só o estado do cadastro. Marcado, o Asaas emite pela prefeitura com o item da LC 116
+          (ex.: 17.06); desmarcado, pelo Portal Nacional com o código de 6 dígitos.
         </p>
         <label className="flex items-center gap-2 text-sm text-gray-700">
           <input
@@ -442,7 +444,7 @@ export default function FiscalConfigPanel() {
             checked={form.wsKeyConfigured}
             onChange={(e) => set('wsKeyConfigured', e.target.checked)}
           />
-          Chave de autenticação já cadastrada na Focus NFe
+          Chave do Web Service cadastrada no emissor (emissão pela prefeitura)
         </label>
       </div>
 
