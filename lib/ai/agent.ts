@@ -4,6 +4,7 @@ import { deliverMessage } from '../crm-delivery'
 import { getAiConfig, nowInBrazil, normalizeNumber, type AiConfig } from './config'
 import { TOOL_DEFINITIONS, ToolError, executeTool, type ToolContext } from './tools'
 import { runGeminiLoop } from './gemini'
+import { agentSystemBlock, pickAgent, stripAgentPrefix, toolsForGroups } from './agents'
 
 /** Teto de idas e vindas com ferramentas em um único comando. */
 const MAX_TURNS = 8
@@ -121,19 +122,29 @@ export async function runCommandAgent(params: {
 
   const ctx: ToolContext = { commandChat: chatDigits, userId: ownerId }
 
+  // Agentes configurados na tela de Agentes. Sem nenhum ativo, o assistente
+  // segue com todas as ferramentas, como antes.
+  const agents = await prisma.aiAgent.findMany({ where: { isActive: true } }).catch(() => [])
+  const agent = pickAgent(agents, params.incomingText)
+  const pedido = agent ? stripAgentPrefix(params.incomingText, agent.name) : params.incomingText
+  const permitidas = agent ? new Set(toolsForGroups(agent.toolGroups)) : null
+  const tools = permitidas ? TOOL_DEFINITIONS.filter((t) => permitidas.has(t.name)) : TOOL_DEFINITIONS
+  const systemBase = agent ? `${SYSTEM_PROMPT}\n\n${agentSystemBlock(agent)}` : SYSTEM_PROMPT
+  const modelo = (agent?.model || '').trim() || cfg.agentModel
+
   const history = await loadHistory(params.conversationId, params.since)
   const context = `[contexto: agora é ${nowInBrazil()} (horário de Brasília)]${await pendingActionsBlock(chatDigits)}`
 
-  const userText = `${context}\n\n${params.incomingText}`
+  const userText = `${context}\n\n${pedido}`
 
   if (cfg.provider === 'gemini') {
     const reply = await runGeminiLoop({
       apiKey: cfg.geminiApiKey,
-      model: cfg.agentModel,
-      system: SYSTEM_PROMPT,
+      model: modelo,
+      system: systemBase,
       history,
       userText,
-      tools: TOOL_DEFINITIONS,
+      tools,
       maxTurns: MAX_TURNS,
       execute: async (name, input) => {
         try {
@@ -157,16 +168,16 @@ export async function runCommandAgent(params: {
 
   for (let turn = 0; turn < MAX_TURNS; turn++) {
     const response = await client.messages.create({
-      model: cfg.agentModel,
+      model: modelo,
       max_tokens: 8000,
       thinking: { type: 'adaptive' },
       // Custo: o agente resolve pedidos curtos e bem definidos; esforço médio
       // dá o resultado sem pagar raciocínio profundo em cada mensagem.
       output_config: { effort: 'medium' },
       system: [
-        { type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } },
+        { type: 'text', text: systemBase, cache_control: { type: 'ephemeral' } },
       ],
-      tools: TOOL_DEFINITIONS,
+      tools,
       messages,
     })
 

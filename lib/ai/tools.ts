@@ -6,6 +6,8 @@ import { parseDueDay } from './media'
 import { defaultAssignments, logTaskEvent, maybeImmediateReminder, taskShortId } from '../task-flow'
 import { tierPriority } from '../client-tier'
 import { isConfigured as uazConfigured, uazSendText } from '../uazapi'
+import { getMonthSummary } from '../finance-summary'
+import { CLIENT_LINK_SELECT, clientLinks } from '../client-links'
 
 export interface ToolContext {
   /** Número do chat de comando que está falando com a IA. */
@@ -21,6 +23,23 @@ const ACTIVITY_TYPES = ['LIGACAO', 'FOLLOWUP', 'REUNIAO', 'PROPOSTA', 'OUTRO']
 const TASK_TYPES = ['post', 'carrossel', 'reels', 'story', 'vídeo', 'artigo', 'site', 'anúncio', 'outro']
 const TASK_PRIORITIES = ['BAIXA', 'MEDIA', 'ALTA', 'URGENTE']
 const dayBr = (d: Date) => d.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+const brl = (cents: number) => (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const reais = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
+
+/** Competência pedida pela IA ("2026-09") ou o mês corrente em São Paulo. */
+function competenceOf(value: unknown): { year: number; month: number } {
+  const s = typeof value === 'string' ? value.trim() : ''
+  const m = s.match(/^(\d{4})-(\d{2})$/)
+  if (m) {
+    const year = Number(m[1]); const month = Number(m[2])
+    if (month >= 1 && month <= 12) return { year, month }
+    throw new ToolError('competencia inválida: use AAAA-MM, por exemplo 2026-09')
+  }
+  if (s) throw new ToolError('competencia inválida: use AAAA-MM, por exemplo 2026-09')
+  const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+  return { year: Number(hoje.slice(0, 4)), month: Number(hoje.slice(5, 7)) }
+}
 
 /**
  * Exige fuso explícito. Sem isso, "2026-08-25T09:00:00" seria interpretado no
@@ -163,6 +182,55 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
     },
   },
   {
+    name: 'perfil_cliente',
+    description:
+      'Ficha completa de um cliente: contrato, serviços contratados, situação financeira do mês, grupo e links dos perfis. Use depois de buscar_clientes.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        clienteId: { type: 'string', description: 'id do cliente (de buscar_clientes).' },
+        competencia: { type: 'string', description: 'Mês da situação financeira no formato AAAA-MM. Vazio usa o mês atual.' },
+      },
+      required: ['clienteId'],
+    },
+  },
+  {
+    name: 'resumo_financeiro',
+    description:
+      'Números do mês: receita prevista, recebida, pendente, atrasada, custos, salários e resultado. Use para "como está o mês", "quanto entrou", "quanto falta receber".',
+    input_schema: {
+      type: 'object',
+      properties: { competencia: { type: 'string', description: 'AAAA-MM. Vazio usa o mês atual.' } },
+    },
+  },
+  {
+    name: 'listar_recebiveis',
+    description:
+      'Contas a receber do mês, por cliente. Filtra por situação para responder "quem está devendo", "quem está atrasado", "o que vence essa semana".',
+    input_schema: {
+      type: 'object',
+      properties: {
+        competencia: { type: 'string', description: 'AAAA-MM. Vazio usa o mês atual.' },
+        situacao: { type: 'string', enum: ['todas', 'pendentes', 'atrasadas', 'pagas'], description: 'Padrão: todas.' },
+        clienteId: { type: 'string', description: 'Limita a um cliente (de buscar_clientes).' },
+      },
+    },
+  },
+  {
+    name: 'registrar_pagamento',
+    description:
+      'Prepara a baixa de um pagamento recebido. NÃO dá baixa na hora: cria uma ação pendente que só é executada após o usuário confirmar. Mostre cliente, competência e valor antes de confirmar.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        clienteId: { type: 'string', description: 'id do cliente (de buscar_clientes).' },
+        competencia: { type: 'string', description: 'AAAA-MM da parcela. Vazio usa o mês atual.' },
+        conta: { type: 'string', description: 'Conta em que o dinheiro entrou, quando o usuário informar.' },
+      },
+      required: ['clienteId'],
+    },
+  },
+  {
     name: 'buscar_equipe',
     description:
       'Lista as pessoas da equipe (colaboradores e administradores) com id, para atribuir demandas. Use quando o usuário disser para quem a demanda vai.',
@@ -279,7 +347,32 @@ async function executePendingPayload(
     return createTaskFromPayload(payload, ctx)
   }
 
+  if (toolName === 'registrar_pagamento') {
+    return settlePaymentFromPayload(payload)
+  }
+
   throw new ToolError(`Ação "${toolName}" não pode ser executada`)
+}
+
+/** Dá baixa nas parcelas pendentes do cliente na competência. Histórico pago nunca é reescrito. */
+async function settlePaymentFromPayload(payload: Input): Promise<string> {
+  const clienteId = requireText(payload.clienteId, 'clienteId', 60)
+  const { year, month } = competenceOf(payload.competencia)
+  const conta = typeof payload.conta === 'string' && payload.conta.trim() ? payload.conta.trim().slice(0, 80) : null
+  const client = await prisma.client.findUnique({ where: { id: clienteId }, select: { name: true } })
+  if (!client) throw new ToolError('Cliente não encontrado.')
+  const pendentes = await prisma.clientPayment.findMany({
+    where: { clientId: clienteId, year, month, status: 'PENDENTE' },
+    select: { id: true, amount: true },
+  })
+  if (pendentes.length === 0) throw new ToolError(`Nenhuma parcela pendente de ${client.name} em ${MESES[month - 1]}/${year}.`)
+  const total = pendentes.reduce((s, p) => s + p.amount, 0)
+  const agora = new Date()
+  await prisma.clientPayment.updateMany({
+    where: { id: { in: pendentes.map((p) => p.id) } },
+    data: { status: 'PAGO', paidAt: agora, ...(conta ? { receivedAccount: conta } : {}) },
+  })
+  return `Pagamento de ${reais(total)} de ${client.name} registrado em ${MESES[month - 1]}/${year}${conta ? ` (conta ${conta})` : ''}. ${pendentes.length} parcela(s) quitada(s).`
 }
 
 /** Cria a demanda de fato: mesmas regras do formulário (papéis, prioridade herdada, lembrete, aviso). */
@@ -517,6 +610,114 @@ export async function executeTool(
       })
       if (list.length === 0) return 'Nenhum cliente encontrado.'
       return list.map((c) => `- ${c.name} | id: ${c.id}${c.tier ? ` | grupo ${c.tier}` : ''}`).join('\n')
+    }
+
+    case 'perfil_cliente': {
+      const id = requireText(input.clienteId, 'clienteId', 60)
+      const { year, month } = competenceOf(input.competencia)
+      const c = await prisma.client.findUnique({
+        where: { id },
+        select: {
+          id: true, name: true, legalName: true, cnpj: true, status: true, tier: true, niche: true,
+          paymentDay: true, contractStart: true, contractEnd: true, monthlyValue: true, notes: true,
+          ...CLIENT_LINK_SELECT,
+          services: { select: { serviceName: true, contractType: true, priceCents: true, status: true, startDate: true, endDate: true } },
+        },
+      })
+      if (!c) throw new ToolError('Cliente não encontrado. Use buscar_clientes.')
+      const pagamentos = await prisma.clientPayment.findMany({
+        where: { clientId: id, year, month, status: { not: 'CANCELADO' } },
+        select: { amount: true, status: true, dueDate: true },
+      })
+      const soma = (f: (p: (typeof pagamentos)[number]) => boolean) => pagamentos.filter(f).reduce((s, p) => s + p.amount, 0)
+      const hoje = new Date(`${new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })}T00:00:00Z`)
+      const ativos = c.services.filter((s) => s.status === 'ATIVO')
+      const linhas = [
+        `${c.name}${c.legalName ? ` (${c.legalName})` : ''} · ${c.status} · grupo ${c.tier ?? 'não classificado'}`,
+        c.cnpj ? `CNPJ ${c.cnpj}` : null,
+        c.niche ? `Segmento: ${c.niche}` : null,
+        `Contrato: início ${c.contractStart ? dayBr(c.contractStart) : '—'}${c.contractEnd ? `, fim ${dayBr(c.contractEnd)}` : ''} · vencimento dia ${c.paymentDay ?? '—'}`,
+        `Ticket recorrente no cadastro: ${reais(c.monthlyValue ?? 0)}`,
+        '',
+        `Serviços ativos (${ativos.length}):`,
+        ...ativos.map((s) => `  - ${s.serviceName} · ${s.contractType} · ${brl(s.priceCents ?? 0)}${s.endDate ? ` · até ${dayBr(s.endDate)}` : ''}`),
+        '',
+        `Financeiro de ${MESES[month - 1]}/${year}: previsto ${reais(soma(() => true))} · recebido ${reais(soma((p) => p.status === 'PAGO'))} · em aberto ${reais(soma((p) => p.status === 'PENDENTE'))} · atrasado ${reais(soma((p) => p.status === 'PENDENTE' && p.dueDate < hoje))}`,
+      ]
+      const links = clientLinks(c)
+      if (links.length > 0) linhas.push('', `Perfis: ${links.map((l) => `${l.label} ${l.url}`).join(' · ')}`)
+      if (c.notes) linhas.push('', `Observações: ${c.notes.slice(0, 800)}`)
+      return linhas.filter((l) => l !== null).join('\n')
+    }
+
+    case 'resumo_financeiro': {
+      const { year, month } = competenceOf(input.competencia)
+      const s = await getMonthSummary(year, month)
+      return [
+        `Financeiro de ${MESES[month - 1]}/${year}`,
+        `Receita prevista: ${brl(s.previstaCents)} (recorrente ${brl(s.previstaRecorrenteCents)} + avulsa ${brl(s.previstaAvulsaCents)})`,
+        `Recebido: ${brl(s.recebidaCents)}`,
+        `Em aberto: ${brl(s.pendenteCents)} · Atrasado: ${brl(s.atrasadaCents)}`,
+        `Custos: ${brl(s.custosPagosCents)} pagos de ${brl(s.custosPrevistosCents)} previstos`,
+        `Salários: ${brl(s.salariosPagosCents)} pagos de ${brl(s.salariosPrevistosCents)} previstos`,
+        `Resultado previsto: ${brl(s.resultadoPrevistoCents)} · Lucro realizado: ${brl(s.lucroRealizadoCents)}`,
+        `MRR ${brl(s.mrrCents)} · ${s.activeClients} clientes ativos`,
+      ].join('\n')
+    }
+
+    case 'listar_recebiveis': {
+      const { year, month } = competenceOf(input.competencia)
+      const situacao = typeof input.situacao === 'string' ? input.situacao : 'todas'
+      const clienteId = typeof input.clienteId === 'string' && input.clienteId ? input.clienteId : null
+      const pagamentos = await prisma.clientPayment.findMany({
+        where: { year, month, status: { not: 'CANCELADO' }, ...(clienteId ? { clientId: clienteId } : {}) },
+        select: { amount: true, status: true, dueDate: true, client: { select: { name: true, id: true } }, service: { select: { serviceName: true } } },
+        orderBy: [{ dueDate: 'asc' }],
+      })
+      const hoje = new Date(`${new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })}T00:00:00Z`)
+      const filtrados = pagamentos.filter((p) => {
+        if (situacao === 'pagas') return p.status === 'PAGO'
+        if (situacao === 'pendentes') return p.status === 'PENDENTE'
+        if (situacao === 'atrasadas') return p.status === 'PENDENTE' && p.dueDate < hoje
+        return true
+      })
+      if (filtrados.length === 0) return `Nada em ${MESES[month - 1]}/${year} com esse filtro.`
+      // Agrupa por cliente: a resposta no WhatsApp precisa caber na tela
+      const porCliente = new Map<string, { nome: string; id: string; total: number; pago: number; aberto: number; atrasado: number; venc: Date }>()
+      for (const p of filtrados) {
+        const k = p.client.id
+        const cur = porCliente.get(k) ?? { nome: p.client.name, id: k, total: 0, pago: 0, aberto: 0, atrasado: 0, venc: p.dueDate }
+        cur.total += p.amount
+        if (p.status === 'PAGO') cur.pago += p.amount
+        else { cur.aberto += p.amount; if (p.dueDate < hoje) cur.atrasado += p.amount }
+        if (p.dueDate < cur.venc) cur.venc = p.dueDate
+        porCliente.set(k, cur)
+      }
+      const linhas = [...porCliente.values()]
+        .sort((a, b) => b.atrasado - a.atrasado || a.venc.getTime() - b.venc.getTime())
+        .map((c) => {
+          const marca = c.atrasado > 0 ? 'ATRASADO' : c.aberto > 0 ? 'em aberto' : 'pago'
+          return `- ${c.nome} | ${reais(c.total)} | vence ${dayBr(c.venc)} | ${marca}${c.aberto > 0 && c.pago > 0 ? ` (pago ${reais(c.pago)}, falta ${reais(c.aberto)})` : ''} | id: ${c.id}`
+        })
+      const totalAberto = [...porCliente.values()].reduce((s, c) => s + c.aberto, 0)
+      const totalAtraso = [...porCliente.values()].reduce((s, c) => s + c.atrasado, 0)
+      return [`${MESES[month - 1]}/${year} · ${porCliente.size} cliente(s)`, ...linhas, '', `Em aberto: ${reais(totalAberto)} · Atrasado: ${reais(totalAtraso)}`].join('\n')
+    }
+
+    case 'registrar_pagamento': {
+      const clienteId = requireText(input.clienteId, 'clienteId', 60)
+      const { year, month } = competenceOf(input.competencia)
+      const client = await prisma.client.findUnique({ where: { id: clienteId }, select: { name: true } })
+      if (!client) throw new ToolError('Cliente não encontrado. Use buscar_clientes.')
+      const pendentes = await prisma.clientPayment.findMany({ where: { clientId: clienteId, year, month, status: 'PENDENTE' }, select: { amount: true } })
+      if (pendentes.length === 0) throw new ToolError(`Nenhuma parcela pendente de ${client.name} em ${MESES[month - 1]}/${year}.`)
+      const total = pendentes.reduce((s, p) => s + p.amount, 0)
+      const conta = typeof input.conta === 'string' && input.conta.trim() ? input.conta.trim() : null
+      return createPendingAction(
+        ctx, 'registrar_pagamento',
+        { clienteId, competencia: `${year}-${String(month).padStart(2, '0')}`, conta },
+        `Dar baixa em ${reais(total)} de ${client.name} · ${MESES[month - 1]}/${year} · ${pendentes.length} parcela(s)${conta ? ` · conta ${conta}` : ''}`,
+      )
     }
 
     case 'buscar_equipe': {

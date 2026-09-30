@@ -72,6 +72,7 @@ model User {
   ownedOpportunities   Opportunity[]      @relation("OpportunityOwner")
   createdOpportunities Opportunity[]      @relation("OpportunityCreator")
   opportunityEvents    OpportunityEvent[]
+  aiAgents             AiAgent[]             @relation("AiAgentCreator")
 }
 
 model Client {
@@ -1463,4 +1464,30 @@ model GaCache {
   property GaProperty @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
   @@index([propertyId, expiresAt])
+}
+
+/// Agente configurável da Central: recorte do assistente com instruções
+/// próprias e um conjunto de áreas (ferramentas) que ele pode usar. O que o
+/// agente pode fazer vem de `toolGroups`, nunca do texto das instruções.
+model AiAgent {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  description  String?
+  instructions String?
+  /// Áreas liberadas: clientes | financeiro | demandas | crm
+  toolGroups   String[] @default([])
+  /// Palavras que direcionam a mensagem para este agente
+  triggers     String[] @default([])
+  /// Modelo próprio; vazio usa o configurado na integração
+  model        String?
+  isActive     Boolean  @default(true)
+  /// Atende quando ninguém mais casa. Só um por vez.
+  isDefault    Boolean  @default(false)
+  createdById  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  createdBy User? @relation("AiAgentCreator", fields: [createdById], references: [id])
+
+  @@index([isActive, isDefault])
 }

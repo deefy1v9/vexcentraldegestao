@@ -10,7 +10,8 @@ import { getInitials } from '@/lib/utils'
 import { useMobileNav } from './MobileNav'
 import {
   IconDashboard, IconClientes, IconServicos, IconColaboradores, IconDemandas, IconCalendario,
-  IconPipeline, IconCrm, IconSeo, IconFinanceiro, IconLogs, IconSair,
+  IconPipeline, IconCrm,
+  IconAgentes, IconSeo, IconFinanceiro, IconLogs, IconSair,
 } from '@/components/icons/duotone'
 
 /**
@@ -31,6 +32,7 @@ const menuItems = [
   { href: '/calendario', label: 'Calendário', icon: IconCalendario },
   { href: '/pipeline', label: 'Pipeline', icon: IconPipeline, adminOnly: true },
   { href: '/crm', label: 'CRM', icon: IconCrm, adminOnly: true },
+  { href: '/agentes', label: 'Agentes', icon: IconAgentes, adminOnly: true },
   { href: '/seo', label: 'SEO', icon: IconSeo, adminOnly: true },
 ]
 
