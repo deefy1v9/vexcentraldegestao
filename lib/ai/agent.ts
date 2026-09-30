@@ -133,7 +133,13 @@ export async function runCommandAgent(params: {
   const modelo = (agent?.model || '').trim() || cfg.agentModel
 
   const history = await loadHistory(params.conversationId, params.since)
-  const context = `[contexto: agora é ${nowInBrazil()} (horário de Brasília)]${await pendingActionsBlock(chatDigits)}`
+  // Quem está falando entra no contexto: sem isso, "minha retirada" vira a
+  // retirada de outra pessoa quando a IA tem que escolher um sócio.
+  const quem = ownerId ? await prisma.user.findUnique({ where: { id: ownerId }, select: { name: true, role: true } }) : null
+  const assinatura = quem
+    ? `[quem está falando com você: ${quem.name} (id ${ownerId}${quem.role === 'ADMIN' ? ', sócio' : ''}). "eu", "meu" e "minha" se referem a ${quem.name}.]`
+    : '[quem está falando não está vinculado a um usuário do sistema: pergunte o nome antes de registrar algo pessoal.]'
+  const context = `[contexto: agora é ${nowInBrazil()} (horário de Brasília)]\n${assinatura}${await pendingActionsBlock(chatDigits)}`
 
   const userText = `${context}\n\n${pedido}`
 
