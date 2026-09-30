@@ -5,6 +5,7 @@ import { Download, Plus, RefreshCw, Settings2 } from 'lucide-react'
 import { parseCompetence } from '@/lib/billing-core'
 import AddEntryModal from '@/components/financeiro/AddEntryModal'
 import FinanceKpis, { type MonthSummary, type TileKey } from '@/components/financeiro/FinanceKpis'
+import CaixaPanel from './CaixaPanel'
 import { MonthPicker, FinanceTabs, FinanceFilterRow, FinanceChips, Pagination } from '@/components/financeiro/FinanceToolbar'
 import ReceivablesTable from '@/components/financeiro/ReceivablesTable'
 import EntriesTable from '@/components/financeiro/EntriesTable'
@@ -46,7 +47,7 @@ interface MonthData {
 }
 
 const PAGE = 10
-const TABS: FinTab[] = ['visao', 'recebiveis', 'atrasados', 'custos', 'salarios']
+const TABS: FinTab[] = ['visao', 'recebiveis', 'atrasados', 'custos', 'salarios', 'caixa']
 const SORTS: FinSort[] = ['vencimento', 'valor', 'nome']
 
 function currentPeriod() {
@@ -302,7 +303,9 @@ export default function FinanceiroPanel() {
         <FinanceKpis s={data?.summary ?? null} loading={loading} active={activeTile} onToggle={toggleTile} />
         <FinanceTabs active={tab} counts={counts} onChange={(t) => push({ tab: t })} />
 
-        {tab !== 'visao' && (
+        {tab === 'caixa' && <CaixaPanel />}
+
+        {tab !== 'visao' && tab !== 'caixa' && (
           <>
             <FinanceFilterRow
               filters={filters}

@@ -73,6 +73,8 @@ model User {
   createdOpportunities Opportunity[]      @relation("OpportunityCreator")
   opportunityEvents    OpportunityEvent[]
   aiAgents             AiAgent[]             @relation("AiAgentCreator")
+  cashMovements        CashMovement[]        @relation("CashPartner")
+  cashCreated          CashMovement[]        @relation("CashCreator")
 }
 
 model Client {
@@ -1509,4 +1511,34 @@ model AgentNotice {
 
   @@unique([kind, refId])
   @@index([kind, sentAt])
+}
+
+/// Movimento do caixa da empresa: tudo que entra e sai das contas da VEX,
+/// inclusive retirada e aporte de sócio. Valores em CENTAVOS.
+model CashMovement {
+  id          String   @id @default(cuid())
+  /// ENTRADA | SAIDA | RETIRADA | APORTE
+  kind        String
+  amountCents Int
+  description String
+  category    String?
+  /// Conta/banco de onde saiu ou entrou
+  account     String?
+  date        DateTime
+  /// Sócio da retirada ou do aporte
+  partnerId   String?
+  /// Quem registrou (null quando veio da IA sem usuário vinculado)
+  createdById String?
+  /// MANUAL | IA | SISTEMA — de onde veio o lançamento
+  source      String   @default("MANUAL")
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  partner   User? @relation("CashPartner", fields: [partnerId], references: [id])
+  createdBy User? @relation("CashCreator", fields: [createdById], references: [id])
+
+  @@index([date])
+  @@index([kind, date])
+  @@index([partnerId, date])
 }

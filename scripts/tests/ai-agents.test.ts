@@ -74,3 +74,11 @@ test('validação do formulário', () => {
   assert.ok(validateAgent({ name: 'Financeiro', toolGroups: ['zzz'] }).some((e) => e.includes('zzz')))
   assert.ok(validateAgent({ name: 'Financeiro', toolGroups: ['financeiro'], instructions: 'x'.repeat(8001) })[0].includes('8000'))
 })
+
+test('caixa é uma área própria: libera saldo, extrato e lançamento', () => {
+  const caixa = toolsForGroups(['caixa'])
+  assert.ok(caixa.includes('saldo_caixa') && caixa.includes('extrato_caixa') && caixa.includes('registrar_caixa'))
+  assert.ok(!caixa.includes('registrar_pagamento'))
+  // financeiro não dá acesso ao caixa por tabela
+  assert.ok(!toolsForGroups(['financeiro']).includes('registrar_caixa'))
+})

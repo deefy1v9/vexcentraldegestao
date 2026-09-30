@@ -22,6 +22,12 @@ export const TOOL_GROUPS = [
     tools: ['resumo_financeiro', 'listar_recebiveis', 'registrar_pagamento'],
   },
   {
+    key: 'caixa',
+    label: 'Caixa da empresa',
+    hint: 'Ver o saldo e o extrato, e registrar entrada, saida, retirada ou aporte de socio (com confirmacao).',
+    tools: ['saldo_caixa', 'extrato_caixa', 'registrar_caixa'],
+  },
+  {
     key: 'demandas',
     label: 'Demandas',
     hint: 'Criar demanda para a equipe (com confirmação) e acompanhar o que está aberto.',

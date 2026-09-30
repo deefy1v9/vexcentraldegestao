@@ -140,10 +140,10 @@ export function buildReceivableRows(payments: PaymentLike[], charges: ChargeLike
   return rows
 }
 
-export type FinTab = 'visao' | 'recebiveis' | 'atrasados' | 'custos' | 'salarios'
+export type FinTab = 'visao' | 'recebiveis' | 'atrasados' | 'custos' | 'salarios' | 'caixa'
 
 export const FIN_TAB_LABEL: Record<FinTab, string> = {
-  visao: 'Visão geral', recebiveis: 'Recebíveis', atrasados: 'Atrasados', custos: 'Custos', salarios: 'Salários',
+  visao: 'Visão geral', recebiveis: 'Recebíveis', atrasados: 'Atrasados', custos: 'Custos', salarios: 'Salários', caixa: 'Caixa',
 }
 
 export function finTabCounts(rows: ReceivableRow[], costs: EntryLike[], salaries: EntryLike[], now: Date = new Date()): Record<FinTab, number> {
@@ -157,6 +157,8 @@ export function finTabCounts(rows: ReceivableRow[], costs: EntryLike[], salaries
     atrasados,
     custos: costs.filter((e) => e.status !== 'PAGO').length,
     salarios: salaries.filter((e) => e.status !== 'PAGO').length,
+    // O caixa é um extrato, não uma fila de pendências: nunca tem contador
+    caixa: 0,
   }
 }
 

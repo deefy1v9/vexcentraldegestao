@@ -8,6 +8,7 @@ import { tierPriority } from '../client-tier'
 import { isConfigured as uazConfigured, uazSendText } from '../uazapi'
 import { getMonthSummary } from '../finance-summary'
 import { CLIENT_LINK_SELECT, clientLinks } from '../client-links'
+import { cashLabel, cashTotals, isCashKind, parseAmountCents, withdrawalsByPartner } from '../caixa-core'
 
 export interface ToolContext {
   /** Número do chat de comando que está falando com a IA. */
@@ -231,6 +232,43 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
     },
   },
   {
+    name: 'saldo_caixa',
+    description:
+      'Saldo do caixa da empresa e os totais do mes: quanto entrou, quanto saiu e quanto os socios retiraram. Use para "quanto tem em caixa", "quanto o Davi retirou", "estamos no vermelho".',
+    input_schema: {
+      type: 'object',
+      properties: { competencia: { type: 'string', description: 'AAAA-MM do mes analisado. Vazio usa o mes atual.' } },
+    },
+  },
+  {
+    name: 'extrato_caixa',
+    description: 'Ultimos lancamentos do caixa, do mais novo para o mais antigo.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        competencia: { type: 'string', description: 'AAAA-MM. Vazio usa o mes atual.' },
+        tipo: { type: 'string', enum: ['todos', 'ENTRADA', 'SAIDA', 'RETIRADA', 'APORTE'], description: 'Padrao: todos.' },
+      },
+    },
+  },
+  {
+    name: 'registrar_caixa',
+    description:
+      'Prepara um lancamento no caixa da empresa (entrada, saida, retirada ou aporte de socio). NAO grava na hora: cria uma acao pendente que so e executada depois que o usuario confirmar. Para retirada e aporte, ache o socio com buscar_equipe.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        tipo: { type: 'string', enum: ['ENTRADA', 'SAIDA', 'RETIRADA', 'APORTE'], description: 'ENTRADA e dinheiro que entrou; SAIDA e pagamento; RETIRADA e socio tirando; APORTE e socio colocando.' },
+        valor: { type: 'string', description: 'Valor em reais, como a pessoa falou. Ex: "1.500,00" ou "297".' },
+        descricao: { type: 'string', description: 'Do que se trata. Ex: "pro-labore de setembro", "plano de saude".' },
+        socioId: { type: 'string', description: 'id do socio (de buscar_equipe). Obrigatorio em retirada e aporte.' },
+        data: { type: 'string', description: 'AAAA-MM-DD. Vazio usa hoje.' },
+        conta: { type: 'string', description: 'Banco ou conta, quando a pessoa informar.' },
+      },
+      required: ['tipo', 'valor', 'descricao'],
+    },
+  },
+  {
     name: 'buscar_equipe',
     description:
       'Lista as pessoas da equipe (colaboradores e administradores) com id, para atribuir demandas. Use quando o usuário disser para quem a demanda vai.',
@@ -351,7 +389,37 @@ async function executePendingPayload(
     return settlePaymentFromPayload(payload)
   }
 
+  if (toolName === 'registrar_caixa') {
+    return saveCashFromPayload(payload, ctx)
+  }
+
   throw new ToolError(`Ação "${toolName}" não pode ser executada`)
+}
+
+/** Grava o lancamento no caixa depois da confirmacao. */
+async function saveCashFromPayload(payload: Input, ctx: ToolContext): Promise<string> {
+  const kind = String(payload.tipo ?? '')
+  if (!isCashKind(kind)) throw new ToolError('tipo invalido: use ENTRADA, SAIDA, RETIRADA ou APORTE')
+  const amountCents = parseAmountCents(payload.valor)
+  if (!amountCents) throw new ToolError('valor invalido')
+  const description = requireText(payload.descricao, 'descricao', 300)
+  const data = typeof payload.data === 'string' && /^\d{4}-\d{2}-\d{2}/.test(payload.data)
+    ? payload.data.slice(0, 10)
+    : new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+  const partnerId = typeof payload.socioId === 'string' && payload.socioId ? payload.socioId : null
+  if ((kind === 'RETIRADA' || kind === 'APORTE') && !partnerId) throw new ToolError('informe o socio (use buscar_equipe)')
+
+  const mov = await prisma.cashMovement.create({
+    data: {
+      kind, amountCents, description, date: new Date(`${data}T12:00:00Z`),
+      account: typeof payload.conta === 'string' && payload.conta.trim() ? payload.conta.trim() : null,
+      partnerId, createdById: ctx.userId, source: 'IA',
+    },
+    include: { partner: { select: { name: true } } },
+  })
+  const todos = await prisma.cashMovement.findMany({ select: { kind: true, amountCents: true } })
+  const saldo = cashTotals(todos).saldoCents
+  return `${cashLabel(kind)} de ${brl(amountCents)} registrada no caixa${mov.partner ? ` (${mov.partner.name})` : ''}: ${description}. Saldo do caixa agora: ${brl(saldo)}.`
 }
 
 /** Dá baixa nas parcelas pendentes do cliente na competência. Histórico pago nunca é reescrito. */
@@ -717,6 +785,64 @@ export async function executeTool(
         ctx, 'registrar_pagamento',
         { clienteId, competencia: `${year}-${String(month).padStart(2, '0')}`, conta },
         `Dar baixa em ${reais(total)} de ${client.name} · ${MESES[month - 1]}/${year} · ${pendentes.length} parcela(s)${conta ? ` · conta ${conta}` : ''}`,
+      )
+    }
+
+    case 'saldo_caixa': {
+      const { year, month } = competenceOf(input.competencia)
+      const inicio = new Date(Date.UTC(year, month - 1, 1))
+      const fim = new Date(Date.UTC(month === 12 ? year + 1 : year, month === 12 ? 0 : month, 1))
+      const [todos, doMes] = await Promise.all([
+        prisma.cashMovement.findMany({ select: { kind: true, amountCents: true } }),
+        prisma.cashMovement.findMany({ where: { date: { gte: inicio, lt: fim } }, select: { kind: true, amountCents: true, partner: { select: { name: true } } } }),
+      ])
+      const geral = cashTotals(todos)
+      const mes = cashTotals(doMes)
+      const retiradas = withdrawalsByPartner(doMes.map((m) => ({ kind: m.kind, amountCents: m.amountCents, partnerName: m.partner?.name })))
+      const linhas = [
+        `Saldo do caixa: ${brl(geral.saldoCents)}`,
+        `${MESES[month - 1]}/${year}: entrou ${brl(mes.entradasCents)} · saiu ${brl(mes.saidasCents)} · retiradas ${brl(mes.retiradasCents)} · aportes ${brl(mes.aportesCents)}`,
+        `Resultado do mes no caixa: ${brl(mes.saldoCents)}`,
+      ]
+      if (retiradas.length > 0) linhas.push('Retiradas por socio: ' + retiradas.map((r) => `${r.nome} ${brl(r.cents)}`).join(' · '))
+      if (todos.length === 0) linhas.push('Ainda nao ha lancamentos no caixa.')
+      return linhas.join('\n')
+    }
+
+    case 'extrato_caixa': {
+      const { year, month } = competenceOf(input.competencia)
+      const inicio = new Date(Date.UTC(year, month - 1, 1))
+      const fim = new Date(Date.UTC(month === 12 ? year + 1 : year, month === 12 ? 0 : month, 1))
+      const tipo = typeof input.tipo === 'string' && isCashKind(input.tipo) ? input.tipo : null
+      const movs = await prisma.cashMovement.findMany({
+        where: { date: { gte: inicio, lt: fim }, ...(tipo ? { kind: tipo } : {}) },
+        orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+        take: 30,
+        include: { partner: { select: { name: true } } },
+      })
+      if (movs.length === 0) return `Nenhum lancamento no caixa em ${MESES[month - 1]}/${year}.`
+      return movs.map((m) => `- ${dayBr(m.date)} | ${cashLabel(m.kind)} | ${brl(m.amountCents)} | ${m.description}${m.partner ? ` (${m.partner.name})` : ''}`).join('\n')
+    }
+
+    case 'registrar_caixa': {
+      const kind = String(input.tipo ?? '')
+      if (!isCashKind(kind)) throw new ToolError('tipo invalido: use ENTRADA, SAIDA, RETIRADA ou APORTE')
+      const amountCents = parseAmountCents(input.valor)
+      if (!amountCents) throw new ToolError('valor invalido: escreva como 1.500,00')
+      const descricao = requireText(input.descricao, 'descricao', 300)
+      const partnerId = typeof input.socioId === 'string' && input.socioId ? input.socioId : null
+      if ((kind === 'RETIRADA' || kind === 'APORTE') && !partnerId) {
+        throw new ToolError('Diga qual socio. Use buscar_equipe para achar o id.')
+      }
+      const socio = partnerId ? await prisma.user.findUnique({ where: { id: partnerId }, select: { name: true } }) : null
+      if (partnerId && !socio) throw new ToolError('Socio nao encontrado. Use buscar_equipe.')
+      const data = typeof input.data === 'string' && /^\d{4}-\d{2}-\d{2}/.test(input.data)
+        ? input.data.slice(0, 10)
+        : new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+      return createPendingAction(
+        ctx, 'registrar_caixa',
+        { tipo: kind, valor: String(input.valor), descricao, socioId: partnerId, data, conta: input.conta },
+        `${cashLabel(kind)} de ${brl(amountCents)}${socio ? ` · ${socio.name}` : ''} · ${descricao} · ${data.split('-').reverse().join('/')}`,
       )
     }
 
