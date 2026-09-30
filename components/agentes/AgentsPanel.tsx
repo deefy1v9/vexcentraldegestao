@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Bot, Check, Loader2, Plus, Trash2, Sparkles } from 'lucide-react'
 import { TOOL_GROUPS, type ToolGroupKey } from '@/lib/ai/agents'
+import { WEEKDAYS } from '@/lib/ai/watch-core'
 
 interface Agent {
   id: string
@@ -14,6 +15,9 @@ interface Agent {
   model: string | null
   isActive: boolean
   isDefault: boolean
+  watchFrequency: string
+  watchWeekday: number | null
+  lastWatchAt?: string | null
 }
 
 const MODELOS = [
@@ -72,6 +76,7 @@ export default function AgentsPanel() {
       id: '', name: preset?.nome ?? '', description: preset?.descricao ?? '', instructions: preset?.instrucoes ?? '',
       toolGroups: preset?.grupos ?? [], triggers: preset ? preset.gatilhos.split(',').map((t) => t.trim()) : [],
       model: '', isActive: true, isDefault: agents.length === 0,
+      watchFrequency: preset ? 'SEMANAL' : 'DESLIGADA', watchWeekday: 1, lastWatchAt: null,
     })
   }
 
@@ -155,6 +160,13 @@ export default function AgentsPanel() {
             {a.triggers.length > 0 && (
               <p className="text-[10px] text-gray-400 mt-2 truncate">Atende quando ouvir: {a.triggers.join(', ')}</p>
             )}
+            {a.watchFrequency && a.watchFrequency !== 'DESLIGADA' && (
+              <p className="text-[10px] text-[#030A8C] mt-1 font-medium">
+                Vigia {a.watchFrequency === 'DIARIA'
+                  ? 'todo dia'
+                  : `toda ${(WEEKDAYS.find((d) => d.value === (a.watchWeekday ?? 1))?.label ?? 'segunda').toLowerCase()}`} e avisa os sócios
+              </p>
+            )}
           </button>
         ))}
       </div>
@@ -179,6 +191,8 @@ function AgentForm({ agent, novo, erro, setErro, onClose, onSaved }: {
     model: agent.model ?? '',
     isActive: agent.isActive,
     isDefault: agent.isDefault,
+    watchFrequency: agent.watchFrequency ?? 'DESLIGADA',
+    watchWeekday: agent.watchWeekday ?? 1,
   })
   const [salvando, setSalvando] = useState(false)
   const [apagando, setApagando] = useState(false)
@@ -297,6 +311,50 @@ function AgentForm({ agent, novo, erro, setErro, onClose, onSaved }: {
               {MODELOS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
             </select>
           </div>
+        </div>
+
+        <div className="rounded-lg border border-gray-200 p-3 space-y-3">
+          <div>
+            <p className="text-xs font-semibold text-gray-700">Vigia automática</p>
+            <p className="text-[10px] text-gray-500 leading-snug">
+              O agente varre sozinho as áreas marcadas acima e manda um aviso para os sócios no WhatsApp. Ele nunca
+              responde cliente: só avisa vocês.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[10px] text-gray-500 mb-1">Frequência</label>
+              <select
+                value={form.watchFrequency}
+                onChange={(e) => set('watchFrequency', e.target.value)}
+                className="w-full border border-gray-200 rounded-lg px-2 py-2 text-xs text-gray-900 outline-none focus:border-[#030A8C] bg-white"
+              >
+                <option value="DESLIGADA">Desligada</option>
+                <option value="DIARIA">Todo dia</option>
+                <option value="SEMANAL">Uma vez por semana</option>
+              </select>
+            </div>
+            {form.watchFrequency === 'SEMANAL' && (
+              <div>
+                <label className="block text-[10px] text-gray-500 mb-1">Dia do aviso</label>
+                <select
+                  value={String(form.watchWeekday)}
+                  onChange={(e) => set('watchWeekday', Number(e.target.value))}
+                  className="w-full border border-gray-200 rounded-lg px-2 py-2 text-xs text-gray-900 outline-none focus:border-[#030A8C] bg-white"
+                >
+                  {WEEKDAYS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
+                </select>
+              </div>
+            )}
+          </div>
+          {form.watchFrequency !== 'DESLIGADA' && (
+            <p className="text-[10px] text-gray-400">
+              O aviso sai junto com a rotina diária do sistema, no horário configurado nas integrações.
+              {agent.lastWatchAt
+                ? ` Último aviso: ${new Date(agent.lastWatchAt).toLocaleString('pt-BR')}.`
+                : ' Ainda não rodou.'}
+            </p>
+          )}
         </div>
 
         <div className="flex flex-wrap gap-4 pt-1">

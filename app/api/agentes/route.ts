@@ -3,6 +3,7 @@ import { requireAdmin, getSessionUser } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
 import { GROUP_KEYS, validateAgent } from '@/lib/ai/agents'
+import { isWatchFrequency } from '@/lib/ai/watch-core'
 
 /** Agentes de IA da Central — só administradores configuram. */
 
@@ -42,6 +43,8 @@ export async function POST(req: NextRequest) {
         toolGroups,
         triggers,
         model: str(body.model),
+        watchFrequency: watchFreq(body.watchFrequency),
+        watchWeekday: weekday(body.watchWeekday),
         isActive: body.isActive !== false,
         isDefault: isDefault || total === 0,
         createdById: viewer?.id ?? null,
@@ -51,6 +54,18 @@ export async function POST(req: NextRequest) {
 
   await logActivity(viewer?.id ?? '', 'criou agente de IA', 'Agentes', agent.name)
   return NextResponse.json({ agent })
+}
+
+/** Frequência da vigia; qualquer coisa fora da lista vira desligada. */
+export function watchFreq(v: unknown): string {
+  const s = typeof v === 'string' ? v.toUpperCase() : ''
+  return isWatchFrequency(s) ? s : 'DESLIGADA'
+}
+
+/** Dia da semana da vigia semanal (0 = domingo). */
+export function weekday(v: unknown): number | null {
+  const n = typeof v === 'number' ? v : typeof v === 'string' && v !== '' ? Number(v) : NaN
+  return Number.isInteger(n) && n >= 0 && n <= 6 ? n : null
 }
 
 function str(v: unknown): string | null {

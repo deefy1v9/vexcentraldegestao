@@ -1483,6 +1483,11 @@ model AiAgent {
   isActive     Boolean  @default(true)
   /// Atende quando ninguém mais casa. Só um por vez.
   isDefault    Boolean  @default(false)
+  /// Vigia: DESLIGADA | DIARIA | SEMANAL — varre a operação e avisa os donos
+  watchFrequency String  @default("DESLIGADA")
+  /// Dia da semana da vigia semanal (0 = domingo)
+  watchWeekday   Int?
+  lastWatchAt    DateTime?
   createdById  String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -1490,4 +1495,18 @@ model AiAgent {
   createdBy User? @relation("AiAgentCreator", fields: [createdById], references: [id])
 
   @@index([isActive, isDefault])
+}
+
+
+/// Marca de aviso já enviado pelos agentes — um por (tipo, referência).
+/// Serve de idempotência: reiniciar o servidor não reenvia o mesmo alerta.
+model AgentNotice {
+  id     String   @id @default(cuid())
+  kind   String
+  refId  String
+  detail String?
+  sentAt DateTime @default(now())
+
+  @@unique([kind, refId])
+  @@index([kind, sentAt])
 }

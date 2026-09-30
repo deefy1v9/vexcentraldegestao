@@ -3,7 +3,7 @@ import { requireAdmin, getSessionUser } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
 import { validateAgent } from '@/lib/ai/agents'
-import { normalizeTriggers } from '../route'
+import { normalizeTriggers, watchFreq, weekday } from '../route'
 
 /** Edição e remoção de um agente. Só administradores. */
 
@@ -41,6 +41,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         toolGroups,
         triggers: body.triggers !== undefined ? normalizeTriggers(body.triggers) : atual.triggers,
         model: opt(body.model, atual.model),
+        watchFrequency: body.watchFrequency !== undefined ? watchFreq(body.watchFrequency) : atual.watchFrequency,
+        watchWeekday: body.watchWeekday !== undefined ? weekday(body.watchWeekday) : atual.watchWeekday,
         isActive: body.isActive !== undefined ? !!body.isActive : atual.isActive,
         // Desmarcar o padrão na mão deixaria ninguém atendendo: só troca quem é.
         isDefault: querPadrao ? true : atual.isDefault,

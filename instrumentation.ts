@@ -80,6 +80,19 @@ export async function register() {
         console.error('[tier] reclassify error:', err)
       }
 
+      // Agentes vigia: varrem financeiro, clientes e operação e avisam os
+      // donos no WhatsApp. Nunca falam com cliente; a frequência é de cada
+      // agente e a marca lastWatchAt impede repetir no mesmo dia.
+      try {
+        const { runAgentWatches, runVexSalesAlerts } = await import('./lib/ai/watch')
+        const watch = await runAgentWatches()
+        if (watch.rodou > 0) console.log(`[agentes] vigia: ${watch.rodou} rodada(s), ${watch.avisos} aviso(s)`)
+        const vex = await runVexSalesAlerts()
+        if (vex.enviados > 0) console.log(`[agentes] VEX Sales: ${vex.enviados} aviso(s) de contratação`)
+      } catch (err) {
+        console.error('[agentes] vigia falhou:', err)
+      }
+
       // E-mails do dia: lembretes (D-3, D0), atraso (D+1/7/15), contrato a
       // vencer e resumo aos administradores — cada um uma vez só (refId)
       try {
