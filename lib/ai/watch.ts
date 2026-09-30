@@ -194,6 +194,69 @@ async function redigir(agentName: string, instrucoes: string | null, relatorio: 
 
 export interface WatchReport { rodou: number; avisos: number; pulados: number }
 
+export interface WatchAgent { id: string; name: string; instructions: string | null; toolGroups: string[] }
+
+/**
+ * Monta (e opcionalmente envia) o aviso de um agente. Com `enviar: false`
+ * devolve o texto sem tocar no WhatsApp e sem marcar a data — é a prévia da
+ * tela, que pode ser vista quantas vezes for preciso.
+ */
+export async function runSingleWatch(
+  agent: WatchAgent,
+  opts: { enviar: boolean },
+): Promise<{ texto: string; alertas: number; criticos: boolean; enviadoPara: string[] }> {
+  const today = spToday()
+  const partes: string[] = []
+  const alerts: Alert[] = []
+
+  if (agent.toolGroups.includes('financeiro')) {
+    const f = await financeAlerts(today)
+    partes.push(`FINANCEIRO\n${f.resumo}`)
+    alerts.push(...f.alerts)
+  }
+  if (agent.toolGroups.includes('clientes')) {
+    const c = await clientAlerts(today)
+    partes.push(`CLIENTES\n${c.resumo}`)
+    alerts.push(...c.alerts)
+  }
+  if (agent.toolGroups.includes('demandas') || agent.toolGroups.includes('crm')) {
+    const o = await opsAlerts(today)
+    partes.push(`OPERAÇÃO\n${o.resumo}`)
+    alerts.push(...o.alerts)
+  }
+
+  const principais = rankAlerts(alerts)
+  const relatorio = [
+    `Data: ${brDate(today)}`,
+    ...partes,
+    '',
+    principais.length > 0 ? `ALERTAS\n${formatAlerts(principais)}` : 'ALERTAS\nNenhum ponto crítico hoje.',
+  ].join('\n\n')
+
+  const escrito = await redigir(agent.name, agent.instructions, relatorio)
+  const cabecalho = `${hasCritical(principais) ? '🔴' : '📊'} *${agent.name}* · ${brDate(today)}`
+  const texto = `${cabecalho}\n\n${escrito ?? (principais.length > 0 ? formatAlerts(principais) : 'Nada crítico hoje.')}`
+
+  const enviadoPara: string[] = []
+  if (opts.enviar) {
+    const donos = await owners()
+    const podeEnviar = donos.length > 0 && (await isConfigured().catch(() => false))
+    if (podeEnviar) {
+      for (const dono of donos) {
+        try {
+          await uazSendText(dono.phone, texto)
+          enviadoPara.push(dono.name)
+        } catch (err) {
+          console.error('[watch] envio falhou', dono.name, err)
+        }
+      }
+    }
+    await prisma.aiAgent.update({ where: { id: agent.id }, data: { lastWatchAt: new Date() } })
+  }
+
+  return { texto, alertas: principais.length, criticos: hasCritical(principais), enviadoPara }
+}
+
 /** Roda a vigia dos agentes com frequência configurada. Uma vez por dia por agente. */
 export async function runAgentWatches(): Promise<WatchReport> {
   const report: WatchReport = { rodou: 0, avisos: 0, pulados: 0 }
@@ -202,8 +265,6 @@ export async function runAgentWatches(): Promise<WatchReport> {
 
   const today = spToday()
   const weekday = spWeekday()
-  const donos = await owners()
-  const podeEnviar = donos.length > 0 && (await isConfigured().catch(() => false))
 
   for (const agent of agents) {
     const lastWatchOn = agent.lastWatchAt ? agent.lastWatchAt.toLocaleDateString('en-CA', { timeZone: TZ }) : null
@@ -211,45 +272,9 @@ export async function runAgentWatches(): Promise<WatchReport> {
       report.pulados++
       continue
     }
-
-    const partes: string[] = []
-    const alerts: Alert[] = []
-    if (agent.toolGroups.includes('financeiro')) {
-      const f = await financeAlerts(today)
-      partes.push(`FINANCEIRO\n${f.resumo}`)
-      alerts.push(...f.alerts)
-    }
-    if (agent.toolGroups.includes('clientes')) {
-      const c = await clientAlerts(today)
-      partes.push(`CLIENTES\n${c.resumo}`)
-      alerts.push(...c.alerts)
-    }
-    if (agent.toolGroups.includes('demandas') || agent.toolGroups.includes('crm')) {
-      const o = await opsAlerts(today)
-      partes.push(`OPERAÇÃO\n${o.resumo}`)
-      alerts.push(...o.alerts)
-    }
-
-    const principais = rankAlerts(alerts)
-    const relatorio = [
-      `Data: ${brDate(today)}`,
-      ...partes,
-      '',
-      principais.length > 0 ? `ALERTAS\n${formatAlerts(principais)}` : 'ALERTAS\nNenhum ponto crítico hoje.',
-    ].join('\n\n')
-
-    const escrito = await redigir(agent.name, agent.instructions, relatorio)
-    const cabecalho = `${hasCritical(principais) ? '🔴' : '📊'} *${agent.name}* · ${brDate(today)}`
-    const texto = `${cabecalho}\n\n${escrito ?? (principais.length > 0 ? formatAlerts(principais) : 'Nada crítico hoje.')}`
-
-    await prisma.aiAgent.update({ where: { id: agent.id }, data: { lastWatchAt: new Date() } })
+    const r = await runSingleWatch(agent, { enviar: true })
     report.rodou++
-
-    if (!podeEnviar) continue
-    for (const dono of donos) {
-      await uazSendText(dono.phone, texto).catch((err) => console.error('[watch] envio falhou', dono.name, err))
-    }
-    report.avisos++
+    if (r.enviadoPara.length > 0) report.avisos++
   }
   return report
 }

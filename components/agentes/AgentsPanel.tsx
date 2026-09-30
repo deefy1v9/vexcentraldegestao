@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Bot, Check, Loader2, Plus, Trash2, Sparkles } from 'lucide-react'
+import { Bot, Check, Eye, Loader2, Plus, Send, Sparkles, Trash2 } from 'lucide-react'
 import { TOOL_GROUPS, type ToolGroupKey } from '@/lib/ai/agents'
 import { WEEKDAYS } from '@/lib/ai/watch-core'
 
@@ -196,6 +196,22 @@ function AgentForm({ agent, novo, erro, setErro, onClose, onSaved }: {
   })
   const [salvando, setSalvando] = useState(false)
   const [apagando, setApagando] = useState(false)
+  const [preview, setPreview] = useState('')
+  const [previewBusy, setPreviewBusy] = useState(false)
+
+  // Prévia usa o agente salvo: mostra exatamente o que sairia hoje.
+  const previa = async (enviar: boolean) => {
+    setPreviewBusy(true)
+    setErro('')
+    const r = await fetch(`/api/agentes/${agent.id}/vigia`, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ enviar }),
+    })
+    const d = await r.json().catch(() => ({}))
+    setPreviewBusy(false)
+    if (!r.ok) { setErro(d.error ?? 'Não consegui montar o aviso.'); return }
+    const enviados: string[] = d.enviadoPara ?? []
+    setPreview(enviar && enviados.length > 0 ? `Enviado para ${enviados.join(' e ')}.\n\n${d.texto}` : d.texto)
+  }
 
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm((f) => ({ ...f, [k]: v }))
   const toggleGrupo = (key: string) =>
@@ -354,6 +370,30 @@ function AgentForm({ agent, novo, erro, setErro, onClose, onSaved }: {
                 ? ` Último aviso: ${new Date(agent.lastWatchAt).toLocaleString('pt-BR')}.`
                 : ' Ainda não rodou.'}
             </p>
+          )}
+
+          {!novo && (
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => previa(false)}
+                  disabled={previewBusy}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold text-[#030A8C] border border-[#030A8C]/30 rounded-lg hover:bg-[#030A8C]/5 disabled:opacity-40 transition-colors"
+                >
+                  {previewBusy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Eye className="w-3 h-3" />} Ver o aviso de hoje
+                </button>
+                <button
+                  onClick={() => previa(true)}
+                  disabled={previewBusy}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium text-gray-600 border border-gray-200 rounded-lg hover:border-gray-300 disabled:opacity-40 transition-colors"
+                >
+                  <Send className="w-3 h-3" /> Mandar agora para os sócios
+                </button>
+              </div>
+              {preview && (
+                <pre className="text-[11px] text-gray-700 bg-gray-50 border border-gray-200 rounded-lg p-3 whitespace-pre-wrap font-sans">{preview}</pre>
+              )}
+            </div>
           )}
         </div>
 
