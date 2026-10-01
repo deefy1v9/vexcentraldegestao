@@ -100,6 +100,8 @@ export async function sendMail(opts: {
   profile?: MailProfile
   /** Anexos (ex.: PDF da proposta). O conteúdo nunca vai para log. */
   attachments?: Array<{ filename: string; content: Buffer; contentType?: string }>
+  /** Cópia oculta: o destinatário não vê quem mais recebeu. */
+  bcc?: string
 }): Promise<{ sent: boolean; skipped?: boolean; providerResponse?: string; from?: string }> {
   const cfg = await getSmtpConfig(opts.profile ?? 'financeiro')
   if (!cfg.configured) throw new MailNotConfiguredError(cfg.profile)
@@ -124,6 +126,7 @@ export async function sendMail(opts: {
       from: cfg.from,
       replyTo: addressOf(cfg.from),
       to: opts.to,
+      ...(opts.bcc ? { bcc: opts.bcc } : {}),
       subject: opts.subject,
       html: opts.html,
       ...(opts.attachments?.length ? { attachments: opts.attachments } : {}),

@@ -37,10 +37,22 @@ async function adminRecipients(): Promise<string | null> {
   return list.length > 0 ? list.join(', ') : null
 }
 
+/**
+ * Cópia oculta dos avisos enviados a cliente (MAIL_BCC nas integrações).
+ * O cliente não vê quem mais recebeu — serve para a agência arquivar.
+ */
+async function blindCopy(): Promise<string | undefined> {
+  const { getSetting } = await import('./settings')
+  const raw = (await getSetting('MAIL_BCC').catch(() => '')) || ''
+  const lista = raw.split(',').map((e) => e.trim()).filter((e) => e.includes('@'))
+  return lista.length > 0 ? lista.join(', ') : undefined
+}
+
 async function deliver(mail: T.RenderedMail, to: string, refId?: string): Promise<boolean> {
   try {
     if (!(await smtpConfigured(mail.profile))) return false
-    const r = await sendMail({ to, subject: mail.subject, html: mail.html, profile: mail.profile, kind: mail.kind, refId })
+    const bcc = await blindCopy()
+    const r = await sendMail({ to, bcc, subject: mail.subject, html: mail.html, profile: mail.profile, kind: mail.kind, refId })
     return r.sent
   } catch (err) {
     console.error(`[email] ${mail.kind} falhou:`, err instanceof Error ? err.message : err)

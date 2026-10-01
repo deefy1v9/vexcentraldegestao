@@ -26,6 +26,8 @@ const ALLOWED_KEYS = [
   'SMTP_USER', 'SMTP_PASS',                 // remetente financeiro@
   'SMTP_CONTATO_USER', 'SMTP_CONTATO_PASS', // remetente contato@
   'MAIL_FROM_FINANCEIRO', 'MAIL_FROM_CONTATO',
+  // Cópia oculta dos avisos enviados a cliente (um ou mais e-mails)
+  'MAIL_BCC',
   'FOCUS_CERT_STATUS',
   // Asaas e Focus NFe — tokens são write-only: aceitos no PUT e NUNCA
   // devolvidos no GET (o GET expõe apenas flags de presença)
@@ -71,7 +73,7 @@ export async function GET() {
                   'AI_AGENT_MODEL', 'AI_DRAFT_MODEL', 'ANTHROPIC_API_KEY', 'AI_PROVIDER', 'GEMINI_API_KEY',
                   'SMTP_HOST', 'SMTP_PORT', 'SMTP_SECURE', 'SMTP_USER', 'SMTP_PASS',
                   'SMTP_CONTATO_USER', 'SMTP_CONTATO_PASS',
-                  'MAIL_FROM_FINANCEIRO', 'MAIL_FROM_CONTATO')
+                  'MAIL_FROM_FINANCEIRO', 'MAIL_FROM_CONTATO', 'MAIL_BCC')
   `
 
   const result: Record<string, string> = {}
