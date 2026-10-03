@@ -6,6 +6,7 @@ import { parseCompetence } from '@/lib/billing-core'
 import AddEntryModal from '@/components/financeiro/AddEntryModal'
 import FinanceKpis, { type MonthSummary, type TileKey } from '@/components/financeiro/FinanceKpis'
 import CaixaPanel from './CaixaPanel'
+import CashBalanceCard from './CashBalanceCard'
 import { MonthPicker, FinanceTabs, FinanceFilterRow, FinanceChips, Pagination } from '@/components/financeiro/FinanceToolbar'
 import ReceivablesTable from '@/components/financeiro/ReceivablesTable'
 import EntriesTable from '@/components/financeiro/EntriesTable'
@@ -300,6 +301,9 @@ export default function FinanceiroPanel() {
         {flash && <p className="text-xs font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5">{flash}</p>}
         {error && <p className="text-sm font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-3 text-center">{error}</p>}
 
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+          <CashBalanceCard mes={`${period.year}-${String(period.month).padStart(2, '0')}`} href="/financeiro?aba=caixa" />
+        </div>
         <FinanceKpis s={data?.summary ?? null} loading={loading} active={activeTile} onToggle={toggleTile} />
         <FinanceTabs active={tab} counts={counts} onChange={(t) => push({ tab: t })} />
 

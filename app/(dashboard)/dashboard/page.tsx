@@ -6,6 +6,7 @@ import RevenueChart from '@/components/dashboard/RevenueChart'
 import PortfolioSegmentation from '@/components/dashboard/PortfolioSegmentation'
 import PeriodSelector from '@/components/dashboard/PeriodSelector'
 import PipelineSection from '@/components/dashboard/PipelineSection'
+import CashBalanceCard from '@/components/financeiro/CashBalanceCard'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { getPeriodSummary, type PeriodView } from '@/lib/finance-summary'
 import { newLeadsInPeriod, pipelinePeriodSummary } from '@/lib/pipeline'
@@ -129,6 +130,11 @@ export default async function DashboardPage({
               isCurrent={summary.isCurrentPeriod}
               referenceDate={summary.referenceDate}
             />
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+              <CashBalanceCard
+                mes={summary.month ? `${summary.year}-${String(summary.month).padStart(2, '0')}` : undefined}
+              />
+            </div>
             <DashboardIndicators
               s={summary}
               inProgressTasks={op.inProgressTasks}
