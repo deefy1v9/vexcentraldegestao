@@ -196,3 +196,17 @@ test('calendarTone: cinza padrão, amarelo a 2 dias, verde feito, vermelho atras
   assert.equal(calendarTone(t('2026-09-26'), now), 'normal')
   assert.equal(calendarTone(t(null), now), 'normal')
 })
+
+test('prazo de etapa não nasce vencido quando a entrega ainda está no futuro', () => {
+  const agora = new Date('2026-10-06T15:00:00')
+  const hoje = new Date('2026-10-06T00:00:00').getTime()
+  // entrega amanhã: o D-2 cairia ontem, então o prazo da etapa vira hoje
+  const amanha = stageDeadline({ status: 'TODO', dueDate: at('2026-10-07') } as TaskLike, agora)
+  assert.equal(amanha?.setHours(0, 0, 0, 0), hoje)
+  // entrega daqui a 5 dias: o D-2 normal continua valendo
+  const longe = stageDeadline({ status: 'TODO', dueDate: at('2026-10-11') } as TaskLike, agora)
+  assert.equal(longe?.toISOString().slice(0, 10), '2026-10-09')
+  // entrega já vencida: o atraso é real e continua aparecendo
+  const vencida = stageDeadline({ status: 'TODO', dueDate: at('2026-10-02') } as TaskLike, agora)
+  assert.equal(vencida?.toISOString().slice(0, 10), '2026-09-30')
+})

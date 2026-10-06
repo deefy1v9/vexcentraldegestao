@@ -86,12 +86,31 @@ export function daysLeft(date?: Date | string | null, now: Date = new Date()): n
 }
 
 /** Prazo da etapa atual: produção D-2, revisão D-1, agendamento D. */
-export function stageDeadline(task: TaskLike): Date | null {
+/**
+ * Prazo da etapa atual: produção D-2, revisão D-1, entrega D.
+ *
+ * Com uma ressalva: enquanto a entrega ainda está no futuro, o prazo da etapa
+ * nunca cai no passado. Replanejar uma demanda para "entregar amanhã" faria o
+ * D-2 nascer vencido e a fila inteira apareceria em atraso sem ninguém ter
+ * perdido nada — aí o prazo da etapa é hoje.
+ */
+export function stageDeadline(task: TaskLike, now: Date = new Date()): Date | null {
   const dl = deadlines(task.dueDate)
   if (!dl) return null
-  if (PRODUCTION_STATUSES.includes(task.status)) return dl.production
-  if (task.status === 'EM_REVISAO') return dl.review
-  return dl.final
+  const alvo = PRODUCTION_STATUSES.includes(task.status) ? dl.production
+    : task.status === 'EM_REVISAO' ? dl.review
+    : dl.final
+  if (daysLeft(dl.final, now) !== null && daysLeft(dl.final, now)! >= 0 && daysLeft(alvo, now)! < 0) {
+    return startOfToday(now)
+  }
+  return alvo
+}
+
+/** Meia-noite de hoje, para comparar prazos sem arrastar hora. */
+function startOfToday(now: Date): Date {
+  const d = new Date(now)
+  d.setHours(0, 0, 0, 0)
+  return d
 }
 
 export function isLate(task: TaskLike, now: Date = new Date()): boolean {
