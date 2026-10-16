@@ -4,6 +4,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
 import { logTaskEvent } from '@/lib/task-flow'
+import { alignStageToStatus } from '@/lib/processos-server'
 
 /**
  * Confirmação do agendamento — a única porta para "Concluído" no fluxo.
@@ -65,6 +66,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       _count: { select: { comments: true } },
     },
   })
+  // A etapa do processo acompanha o status
+  await alignStageToStatus(id)
 
   const when = scheduledFor.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
   await logTaskEvent(

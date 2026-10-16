@@ -25,6 +25,8 @@ export interface TaskLike {
   producer?: UserRef | null
   reviewer?: UserRef | null
   scheduler?: UserRef | null
+  /** Equipe da etapa atual: sem responsável, a tarefa está na fila dela. */
+  teamId?: string | null
 }
 
 export const DAY = 24 * 60 * 60 * 1000
@@ -191,8 +193,10 @@ export function currentActor(task: TaskLike): UserRef | null {
  *
  * Isto é conveniência de tela; o servidor filtra pelas mesmas regras.
  */
-export function canSee(task: TaskLike, userId: string, isAdmin: boolean): boolean {
+export function canSee(task: TaskLike, userId: string, isAdmin: boolean, teamIds: string[] = []): boolean {
   if (isAdmin) return true
+  // Na fila de uma equipe de que a pessoa participa
+  if (!task.assignee && task.teamId && teamIds.includes(task.teamId)) return true
   const meu = [task.assignee?.id, task.producer?.id, task.reviewer?.id, task.scheduler?.id].includes(userId)
   if (!meu) return false
   if (task.status !== 'EM_REVISAO') return true
@@ -201,7 +205,7 @@ export function canSee(task: TaskLike, userId: string, isAdmin: boolean): boolea
 }
 
 /** Mesmo recorte do `canSee`, em formato de `where` do Prisma. */
-export function visibilityWhere(userId: string, isAdmin: boolean) {
+export function visibilityWhere(userId: string, isAdmin: boolean, teamIds: string[] = []) {
   if (isAdmin) return {}
   return {
     OR: [
@@ -209,6 +213,7 @@ export function visibilityWhere(userId: string, isAdmin: boolean) {
       { producerId: userId },
       { reviewerId: userId },
       { schedulerId: userId },
+      ...(teamIds.length ? [{ assigneeId: null, teamId: { in: teamIds } }] : []),
     ],
   }
 }

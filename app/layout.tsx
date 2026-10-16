@@ -1,11 +1,14 @@
 import type { Metadata } from 'next'
-import { Plus_Jakarta_Sans } from 'next/font/google'
+import { Inter } from 'next/font/google'
 import './globals.css'
 
-const plusJakarta = Plus_Jakarta_Sans({
+/** Inter, a mesma do painel da VEX Sales. A variável é --font-inter porque
+ *  --font-sans já é definida no @theme do Tailwind. */
+const fonte = Inter({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700', '800'],
-  variable: '--font-plus-jakarta',
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-inter',
+  display: 'swap',
 })
 
 export const metadata: Metadata = {
@@ -36,7 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
       </head>
-      <body className={`${plusJakarta.className} h-full`}>{children}</body>
+      <body className={`${fonte.variable} min-h-full h-full font-sans antialiased bg-background text-foreground`}>{children}</body>
     </html>
   )
 }

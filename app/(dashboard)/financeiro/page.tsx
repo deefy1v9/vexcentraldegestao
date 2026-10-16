@@ -12,7 +12,7 @@ export default async function FinanceiroPage() {
   // Os dados são carregados pelo painel via /api/financeiro conforme o mês
   // selecionado — a navegação de período não recarrega a página.
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex flex-col min-h-full">
       <Header title="Financeiro" subtitle="Controle financeiro por mês" />
       {/* O painel lê a competência da URL (useSearchParams) */}
       <Suspense fallback={<div className="flex-1 p-6 text-sm text-gray-400">Carregando financeiro…</div>}>

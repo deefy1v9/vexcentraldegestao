@@ -1,18 +1,28 @@
 'use client'
 
-import { useCallback } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react'
+import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 
 const MESES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
 ]
 
+function hojeSP() {
+  const [y, m] = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }).split('-').map(Number)
+  return { year: y, month: m }
+}
+
+const caixa = 'h-9 rounded-lg border border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring'
+
 /**
  * Seleção do período do Dashboard: mensal ou anual, com navegação e atalho
  * para o período atual. Fica na URL, então recarregar ou compartilhar o
  * endereço mantém o que estava sendo visto.
+ *
+ * O mês se escolhe num painel próprio (ano + grade de meses): o campo nativo
+ * `type="month"` não abre no Firefox nem no Safari.
  */
 export default function PeriodSelector({
   view, year, month, isCurrent, referenceDate,
@@ -26,15 +36,35 @@ export default function PeriodSelector({
   const router = useRouter()
   const pathname = usePathname()
   const params = useSearchParams()
+  const [aberto, setAberto] = useState(false)
+  const [anoDoPainel, setAnoDoPainel] = useState(year)
+  const painel = useRef<HTMLDivElement>(null)
 
-  const push = useCallback((next: { view?: string; year?: number; month?: number | null }) => {
+  const push = useCallback((next: { view?: 'mensal' | 'anual'; year?: number; month?: number | null }) => {
     const q = new URLSearchParams(params.toString())
-    q.set('visao', next.view ?? view)
+    const v = next.view ?? view
+    q.set('visao', v)
     q.set('ano', String(next.year ?? year))
-    if ((next.view ?? view) === 'mensal') q.set('mes', String(next.month ?? month ?? 1))
+    if (v === 'mensal') q.set('mes', String(next.month ?? month ?? hojeSP().month))
     else q.delete('mes')
     router.replace(`${pathname}?${q.toString()}`, { scroll: false })
   }, [params, router, pathname, view, year, month])
+
+  useEffect(() => {
+    if (!aberto) return
+    const fora = (e: MouseEvent) => { if (!painel.current?.contains(e.target as Node)) setAberto(false) }
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setAberto(false) }
+    document.addEventListener('mousedown', fora)
+    document.addEventListener('keydown', esc)
+    return () => { document.removeEventListener('mousedown', fora); document.removeEventListener('keydown', esc) }
+  }, [aberto])
+
+  function trocarVisao(v: 'mensal' | 'anual') {
+    if (v === view) return
+    // Voltando para o mensal: o mês de hoje se o ano é o atual; senão, janeiro
+    const hoje = hojeSP()
+    push({ view: v, month: v === 'mensal' ? (year === hoje.year ? hoje.month : 1) : null })
+  }
 
   function shift(delta: number) {
     if (view === 'anual') { push({ year: year + delta }); return }
@@ -43,71 +73,104 @@ export default function PeriodSelector({
   }
 
   function agora() {
-    const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
-    const [y, m] = hoje.split('-').map(Number)
-    push({ year: y, month: view === 'mensal' ? m : null })
+    const hoje = hojeSP()
+    push({ year: hoje.year, month: view === 'mensal' ? hoje.month : null })
   }
 
   const rotulo = view === 'anual' ? `Ano de ${year}` : `${MESES[(month ?? 1) - 1]} de ${year}`
   const refFmt = referenceDate.split('-').reverse().join('/')
+  const hoje = hojeSP()
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="flex items-center gap-0.5 bg-gray-100 rounded-lg p-0.5">
+      <div className="flex items-center gap-0.5 bg-secondary rounded-lg p-0.5" role="group" aria-label="Visão">
         {(['mensal', 'anual'] as const).map((v) => (
           <button
             key={v}
-            onClick={() => push({ view: v })}
-            className={`px-3 py-1.5 rounded-md text-xs font-semibold capitalize transition-colors ${view === v ? 'bg-white text-[#030A8C] shadow-sm' : 'text-gray-500'}`}
+            type="button"
+            onClick={() => trocarVisao(v)}
+            aria-pressed={view === v}
+            className={`h-8 px-3 rounded-md t-rotulo transition-colors ${view === v ? 'bg-card text-foreground shadow-[0_0_0_1px_var(--border)]' : 'text-muted-foreground hover:text-foreground'}`}
           >
-            {v}
+            {v === 'mensal' ? 'Mensal' : 'Anual'}
           </button>
         ))}
       </div>
 
-      <button onClick={() => shift(-1)} aria-label="Período anterior" className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors">
-        <ChevronLeft className="w-4 h-4" />
-      </button>
+      <div className="flex items-center gap-1">
+        <button type="button" onClick={() => shift(-1)} aria-label={view === 'anual' ? 'Ano anterior' : 'Mês anterior'} className={`${caixa} w-9 grid place-items-center`}>
+          <ChevronLeft className="w-4 h-4" />
+        </button>
 
-      {view === 'mensal' ? (
-        <label className="relative cursor-pointer">
-          <span className="px-4 py-2 rounded-lg border border-gray-200 bg-white text-sm font-semibold text-gray-900 inline-block min-w-[170px] text-center">{rotulo}</span>
-          <input
-            type="month"
-            aria-label="Selecionar mês e ano"
-            value={`${year}-${String(month ?? 1).padStart(2, '0')}`}
-            onChange={(e) => {
-              const [y, m] = e.target.value.split('-').map(Number)
-              if (y && m) push({ year: y, month: m })
-            }}
-            className="absolute inset-0 opacity-0 cursor-pointer"
-          />
-        </label>
-      ) : (
-        <select
-          value={year}
-          onChange={(e) => push({ year: Number(e.target.value) })}
-          aria-label="Selecionar ano"
-          className="px-4 py-2 rounded-lg border border-gray-200 bg-white text-sm font-semibold text-gray-900 min-w-[170px] text-center"
-        >
-          {Array.from({ length: 7 }, (_, i) => new Date().getFullYear() - 3 + i).map((y) => (
-            <option key={y} value={y}>Ano de {y}</option>
-          ))}
-        </select>
-      )}
+        <div className="relative" ref={painel}>
+          <button
+            type="button"
+            onClick={() => { setAnoDoPainel(year); setAberto((a) => !a) }}
+            aria-haspopup="dialog"
+            aria-expanded={aberto}
+            className={`${caixa} min-w-[180px] px-3 inline-flex items-center justify-between gap-2 text-foreground`}
+          >
+            <span className="t-corpo font-semibold">{rotulo}</span>
+            <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${aberto ? 'rotate-180' : ''}`} />
+          </button>
 
-      <button onClick={() => shift(1)} aria-label="Próximo período" className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors">
-        <ChevronRight className="w-4 h-4" />
-      </button>
+          {aberto && (
+            <div role="dialog" aria-label="Escolher período" className="absolute left-0 top-full mt-1 z-30 w-[260px] rounded-[12px] border border-border bg-card p-3 shadow-[0_8px_24px_rgb(16_24_40/0.12)]">
+              <div className="flex items-center justify-between mb-2">
+                <button type="button" onClick={() => setAnoDoPainel((a) => a - 1)} aria-label="Ano anterior" className="w-8 h-8 grid place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground">
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="t-secao text-foreground tabular">{anoDoPainel}</span>
+                <button type="button" onClick={() => setAnoDoPainel((a) => a + 1)} aria-label="Próximo ano" className="w-8 h-8 grid place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground">
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+              {view === 'mensal' ? (
+                <div className="grid grid-cols-3 gap-1">
+                  {MESES.map((nome, i) => {
+                    const sel = anoDoPainel === year && i + 1 === month
+                    const atual = anoDoPainel === hoje.year && i + 1 === hoje.month
+                    return (
+                      <button
+                        key={nome}
+                        type="button"
+                        onClick={() => { push({ year: anoDoPainel, month: i + 1 }); setAberto(false) }}
+                        aria-current={sel ? 'date' : undefined}
+                        className={`h-9 rounded-md t-rotulo transition-colors ${
+                          sel ? 'bg-marca text-white' : atual ? 'bg-marca-suave text-marca-texto' : 'text-foreground hover:bg-accent'
+                        }`}
+                      >
+                        {nome.slice(0, 3)}
+                      </button>
+                    )
+                  })}
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => { push({ year: anoDoPainel }); setAberto(false) }}
+                  className="w-full h-9 rounded-md bg-primary text-primary-foreground t-rotulo"
+                >
+                  Ver o ano de {anoDoPainel}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        <button type="button" onClick={() => shift(1)} aria-label={view === 'anual' ? 'Próximo ano' : 'Próximo mês'} className={`${caixa} w-9 grid place-items-center`}>
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
 
       {!isCurrent && (
-        <button onClick={agora} className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors">
+        <button type="button" onClick={agora} className={`${caixa} px-3 inline-flex items-center gap-1.5 t-rotulo`}>
           <CalendarDays className="w-3.5 h-3.5" /> {view === 'anual' ? 'Ano atual' : 'Mês atual'}
         </button>
       )}
 
-      <span className="text-[11px] text-gray-400">
-        Posição em {refFmt}{isCurrent ? ' (período em andamento)' : ''}
+      <span className="t-legenda">
+        {isCurrent ? `Até hoje, ${refFmt}` : `Fechado em ${refFmt}`}
       </span>
     </div>
   )

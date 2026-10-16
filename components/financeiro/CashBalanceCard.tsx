@@ -40,7 +40,7 @@ export default function CashBalanceCard({ mes, href = '/financeiro?aba=caixa' }:
   return (
     <Link
       href={href}
-      className="block rounded-2xl p-5 text-white shadow-sm transition-transform hover:-translate-y-0.5"
+      className="flex h-full flex-col justify-between rounded-2xl p-5 text-white shadow-sm transition-transform hover:-translate-y-0.5"
       style={{ backgroundImage: 'linear-gradient(135deg, #030A8C 0%, #1B2BC4 55%, #3B4DF0 100%)' }}
     >
       <div className="flex items-start justify-between gap-3">

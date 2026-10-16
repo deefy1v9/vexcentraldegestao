@@ -1,27 +1,2062 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* A marca acompanha o tema já decidido no servidor, inclusive ao alternar. */
+.marca-vex-escura { display: none; }
+.dark .marca-vex-clara { display: none; }
+.dark .marca-vex-escura { display: block; }
+
+/* ═════════════════════════════════════════════════════════════════════
+ * Sistema visual VEX
+ *
+ * Tokens semânticos (shadcn/ui): trocar a identidade é trocar o valor por
+ * trás dos nomes — foi assim com a Lumora (#1) e é assim com a Critso (#11).
+ *
+ * ── A gramática de cor ──────────────────────────────────────────────
+ * PRIMARY (marca ou cor da conta) = interativo: botão, foco, item ativo.
+ * AZUL/VIOLETA = dado (séries de gráfico). Nunca um controle.
+ * As séries foram medidas com scripts/validate_palette.js; remedir antes de
+ * acrescentar série nova.
+ * ═════════════════════════════════════════════════════════════════════ */
+
+/* ═════════════════════════════════════════════════════════════════════
+ * Identidade VEX — a linguagem de um sistema de atendimento.
+ *
+ * Referência visual: helpdesk profissional com página cinza-claro quase
+ * branca, superfícies brancas separadas por borda fina, nenhuma sombra que
+ * se note, texto quase preto, e UM acento — o laranja da marca — só onde há
+ * ação: botão principal, item ativo do menu, foco, contador. Nada de
+ * gradientes nas superfícies gerais. O assistente tem um selo próprio
+ * em gradiente laranja e fundo laranja suave no balão, sem borda.
+ *
+ * O que o acento NÃO faz: pintar fundo de página, texto corrido, bordas gerais,
+ * sucesso, alerta ou erro. Verde é sucesso, âmbar é atenção, vermelho é
+ * erro — e sempre acompanhados de texto ou ícone. Azul é dado (gráfico).
+ * ═════════════════════════════════════════════════════════════════════ */
+:root {
+  color-scheme: light;
+
+  --background: #f5f6f8;
+  --foreground: #1f2430;
+
+  --card: #ffffff;
+  --card-foreground: #1f2430;
+  --popover: #ffffff;
+  --popover-foreground: #1f2430;
+
+  --primary: #f74a13;
+  --primary-foreground: #ffffff;
+  /* Hover do botão principal: um degrau mais escuro do MESMO laranja. Nunca
+     inverter cores no hover — o botão "piscava" preto. */
+  --primary-hover: #dd3f0e;
+
+  --secondary: #f2f4f7;
+  --secondary-foreground: #1f2430;
+
+  --muted: #f5f6f8;
+  --muted-foreground: #667085;
+  /* Placeholder, dica, texto terciário. */
+  --subtle: #98a2b3;
+
+  --accent: #f9fafb;
+  --accent-foreground: #1f2430;
+
+  --destructive: #d92d20;
+  --destructive-foreground: #ffffff;
+  --destructive-suave: #fee4e2;
+  --destructive-texto: #b42318;
+
+  --success: #15803d;
+  --success-suave: #dcfce7;
+  --warning: #b54708;
+  --warning-suave: #fef0c7;
+  --info: #175cd3;
+  --info-suave: #e0eaff;
+
+  /* Realces neutros, para o que precisa de fundo colorido sem significado. */
+  --realce-verde: #dcfce7;
+  --realce-azul: #e0eaff;
+  --realce-lilas: #ede9fe;
+  --realce-amarelo: #fef0c7;
+  --realce-salmao: #fee4e2;
+
+  /* Destaque: o ACENTO da área — item ativo do menu, quadrado do ícone do
+     card, o traço principal do gráfico. Laranja da marca; a cor da conta
+     entra por cima em .conta-tema. */
+  --destaque: #fff1eb;
+  --destaque-texto: var(--primary);
+  --destaque-suave: #fff1eb;
+  --destaque-suave-texto: #1f2430;
+
+  /* Roxo identifica o assistente nas demais telas. Nas mensagens, o selo
+     e as análises usam o gradiente laranja da VEX. O balão tem fundo suave. */
+  --ia: #7c3aed;
+  --ia-texto: #ffffff;
+  --ia-gradiente-inicio: color-mix(in srgb, var(--ia) 70%, var(--tag-rosa-fg));
+  --ia-gradiente-fim: color-mix(in srgb, var(--ia) 65%, var(--info));
+  --balao-ia-gradiente-inicio: var(--primary-hover);
+  --balao-ia-gradiente-meio: var(--primary);
+  --balao-ia-gradiente-fim: color-mix(in srgb, var(--primary) 45%, var(--tag-laranja-bg));
+
+  --border: #e4e7ec;
+  --input: #ffffff;
+  --ring: #f74a13;
+
+  /* A única sombra do sistema. Quase nula: o que separa um card do fundo é
+     a borda, não a sombra. */
+  --sombra-card: none;
+  --sombra-leve: 0 1px 2px rgba(16, 24, 40, 0.06);
+  --sombra-flutuante: 0 8px 24px -8px rgba(16, 24, 40, 0.18), 0 2px 6px rgba(16, 24, 40, 0.06);
+
+  /* 12px de raio nos cards; controles usam 8px; chips 6px. */
+  --radius: 0.75rem;
+
+  /* Os menus (o trilho e as colunas laterais: Configurações, pastas de
+     Mensagens, funis do Pipeline) no cinza claro da referência do dono
+     (04/10/2026), com os ícones em cinza-azulado e o ativo numa linha mais
+     escura, com o traço grafite na borda e o ícone cheio em grafite. */
+  --sidebar-background: #f4f4f5;
+  --sidebar-foreground: #667085;
+  --sidebar-primary: #f74a13;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #fff1eb;
+  --sidebar-accent-foreground: #1f2430;
+  --sidebar-border: #e4e4e7;
+  --sidebar-ring: #f74a13;
+  --sidebar-icone: #5a6377;
+  --sidebar-icone-ativo: var(--marca);
+  --sidebar-ativo: var(--marca-suave);
+  --sidebar-barra: var(--marca);
+
+  /* Marca da VEX Growth (o dono, 15/10): azul-marinho na seleção, no menu
+     ativo e nas abas. Laranja (--primary) fica só nas ações. */
+  --marca: #030A8C;
+  --marca-suave: #e8eaf8;
+  --marca-texto: #030A8C;
+
+  --chart-1: #f74a13;
+  --chart-2: #3b5bdb;
+
+  /* O card preto do painel ("Quem mais vendeu") e os pontos por pessoa na tabela. */
+  --card-escuro: #0b0c10;
+  --ponto-3: #22c55e;
+  --ponto-4: #a855f7;
+  --ponto-5: #eab308;
+  --ponto-6: #06b6d4;
+
+  /* Rampa ordinal do funil: monotônica, ΔL ≥ 0,06 entre passos vizinhos */
+  --funil-1: #9ec5f4;
+  --funil-2: #6da7ec;
+  --funil-3: #3987e5;
+  --funil-4: #256abf;
+  --funil-5: #184f95;
+  --funil-6: #103a6e;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-suave: var(--success-suave);
+  --color-destructive-suave: var(--destructive-suave);
+  --color-destructive-texto: var(--destructive-texto);
+  --color-warning: var(--warning);
+  --color-warning-suave: var(--warning-suave);
+  --color-info: var(--info);
+  --color-info-suave: var(--info-suave);
+  --color-primary-hover: var(--primary-hover);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-veu: var(--veu);
+  --color-segmento-ativo: var(--segmento-ativo);
+  --color-link: var(--link);
+
+  --color-sidebar: var(--sidebar-background);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-icone: var(--sidebar-icone);
+  --color-sidebar-icone-ativo: var(--sidebar-icone-ativo);
+  --color-sidebar-ativo: var(--sidebar-ativo);
+  --color-sidebar-barra: var(--sidebar-barra);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-subtle: var(--subtle);
+  --color-realce-verde: var(--realce-verde);
+  --color-realce-azul: var(--realce-azul);
+  --color-realce-lilas: var(--realce-lilas);
+  --color-realce-amarelo: var(--realce-amarelo);
+  --color-realce-salmao: var(--realce-salmao);
+  --color-ia: var(--ia);
+  --color-ia-texto: var(--ia-texto);
+  --color-destaque: var(--destaque);
+  --color-marca: var(--marca);
+  --color-marca-suave: var(--marca-suave);
+  --color-marca-texto: var(--marca-texto);
+  --color-destaque-texto: var(--destaque-texto);
+  --color-destaque-suave: var(--destaque-suave);
+  --color-destaque-suave-texto: var(--destaque-suave-texto);
+
+  --radius-lg: 0.5rem;
+  --radius-md: 0.5rem;
+  --radius-sm: 0.375rem;
+  --radius-xl: var(--radius);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  /* Coluna de número só alinha de verdade com figura tabular. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Nenhuma barra de rolagem desenhada, em lugar nenhum.
+ *
+ * Antes eram dois cinzas da paleta, para a barra do Windows não destoar do
+ * papel. Continuava sendo um risco vertical em cada coluna que rola — a
+ * fila, a conversa, o quadro, o painel do negócio — e numa tela com três
+ * colunas isso são três riscos concorrendo com o conteúdo.
+ *
+ * Rolar continua igual: roda do mouse, toque, teclado e a barra do sistema
+ * nos aparelhos que a mostram por cima. Só o desenho sai.
+ *
+ * `scrollbar-width` no `*` e não no `html`: no Firefox a propriedade vale
+ * por elemento que rola, e o que incomoda são justamente as colunas de
+ * dentro. */
+* {
+  scrollbar-width: none;
+}
+::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ═════════════════════════════════════════════════════════════════════
+ * Duas classes que sobraram das telas de configuração.
+ *
+ * O bloco .form-tela inteiro morreu quando /config e /conexoes viraram
+ * cards: 77 regras que existiam para dar forma a <label> e <input> soltos.
+ * Os campos agora usam os componentes e os utilitários; o que restou é o
+ * par que se repetiria em toda linha de formulário sem ganhar nada.
+ * ═════════════════════════════════════════════════════════════════════ */
+.rotulo {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+.campo {
+  display: block;
+  width: 100%;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--input);
+  padding: 0 12px;
+  font-size: 13px;
+  color: var(--foreground);
+  transition: border-color 0.15s;
+}
+.campo:hover { border-color: var(--subtle); }
+.campo:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ring) 25%, transparent);
+}
+.campo::placeholder { color: var(--subtle); }
+
+/* Trecho de código dentro de texto de ajuda: endereço, nome de chave. */
+.codigo {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11.5px;
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--secondary);
+  color: var(--foreground);
+}
+/* ═════════════════════════════════════════════════════════════════════
+ * Mensagens — a caixa de entrada
+ *
+ * Tudo isolado em classes .balao-* / .papel-de-parede / .etiqueta e nos
+ * tokens abaixo, para não repintar o resto do painel.
+ *
+ * O chat é uma superfície LISA, um passo abaixo do branco. Sem grade de
+ * pontos, sem brilho no canto: isso era decoração de "produto de IA". Os
+ * balões são planos, sem gradiente nem sombra, com raio de 12px: cliente
+ * no branco do cartão, à esquerda; assistente em laranja suave e atendente
+ * em cinza, à direita. O papel e o nome identificam quem escreveu.
+ * ═════════════════════════════════════════════════════════════════════ */
+:root {
+  --lista-ativa: var(--destaque);
+
+  --chat-fundo: #fafbfc;
+
+  /* O fim do degradê da marca (o começo é --primary): a moldura do balão do
+     agente de IA e o disco do ícone dele. Mais claro que o laranja cheio, para
+     a moldura ter movimento sem virar uma segunda cor. */
+  --degrade-marca-fim: #ff9a62;
+
+  --balao-nosso-fundo: var(--card);
+  --balao-nosso-borda: var(--border);
+  --balao-nosso-txt: var(--foreground);
+
+  --balao-assistente-fundo: var(--tag-laranja-bg);
+  --balao-atendente-fundo: var(--tag-cinza-bg);
+  --balao-autor-texto: var(--tag-cinza-fg);
+
+  --balao-deles-fundo: #f2f4f7;
+  --balao-deles-txt: #1f2430;
+  --balao-deles-borda: #f2f4f7;
+
+  /* Tags: oito cores NOMEADAS (lib/tags.ts: CORES), cada uma um fundo suave
+     e um texto que lê sobre ele (>= 4.5:1). O nome é o que o banco guarda;
+     o tema escuro repinta cada nome abaixo. O chip é components/ui/tag-chip. */
+  --tag-cinza-bg: #eaecf0;    --tag-cinza-fg: #344054;
+  --tag-laranja-bg: #ffe6d9;  --tag-laranja-fg: #b3390b;
+  --tag-vermelho-bg: #fee4e2; --tag-vermelho-fg: #b42318;
+  --tag-amarelo-bg: #fef0c7;  --tag-amarelo-fg: #93370d;
+  --tag-verde-bg: #dcfce7;    --tag-verde-fg: #166534;
+  --tag-azul-bg: #e0eaff;     --tag-azul-fg: #1d4ed8;
+  --tag-roxo-bg: #ebe9fe;     --tag-roxo-fg: #5925dc;
+  --tag-rosa-bg: #fce7f6;     --tag-rosa-fg: #c11574;
+
+  /* ─── As cores dos GRÁFICOS ─────────────────────────────────────────
+     A família da marca, com um NEUTRO como segunda série. Não é um
+     arco-íris de matizes: o painel é laranja, e um gráfico azul-e-roxo no
+     meio dele pareceria de outro produto.
+
+     A ordem é FIXA: a série 1 é sempre a primeira, em toda tela. Cor que
+     muda de lugar quando um filtro tira uma série faz o leitor comparar
+     coisas diferentes achando que são a mesma.
+
+     Conferidas com o validador de paleta, não no olho. Separação do par
+     principal: ΔE 28,9 sob protanopia e 42,2 na visão normal, onde o alvo
+     é 8. O validador reprova o slot 2 por croma baixo — de propósito: ele
+     não é um matiz, é o contraste, e é assim que os painéis de referência
+     fazem (laranja contra quase-preto). O que ele precisa garantir —
+     distinguir e contrastar com a superfície — passa com folga. */
+  --grafico-1: #e8500f;
+  --grafico-2: #1d2939;
+  --grafico-3: #f2994a;
+  --grafico-4: #98a2b3;
+
+  /* A rampa do FUNIL: um matiz só, escurecendo. Sequencial e não
+     categórica — as etapas não são categorias, são o mesmo grupo de gente
+     ficando menor, e cor diferente em cada uma sugeriria que são coisas
+     distintas. Luminosidade monotônica (0,29 → 0,12 em OKLCH) e texto
+     branco com 5,06:1 no degrau mais claro, calculado e não no olho. */
+  /* A rampa do CALENDÁRIO DE CALOR: sequencial, um matiz só, clareando
+     para o vazio. Luminosidade monotônica (0,805 → 0,157), que é a única
+     coisa que faz "mais escuro = mais" funcionar sem legenda. O nível 0 usa
+     o cinza da superfície: dia sem nada não é "pouco laranja", é nada. */
+  --calor-0: var(--secondary);
+  --calor-1: #fde3d3;
+  --calor-2: #f9b48c;
+  --calor-3: #f07a3c;
+  --calor-4: #c2450b;
+
+  --funil-1: #c2450b;
+  --funil-2: #a13a09;
+  --funil-3: #812e07;
+  --funil-4: #5f2205;
+  --funil-texto: #ffffff;
+
+  /* Interruptor desligado: --input é branco no claro, e o trilho sumia. */
+  --interruptor-desligado: #d0d5dd;
+  --interruptor-botao: #ffffff;
+
+  /* O véu atrás de diálogos e gavetas. Token, e não foreground/40: no tema
+     escuro o foreground é claro, e o véu virava uma névoa branca. */
+  --veu: rgba(16, 24, 40, 0.45);
+  /* O segmento ativo de um controle segmentado: "levantado" sobre o trilho
+     --secondary. No escuro o card é mais escuro que o trilho, então o token
+     sobe um degrau em vez de afundar. */
+  --segmento-ativo: #ffffff;
+  /* Link em texto corrido: a principal (#f74a13) sobre branco dá 3,9:1 —
+     reprova em texto pequeno. Um degrau mais escuro passa (5,1:1). */
+  --link: #c93a0e;
+
+  /* Avatar de contato sem foto: seis duplas dessaturadas (nenhuma laranja),
+     escolhidas pelo nome (inbox/ContactAvatar.tsx). */
+  --avatar-1-bg: #dbe7f8; --avatar-1-fg: #1d4f8f;
+  --avatar-2-bg: #d3f0e9; --avatar-2-fg: #0f5e4e;
+  --avatar-3-bg: #e2e6ec; --avatar-3-fg: #3a4756;
+  --avatar-4-bg: #f1dcec; --avatar-4-fg: #742e58;
+  --avatar-5-bg: #e6ebd3; --avatar-5-fg: #4b561b;
+  --avatar-6-bg: #e5e5ea; --avatar-6-fg: #2e2e33;
+}
+
+/* Tela cheia: três colunas com o padding do <main> viram três colunas
+   estreitas. Regra fora de @layer, então vence os utilitários do Tailwind
+   sem precisar de !important. */
+main:has([data-tela-cheia]),
+main:has([data-form-rodape-fixo]) {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+main:has([data-tela-cheia]) > .miolo,
+main:has([data-form-rodape-fixo]) > .miolo {
+  padding: 0;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* No celular, a conversa aberta toma a tela inteira: o cabeçalho global
+   (menu, título, sino) sai e fica só o da conversa, com a seta de voltar.
+   Dois cabeçalhos empilhados comiam um quarto da tela e liam como bagunça
+   (o dono, 29/09/2026: "olhe como está tudo perdido"). `data-conversa-aberta`
+   é o Inbox quem põe, enquanto há conversa escolhida. */
+@media (max-width: 767.98px) {
+  .casca:has([data-conversa-aberta]) .cabecalho-global {
+    display: none;
+  }
+  /* O botão do chat interno (03/10/2026) mora no canto de baixo, à direita,
+     que no celular é onde fica o Enviar da conversa com o cliente. Com uma
+     conversa aberta ele sai; a equipe abre o chat pela lista de Mensagens. */
+  .casca:has([data-conversa-aberta]) button[data-chat-interno] {
+    display: none;
+  }
+  /* Só o fim da lista rola acima do botão, sem uma faixa fixa na página. */
+  .casca:has(button[data-chat-interno]):not(:has([data-conversa-aberta])) [data-resultados-chats] {
+    padding-bottom: 48px;
+  }
+}
+/* Sem a coluna fixa de Detalhes, o atalho da equipe fica sobre a lista,
+   preservando o campo e as ações da conversa com o cliente. */
+@media (min-width: 768px) and (max-width: 1279.98px) {
+  .casca:has([data-conversa-aberta]) button[data-chat-interno] {
+    left: 96px;
+    right: auto;
+  }
+  .casca:has(button[data-chat-interno]):has([data-conversa-aberta]) [data-resultados-chats] {
+    padding-bottom: 48px;
+  }
+}
+/* Com Detalhes ao lado, o botão fica nesse canto. A última informação
+   permanece acessível ao rolar, sem reduzir a altura do chat ou da lista. */
+@media (min-width: 1280px) {
+  .casca:has(button[data-chat-interno]) [data-painel-detalhes] [data-conteudo-detalhes] {
+    padding-bottom: 48px;
+  }
+}
+
+/* A casca é quem rola (o <main>), nunca o documento: sem isto, qualquer
+   coisa que vaze para fora dela deixa a página inteira descer até o branco. */
+html:has(.casca),
+body:has(.casca) {
+  height: 100%;
+  overflow: clip;
+}
+/* O corpo fica preso ao viewport. Com overflow clip, âncoras e foco rolam
+   somente o main, preservando o cabeçalho na tela. */
+body:has(.casca) {
+  position: fixed;
+  inset: 0;
+}
+
+.papel-de-parede {
+  background-color: var(--chat-fundo);
+}
+
+.balao-nosso {
+  background: var(--balao-nosso-fundo);
+  color: var(--balao-nosso-txt);
+  border: 1px solid var(--balao-nosso-borda);
+  border-radius: 10px;
+}
+
+.balao-deles {
+  background: var(--balao-deles-fundo);
+  color: var(--balao-deles-txt);
+  border: 1px solid var(--balao-deles-borda);
+  border-radius: 10px;
+}
+
+/* Cauda só na última bolha do grupo — é o que faz três mensagens seguidas
+   lerem como uma fala só. */
+.balao-rabo-nosso { border-bottom-right-radius: 4px; }
+.balao-rabo-deles { border-bottom-left-radius: 4px; }
+
+/* Etiquetas do item da lista e do dossiê. Em CSS e não em utilitários porque
+   são cinco variações repetidas em três arquivos. */
+.etiqueta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  padding: 4px 7px;
+  border-radius: 6px;
+  background: var(--secondary);
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+.etiqueta-marca { background: var(--destaque); color: var(--destaque-texto); }
+.etiqueta-perigo { background: var(--destructive-suave); color: var(--destructive-texto); }
+.etiqueta-alerta { background: var(--warning-suave); color: var(--warning); }
+
+/* Campo de data no iPhone: com a aparência nativa o Safari dá ao campo a
+   largura do texto ("25 de set. de 2026") e ignora a da célula; a primeira
+   data saía cortada e a segunda passava por baixo do botão (01/10/2026). Sem
+   aparência, ele obedece a largura e o texto alinha à esquerda como os
+   outros campos. */
+input[type="date"] {
+  -webkit-appearance: none;
+  appearance: none;
+  min-width: 0;
+}
+input[type="date"]::-webkit-date-and-time-value {
+  text-align: left;
+  min-height: 1.2em;
+}
+.etiqueta-info { background: var(--info-suave); color: var(--info); }
+/* Desfecho de um atendimento finalizado. Verde só aqui: numa lista onde tudo
+   é urgência, a venda fechada é a única coisa que merece parecer resolvida. */
+.etiqueta-ganho { background: var(--success-suave); color: var(--success); }
+
+/* "Esperando nós": o cliente falou por último e ninguém respondeu. É o
+   equivalente honesto do ponto de não-lida — e o mesmo sinal que faz a
+   conversa subir na fila. */
+@keyframes respira {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 38%, transparent); }
+  50% { box-shadow: 0 0 0 4px transparent; }
+}
+/* Contador de não lidas do item da lista — o mesmo critério do WhatsApp. */
+.contador-nao-lidas {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.dot-espera {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--primary);
+  flex-shrink: 0;
+  animation: respira 2.4s ease-in-out infinite;
+}
+
+/* Faixa de abas: rola na horizontal sem desenhar barra. Hoje nenhuma barra
+   é desenhada (ver o bloco lá em cima), mas a classe fica: é ela que diz,
+   na marcação, que aquela faixa rola de lado de propósito. */
+.sem-barra { scrollbar-width: none; }
+.sem-barra::-webkit-scrollbar { display: none; }
+
+/* ═════════════════════════════════════════════════════════════════════
+ * Tema escuro — para as duas áreas, ligado pela classe `dark` no <html>
+ * (cookie vex_tema; ver app/layout.tsx e components/ThemeToggle.tsx).
+ *
+ * O pacote não traz tema escuro; este é derivado da paleta dele: o navy da
+ * barra vira o fundo da página, os cards sobem um degrau, o verde-limão vira
+ * o acento padrão (navy sobre navy sumiria). A cor da conta entra pela
+ * versão clareada (.conta-tema).
+ * ═════════════════════════════════════════════════════════════════════ */
+.dark {
+  color-scheme: dark;
+
+  --background: #030404;
+  --foreground: #edf1ef;
+
+  --card: #050606;
+  --card-foreground: var(--foreground);
+  --popover: #050606;
+  --popover-foreground: var(--foreground);
+
+  --primary: #ff6a35;
+  --primary-foreground: var(--background);
+  --primary-hover: #ff7d4f;
+
+  --secondary: #111515;
+  --secondary-foreground: var(--foreground);
+
+  --muted: #111515;
+  --muted-foreground: #a3adaa;
+  --subtle: #89938f;
+
+  --accent: #151a18;
+  --accent-foreground: #ffffff;
+
+  --destructive: #f97066;
+  --destructive-foreground: var(--background);
+  --destructive-suave: #3a1a17;
+  --destructive-texto: #f97066;
+
+  --success: #4ade80;
+  --success-suave: #14301f;
+  --warning: #fbbf24;
+  --warning-suave: #33240a;
+  --info: #84a9ff;
+  --info-suave: #16223d;
+
+  --realce-verde: #14301f;
+  --realce-azul: #16223d;
+  --realce-lilas: #251d3d;
+  --realce-amarelo: #33240a;
+  --realce-salmao: #3a1a17;
+
+  --destaque: #2a1a12;
+  --destaque-texto: var(--primary);
+  --destaque-suave: #2a1a12;
+  --destaque-suave-texto: var(--foreground);
+
+  --ia: #a78bfa;
+  --ia-texto: #1f1235;
+  --ia-gradiente-inicio: color-mix(in srgb, var(--ia) 70%, var(--tag-rosa-fg));
+  --ia-gradiente-fim: color-mix(in srgb, var(--ia) 65%, var(--info));
+  --balao-ia-gradiente-inicio: var(--primary-hover);
+  --balao-ia-gradiente-meio: var(--primary);
+  --balao-ia-gradiente-fim: color-mix(in srgb, var(--primary) 45%, var(--tag-laranja-bg));
+
+  --border: #252a28;
+  --input: #050606;
+  --ring: #ff6a35;
+
+  /* "none" aqui invalidava a lista inteira de box-shadow quando um
+     elemento combina a sombra com ring-* (o anel de seleção e o de foco
+     sumiam no escuro). Uma sombra nula VÁLIDA some do mesmo jeito e deixa
+     o anel aparecer. */
+  --sombra-card: 0 0 #0000;
+  --sombra-leve: 0 0 #0000;
+  --sombra-flutuante: 0 8px 24px -8px rgba(0, 0, 0, 0.6);
+
+  --sidebar-background: #050606;
+  --sidebar-foreground: var(--muted-foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-ring: var(--ring);
+  --sidebar-accent: #2a1a12;
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-icone: var(--muted-foreground);
+  --sidebar-icone-ativo: var(--marca-texto);
+  --sidebar-ativo: var(--marca-suave);
+  --sidebar-barra: var(--marca);
+
+  --marca: #6f7bff;
+  --marca-suave: #12163a;
+  --marca-texto: #aab2ff;
+
+  --chat-fundo: var(--background);
+  --balao-deles-fundo: var(--card);
+  --balao-deles-txt: var(--foreground);
+  --balao-deles-borda: var(--border);
+  --degrade-marca-fim: #ffb38f;
+  --balao-nosso-fundo: var(--card);
+  --balao-nosso-borda: var(--border);
+  --balao-nosso-txt: var(--foreground);
+
+  --balao-assistente-fundo: var(--tag-laranja-bg);
+  --balao-atendente-fundo: var(--tag-cinza-bg);
+  --balao-autor-texto: var(--tag-cinza-fg);
+
+  --tag-cinza-bg: #1d2320;    --tag-cinza-fg: #d0d8d4;
+  --tag-laranja-bg: #3d2013;  --tag-laranja-fg: #ffa079;
+  --tag-vermelho-bg: #3f1513; --tag-vermelho-fg: #fda29b;
+  --tag-amarelo-bg: #3b2a0c;  --tag-amarelo-fg: #fcd34d;
+  --tag-verde-bg: #0f2e1b;    --tag-verde-fg: #86efac;
+  --tag-azul-bg: #14224c;     --tag-azul-fg: #a4bcfd;
+  --tag-roxo-bg: #261b4d;     --tag-roxo-fg: #c9b8ff;
+
+  /* No escuro o neutro INVERTE: contra um fundo quase preto, a segunda
+     série só se distingue sendo clara. Separação do par: ΔE 25,1 sob
+     deutanopia. */
+  --grafico-1: #ff6a35;
+  --grafico-2: #e4e7ec;
+  --grafico-3: #ffa079;
+  --grafico-4: #98a2b3;
+
+  /* No escuro a rampa do funil INVERTE o sentido e o texto: contra um cartão
+     quase preto, laranja escuro some. Vira uma rampa clara com texto
+     quase-preto — 10,04:1 no degrau mais claro e 5,13:1 no mais escuro. */
+  /* No escuro a rampa inverte: contra um cartão quase preto, quem tem MAIS
+     precisa ser mais CLARO. */
+  --calor-0: var(--secondary);
+  --calor-1: #5f2205;
+  --calor-2: #9c3a0a;
+  --calor-3: #e8500f;
+  --calor-4: #ff9166;
+
+  --funil-1: #ffb38f;
+  --funil-2: #ff9166;
+  --funil-3: #ff7040;
+  --funil-4: #f05a1a;
+  --funil-texto: var(--card);
+  --tag-rosa-bg: #3e1331;     --tag-rosa-fg: #f9a8d4;
+
+  --interruptor-desligado: #37403b;
+  --interruptor-botao: var(--foreground);
+  --veu: rgba(0, 0, 0, 0.6);
+  --segmento-ativo: #1d2320;
+  --link: var(--primary);
+
+  --avatar-1-bg: #1e2a3d; --avatar-1-fg: #9db8e0;
+  --avatar-2-bg: #172e2a; --avatar-2-fg: #8fd3c2;
+  --avatar-3-bg: #252a28; --avatar-3-fg: #c2cbc6;
+  --avatar-4-bg: #33223a; --avatar-4-fg: #d9a8c8;
+  --avatar-5-bg: #262c1c; --avatar-5-fg: #bcc79a;
+  --avatar-6-bg: #2a2a30; --avatar-6-fg: #c6c6cc;
+}
+
+/* ═════════════════════════════════════════════════════════════════════
+ * Backoffice — a mesma identidade, sem a cor da conta.
+ *
+ * Entra pela classe `tema-vex`: no <html>, quando o host é o do backoffice
+ * (app/layout.tsx), e no wrapper do layout (admin). Antes o backoffice tinha
+ * uma barra navy própria; agora é o MESMO sistema que o cliente vê, e o que
+ * o distingue é o conteúdo. `.conta-tema` nunca é aplicada aqui, então o
+ * laranja da marca é fixo — é o que este bloco garante.
+ * ═════════════════════════════════════════════════════════════════════ */
+.tema-vex {
+  --primary: #f74a13;
+  --primary-hover: #dd3f0e;
+  --ring: #f74a13;
+  --destaque: #fff1eb;
+  --destaque-texto: var(--primary);
+  --sidebar-primary: #f74a13;
+  --sidebar-accent: #fff1eb;
+  --chart-1: #f74a13;
+}
+.dark .tema-vex,
+.dark.tema-vex {
+  --primary: #ff6a35;
+  --primary-hover: #ff7d4f;
+  --ring: #ff6a35;
+  --destaque: #2a1a12;
+  --destaque-texto: var(--primary);
+  --sidebar-primary: #ff6a35;
+  --sidebar-accent: #2a1a12;
+  --chart-1: #ff6a35;
+}
+
+/* ═════════════════════════════════════════════════════════════════════
+ * Marca da conta (white-label), nos dois temas — só a área do cliente.
+ *
+ * O layout do painel põe as variáveis `--c*` inline no wrapper (saídas de
+ * lib/cor.ts, a partir da cor principal e da secundária) e a classe
+ * .conta-tema. `--primary` é DEFINIDA aqui, no próprio wrapper, e por isso
+ * enxerga os valores inline — definida no <html>, não enxergaria.
+ *
+ * Onde a cor da conta entra: botão, foco, link, selo e indicador
+ * (--primary/--ring); item ativo do menu, quadrado do ícone e traço do
+ * gráfico (--destaque, da secundária); card pintado (--destaque-suave).
+ * Onde NÃO entra: fundos de página, textos, borda, sucesso, alerta, erro.
+ *
+ * No claro, a principal entra como foi gravada (já passa em AA contra
+ * branco); no escuro, a versão clareada, com o texto do botão escolhido
+ * pelo contraste. O card pintado tem a própria versão em cada tema.
+ * ═════════════════════════════════════════════════════════════════════ */
+.conta-tema {
+  --primary: var(--cp-l);
+  --primary-foreground: #ffffff;
+  /* Hover = a própria cor da conta, um degrau mais escura. */
+  --primary-hover: color-mix(in srgb, var(--cp-l) 86%, #000);
+  --ring: var(--cp-l);
+  --sidebar-primary: var(--cp-l);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-ring: var(--cp-l);
+  --sidebar-accent: var(--cs-l);
+  /* O destaque é o TINT da cor da conta (item ativo do menu, quadrado do
+     ícone), e o texto sobre ele é a cor da conta legível sobre branco. A
+     versão saturada (--cd) foi feita para uma barra escura que não existe
+     mais: usá-la aqui devolveria o quadrado saturado ao item ativo. */
+  --destaque: var(--cs-l);
+  --destaque-texto: var(--cp-l);
+  --destaque-suave: var(--cs-l);
+  --destaque-suave-texto: var(--cs-lfg);
+  --chart-1: var(--cp-l);
+}
+.dark .conta-tema {
+  --primary: var(--cp-d);
+  --primary-foreground: var(--cp-dfg);
+  --primary-hover: color-mix(in srgb, var(--cp-d) 86%, #fff);
+  --ring: var(--cp-d);
+  --sidebar-primary: var(--cp-d);
+  --sidebar-accent: var(--cs-d);
+  --destaque: var(--cs-d);
+  --destaque-texto: var(--cd);
+  --destaque-suave: var(--cs-d);
+  --destaque-suave-texto: var(--cs-dfg);
+  --chart-1: var(--cp-d);
+}
+
+
+/* <dialog> nativo: sem dependência de modal. Centralizado, com pano de
+   fundo; o resto é token. */
+dialog.caixa {
+  margin: auto;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--card-foreground);
+  max-width: min(480px, calc(100vw - 2rem));
+  width: 100%;
+  box-shadow: 0px 4px 24px 2px rgba(20, 25, 38, 0.10);
+}
+dialog.caixa::backdrop {
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(2px);
+}
+
+/* ═════════════════════════════════════════════════════════════════════
+ * Login — a foto do pacote respira: zoom lento, 30s por ida. Anima só
+ * transform (composto na GPU). O bloco de prefers-reduced-motion lá em
+ * cima a congela.
+ * ═════════════════════════════════════════════════════════════════════ */
+@keyframes foto-deriva {
+  0%   { transform: scale(1) translate3d(0, 0, 0); }
+  100% { transform: scale(1.12) translate3d(-2%, -1.5%, 0); }
+}
+.foto-deriva {
+  animation: foto-deriva 30s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+/* ═════════════════════════════════════════════════════════════════════
+ * Linguagem VEX — um sistema de atendimento, não "um painel com IA".
+ *
+ * Três decisões, e o resto deriva delas:
+ *
+ *   1. O assistente é UM dos que atendem, e aparece como tal: nome no
+ *      cabeçalho do balão e fundo laranja suave. O selo em gradiente laranja
+ *      identifica suas respostas; análises de mídia
+ *      usam a mesma estrela e o traço em gradiente.
+ *   2. Movimento curto e uniforme: 180ms. O suficiente para o olho ligar
+ *      causa e efeito; curto demais para virar espetáculo. Quem pediu menos
+ *      movimento (prefers-reduced-motion) já está coberto acima.
+ *   3. Hierarquia por peso e cor, não por tamanho. Título de página 18/600;
+ *      seção 14/600; corpo 13.5/400; rótulo 12/500; legenda 11.5 apagada.
+ *      Negrito é para o dado que decide, não para tudo.
+ * ═════════════════════════════════════════════════════════════════════ */
+:root {
+  --dur: 180ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* Transição padrão de qualquer coisa interativa. */
+.transicao {
+  transition:
+    color var(--dur) var(--ease),
+    background-color var(--dur) var(--ease),
+    border-color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease),
+    opacity var(--dur) var(--ease),
+    transform var(--dur) var(--ease);
+}
+
+/* Escala tipográfica. Classes, não componentes: cabem em qualquer tag. */
+.t-pagina { font-size: 18px; line-height: 1.25; font-weight: 600; letter-spacing: -0.01em; }
+.t-secao  { font-size: 14px; line-height: 1.3; font-weight: 600; letter-spacing: -0.005em; }
+.t-corpo  { font-size: 13.5px; line-height: 1.5; font-weight: 400; }
+.t-rotulo { font-size: 12px; line-height: 1.3; font-weight: 500; }
+.t-legenda { font-size: 11.5px; line-height: 1.4; font-weight: 400; color: var(--muted-foreground); }
+.t-meta   { font-size: 11.5px; line-height: 1.4; font-weight: 500; letter-spacing: normal; color: var(--muted-foreground); }
+
+/* A IA "pensando": um ponto que respira na cor da IA. Discreto — é um sinal
+   de que algo acontece nos bastidores, não um alerta. */
+@keyframes ia-pulso {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.8); }
+}
+.ia-pulso { animation: ia-pulso 1.6s var(--ease) infinite; }
+
+/* Entrada de item novo numa lista (conversa que chegou, linha nova na fila). */
+/* O gráfico "Dia a dia" (dashboard/GraficoDeLinhas): a linha se desenha na
+   entrada e a área aparece logo depois. */
+@keyframes vex-grafico-desenha { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+.vex-grafico-linha { stroke-dasharray: 1; animation: vex-grafico-desenha 1.1s cubic-bezier(.22, .8, .3, 1) both; }
+.vex-grafico-area { animation: surgir .6s .5s both; }
+/* A tracejada não passa pelo desenho (a classe acima fixa o dasharray): só aparece. */
+.vex-grafico-linha-tracejada { animation: surgir .5s .4s both; }
+@media (prefers-reduced-motion: reduce) { .vex-grafico-linha, .vex-grafico-linha-tracejada, .vex-grafico-area { animation: none; } .vex-grafico-linha { stroke-dasharray: none; } }
+
+@keyframes surgir {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.surgir { animation: surgir var(--dur) var(--ease) both; }
+
+/* Marcas das plataformas. WhatsApp, Instagram e Meta têm cor própria: é marca
+   de terceiro, não a do cliente — não entra no white-label e não muda com o
+   tema. Fica aqui, em token, para não haver hex solto nos componentes. */
+:root {
+  --marca-whatsapp: #25d366;
+  --marca-instagram: #e1306c;
+  --marca-meta: #0081fb;
+  /* O azul do Facebook (formulários de anúncio, Conexões). */
+  --marca-facebook: #0866ff;
+  --marca-instagram-de: #f9ce34;
+  --marca-instagram-meio: #ee2a7b;
+  --marca-instagram-ate: #6228d7;
+  /* O Google Agenda: as quatro cores do Google e o miolo branco da folhinha.
+     Fixas nos dois temas, como toda marca de terceiro. */
+  --marca-google-azul: #4285f4;
+  --marca-google-verde: #34a853;
+  --marca-google-amarelo: #fbbc04;
+  --marca-google-vermelho: #ea4335;
+  --marca-google-fundo: #ffffff;
+}
+.marca-whatsapp { background-color: var(--marca-whatsapp); }
+.marca-facebook { background-color: var(--marca-facebook); }
+/* O quadrado do Google é branco com uma linha, como o app na gaveta do
+   celular: a logo colorida é a marca, o fundo só a segura. */
+.marca-google {
+  background-color: var(--marca-google-fundo);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+.marca-instagram {
+  background-image: linear-gradient(
+    135deg,
+    var(--marca-instagram-de),
+    var(--marca-instagram-meio) 55%,
+    var(--marca-instagram-ate)
+  );
+}
+
+/* Texto de controle não é texto para copiar. Botão, aba, opção de lista e
+   rótulo de campo ficavam azuis de seleção ao arrastar o mouse ou dar dois
+   cliques — o detalhe que faz uma tela pronta parecer um formulário cru.
+   Vale para os <button> crus também, não só para o componente de botão. */
+button,
+[role="tab"],
+[role="option"],
+[role="radio"],
+label {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* A exceção: o que existe para ser copiado continua selecionável (endereço
+   do webhook, chave, id). */
+[data-copiavel],
+[data-copiavel] * {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* ── Ícones do menu vivos ──────────────────────────────────────────────────
+   No hover de um link com `.ico-vivo`, as partes do ícone (os <path> do
+   duotone, achados por nth-child na ordem do arquivo) se mexem uma de cada
+   vez: as barras do relatório sobem, os pontos do balão pulam, o check da
+   tarefa aparece. Curto (até 700ms), uma vez por hover, e nada quando a
+   pessoa pediu menos movimento. Fora do menu os ícones ficam parados. */
+.ico-vivo .ico :is(path, g, rect, circle) { transform-box: fill-box; transform-origin: center; }
+@keyframes ico-sobe   { 0% { transform: scaleY(0); } 70% { transform: scaleY(1.12); } 100% { transform: scaleY(1); } }
+@keyframes ico-desce  { 0% { transform: scaleY(0); } 70% { transform: scaleY(1.1); } 100% { transform: scaleY(1); } }
+@keyframes ico-pop    { 0% { transform: scale(0.2); opacity: 0; } 60% { transform: scale(1.18); opacity: 1; } 100% { transform: scale(1); } }
+@keyframes ico-pula   { 0%, 100% { transform: translateY(0); } 40% { transform: translateY(-2.2px); } }
+@keyframes ico-pisca  { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(0.12); } }
+@keyframes ico-acena  { 0%, 100% { transform: rotate(0); } 30% { transform: rotate(-16deg); } 70% { transform: rotate(14deg); } }
+@keyframes ico-voa    { 0% { transform: translate(0, 0); } 45% { transform: translate(2.4px, -2.4px); } 100% { transform: translate(0, 0); } }
+@keyframes ico-gira   { to { transform: rotate(90deg); } }
+@keyframes ico-cai    { 0% { transform: translate(0, 0); } 45% { transform: translate(1.4px, 1.6px); } 100% { transform: translate(0, 0); } }
+@keyframes ico-escorrega { 0% { transform: translateX(-3px); opacity: 0; } 100% { transform: translateX(0); opacity: 1; } }
+@keyframes ico-objeto-vivo {
+  0%, 100% { transform: translate(0, 0) rotate(0) scale(1); }
+  32% { transform: translate(0, -1.8px) rotate(-5deg) scale(1.04); }
+  68% { transform: translate(1.2px, 0.8px) rotate(4deg) scale(0.98); }
+}
+
+.ico-vivo:hover .ico:not(.ico-m) > path,
+.ico-vivo:hover .ico:not(.ico-m) > rect,
+.ico-vivo:hover .ico:not(.ico-m) > circle,
+.ico-vivo:hover .ico:not(.ico-m) > g > path,
+.ico-vivo:hover .ico:not(.ico-m) > g > rect,
+.ico-vivo:hover .ico:not(.ico-m) > g > circle,
+.ico-vivo:hover .ico:not(.ico-m) > g > g {
+  animation: ico-objeto-vivo 620ms var(--ease) both;
+}
+.ico-vivo:hover .ico:not(.ico-m) > :nth-child(2),
+.ico-vivo:hover .ico:not(.ico-m) > g > :nth-child(2) { animation-delay: 70ms; }
+.ico-vivo:hover .ico:not(.ico-m) > :nth-child(3),
+.ico-vivo:hover .ico:not(.ico-m) > g > :nth-child(3) { animation-delay: 140ms; }
+.ico-vivo:hover .ico:not(.ico-m) > :nth-child(4),
+.ico-vivo:hover .ico:not(.ico-m) > g > :nth-child(4) { animation-delay: 210ms; }
+.ico-vivo:hover .ico:not(.ico-m) > :nth-child(5),
+.ico-vivo:hover .ico:not(.ico-m) > g > :nth-child(5) { animation-delay: 280ms; }
+.ico-vivo:hover .ico:not(.ico-m) > :nth-child(n+6),
+.ico-vivo:hover .ico:not(.ico-m) > g > :nth-child(n+6) { animation-delay: 350ms; }
+
+/* Relatórios: as três barras sobem uma de cada vez (esquerda, meio, direita). */
+.ico-vivo:hover .ico-grafico g > path:nth-child(2) { transform-origin: bottom; animation: ico-sobe 420ms var(--ease) both; }
+.ico-vivo:hover .ico-grafico g > g > path:nth-child(1) { transform-origin: bottom; animation: ico-sobe 420ms var(--ease) 110ms both; }
+.ico-vivo:hover .ico-grafico g > g > path:nth-child(2) { transform-origin: bottom; animation: ico-sobe 420ms var(--ease) 220ms both; }
+
+/* Mensagens: os três pontos pulam em onda. */
+.ico-vivo:hover .ico-balao g > path:nth-child(3) { animation: ico-pula 460ms var(--ease) both; }
+.ico-vivo:hover .ico-balao g > path:nth-child(2) { animation: ico-pula 460ms var(--ease) 90ms both; }
+.ico-vivo:hover .ico-balao g > path:nth-child(4) { animation: ico-pula 460ms var(--ease) 180ms both; }
+
+/* Tarefas: o check aparece; o clipe pula. */
+.ico-vivo:hover .ico-tarefa g > path:nth-child(2) { animation: ico-pop 460ms var(--ease) 80ms both; }
+.ico-vivo:hover .ico-tarefa g > path:nth-child(3) { animation: ico-pula 420ms var(--ease) both; }
+
+/* Pipeline: as colunas descem do topo, uma de cada vez. */
+.ico-vivo:hover .ico-quadro g > path:nth-child(3) { transform-origin: top; animation: ico-desce 400ms var(--ease) both; }
+.ico-vivo:hover .ico-quadro g > path:nth-child(1) { transform-origin: top; animation: ico-desce 400ms var(--ease) 100ms both; }
+.ico-vivo:hover .ico-quadro g > path:nth-child(2) { transform-origin: top; animation: ico-desce 400ms var(--ease) 200ms both; }
+
+/* Agenda: os dias aparecem em sequência. */
+.ico-vivo:hover .ico-calendario g > path:nth-child(4) { animation: ico-pop 380ms var(--ease) 0ms both; }
+.ico-vivo:hover .ico-calendario g > path:nth-child(5) { animation: ico-pop 380ms var(--ease) 70ms both; }
+.ico-vivo:hover .ico-calendario g > path:nth-child(6) { animation: ico-pop 380ms var(--ease) 140ms both; }
+.ico-vivo:hover .ico-calendario g > path:nth-child(1) { animation: ico-pop 380ms var(--ease) 210ms both; }
+.ico-vivo:hover .ico-calendario g > path:nth-child(2) { animation: ico-pop 380ms var(--ease) 280ms both; }
+.ico-vivo:hover .ico-calendario g > path:nth-child(3) { animation: ico-pop 380ms var(--ease) 350ms both; }
+
+/* Início: os três blocos do painel se encaixam. */
+.ico-vivo:hover .ico-painel g > path:nth-child(1) { animation: ico-pop 400ms var(--ease) both; }
+.ico-vivo:hover .ico-painel g > path:nth-child(3) { animation: ico-pop 400ms var(--ease) 100ms both; }
+.ico-vivo:hover .ico-painel g > path:nth-child(2) { animation: ico-pop 400ms var(--ease) 200ms both; }
+
+/* Disparos: o avião decola um pouco e volta. */
+.ico-vivo:hover .ico-aviao { animation: ico-voa 520ms var(--ease) both; }
+
+/* Automações: os dois pinos pulam e os pontos acendem. */
+.ico-vivo:hover .ico-rotas g > g > path:nth-child(2) { animation: ico-pula 460ms var(--ease) both; }
+.ico-vivo:hover .ico-rotas g > g > path:nth-child(1) { animation: ico-pula 460ms var(--ease) 140ms both; }
+.ico-vivo:hover .ico-rotas g > path:nth-child(4) { animation: ico-pop 360ms var(--ease) 60ms both; }
+.ico-vivo:hover .ico-rotas g > path:nth-child(3) { animation: ico-pop 360ms var(--ease) 220ms both; }
+
+/* Agente de IA: os olhos piscam e a antena acena. */
+.ico-vivo:hover .ico-robo g > path:nth-child(3), .ico-vivo:hover .ico-robo g > path:nth-child(4) { animation: ico-pisca 360ms var(--ease) 120ms both; }
+.ico-vivo:hover .ico-robo g > path:nth-child(5) { transform-origin: bottom; animation: ico-acena 520ms var(--ease) both; }
+
+/* Objeções: a linha do gráfico escorrega para baixo e volta. */
+.ico-vivo:hover .ico-graficobaixo g > path:nth-child(2) { animation: ico-cai 520ms var(--ease) both; }
+
+/* Suporte: a interrogação acena e o ponto pula. */
+.ico-vivo:hover .ico-interrogacao g > path:nth-child(2) { transform-origin: bottom; animation: ico-acena 520ms var(--ease) both; }
+.ico-vivo:hover .ico-interrogacao g > path:nth-child(3) { animation: ico-pula 460ms var(--ease) 200ms both; }
+
+/* Configurações: a engrenagem gira um quarto de volta. */
+.ico-vivo:hover .ico-engrenagem g > path:nth-child(1) { animation: ico-gira 520ms var(--ease) both; }
+
+/* Coluna de configurações: um movimento por ícone, simples. */
+.ico-vivo:hover .ico-predios g > path:nth-child(2) { transform-origin: bottom; animation: ico-sobe 420ms var(--ease) both; }
+.ico-vivo:hover .ico-grupo g > path:nth-child(2), .ico-vivo:hover .ico-grupo g > path:nth-child(3) { animation: ico-pula 460ms var(--ease) both; }
+.ico-vivo:hover .ico-grupo g > g { animation: ico-pula 460ms var(--ease) 140ms both; }
+.ico-vivo:hover .ico-cartao g > path:nth-child(2) { animation: ico-escorrega 360ms var(--ease) both; }
+.ico-vivo:hover .ico-cartao g > path:nth-child(3) { animation: ico-escorrega 360ms var(--ease) 120ms both; }
+.ico-vivo:hover .ico-fone g > path:nth-child(2), .ico-vivo:hover .ico-fone g > path:nth-child(3) { animation: ico-pula 460ms var(--ease) both; }
+.ico-vivo:hover .ico-funil g > path:nth-child(2) { transform-origin: top; animation: ico-desce 420ms var(--ease) both; }
+.ico-vivo:hover .ico-etiqueta { transform-origin: top left; animation: ico-acena 560ms var(--ease) both; }
+.ico-vivo:hover .ico-caixa g > path:nth-child(3) { animation: ico-pula 460ms var(--ease) both; }
+.ico-vivo:hover .ico-documento g > path:nth-child(4) { animation: ico-escorrega 320ms var(--ease) both; }
+.ico-vivo:hover .ico-documento g > path:nth-child(3) { animation: ico-escorrega 320ms var(--ease) 100ms both; }
+.ico-vivo:hover .ico-documento g > path:nth-child(2) { animation: ico-escorrega 320ms var(--ease) 200ms both; }
+.ico-vivo:hover .ico-plugue g > path:nth-child(2) { animation: ico-pula 460ms var(--ease) both; }
+.ico-vivo:hover .ico-globo g > g { animation: ico-pisca 560ms var(--ease) both; }
+.ico-vivo:hover .ico-usuario g > path:nth-child(3) { animation: ico-pula 460ms var(--ease) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ico-vivo:hover .ico, .ico-vivo:hover .ico * { animation: none !important; }
+}
+
+/* Ícones de traço (lucide) num link/botão com .ico-vivo — as abas do Agente:
+   cada parte do desenho aparece em sequência, como nos duotone do menu. */
+.ico-vivo:hover svg.lucide > * { transform-box: fill-box; transform-origin: center; animation: ico-pop 380ms var(--ease) both; }
+.ico-vivo:hover svg.lucide > *:nth-child(2) { animation-delay: 70ms; }
+.ico-vivo:hover svg.lucide > *:nth-child(3) { animation-delay: 140ms; }
+.ico-vivo:hover svg.lucide > *:nth-child(4) { animation-delay: 210ms; }
+.ico-vivo:hover svg.lucide > *:nth-child(5) { animation-delay: 280ms; }
+.ico-vivo:hover svg.lucide > *:nth-child(6) { animation-delay: 350ms; }
+.ico-vivo:hover svg.lucide > *:nth-child(n+7) { animation-delay: 420ms; }
+
+/* Coluna de Configurações: mais vida, parte por parte. */
+.ico-vivo:hover .ico-predios g > path:nth-child(1) { transform-origin: bottom; animation: ico-sobe 440ms var(--ease) both; }
+.ico-vivo:hover .ico-predios g > path:nth-child(2) { transform-origin: bottom; animation: ico-sobe 440ms var(--ease) 140ms both; }
+.ico-vivo:hover .ico-cartao g > path:nth-child(4) { transform-origin: top; animation: ico-desce 360ms var(--ease) both; }
+.ico-vivo:hover .ico-cartao g > path:nth-child(2) { animation: ico-escorrega 360ms var(--ease) 140ms both; }
+.ico-vivo:hover .ico-cartao g > path:nth-child(3) { animation: ico-escorrega 360ms var(--ease) 260ms both; }
+.ico-vivo:hover .ico-fone g > path:nth-child(2) { animation: ico-pula 460ms var(--ease) both; }
+.ico-vivo:hover .ico-fone g > path:nth-child(3) { animation: ico-pula 460ms var(--ease) 120ms both; }
+.ico-vivo:hover .ico-funil g > path:nth-child(1) { transform-origin: top; animation: ico-desce 380ms var(--ease) both; }
+.ico-vivo:hover .ico-funil g > path:nth-child(2) { transform-origin: top; animation: ico-desce 380ms var(--ease) 140ms both; }
+.ico-vivo:hover .ico-etiqueta g > path:nth-child(2) { animation: ico-pop 380ms var(--ease) 160ms both; }
+.ico-vivo:hover .ico-etiqueta g > path:nth-child(3) { animation: ico-escorrega 360ms var(--ease) 260ms both; }
+.ico-vivo:hover .ico-caixa g > path:nth-child(2) { animation: ico-pula 460ms var(--ease) both; }
+.ico-vivo:hover .ico-caixa g > path:nth-child(3) { animation: ico-pop 400ms var(--ease) 120ms both; }
+.ico-vivo:hover .ico-plugue g > g { animation: ico-pop 400ms var(--ease) both; }
+.ico-vivo:hover .ico-plugue g > path:nth-child(2) { animation: ico-pula 460ms var(--ease) 120ms both; }
+.ico-vivo:hover .ico-globo g > path:nth-child(2), .ico-vivo:hover .ico-globo g > path:nth-child(3) { animation: ico-pop 380ms var(--ease) both; }
+.ico-vivo:hover .ico-globo g > path:nth-child(1) { animation: ico-pop 380ms var(--ease) 120ms both; }
+.ico-vivo:hover .ico-usuario g > path:nth-child(2) { transform-origin: bottom; animation: ico-sobe 400ms var(--ease) both; }
+.ico-vivo:hover .ico-usuario g > path:nth-child(3) { animation: ico-pop 380ms var(--ease) 140ms both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ico-vivo:hover svg.lucide > * { animation: none !important; }
+}
+
+/* ── iOS: o zoom ao tocar num campo ──────────────────────────────────────
+   O Safari do iPhone aproxima a página inteira quando o campo focado tem
+   fonte menor que 16px, e não desfaz sozinho: o cabeçalho fica gigante, as
+   mensagens saem pela direita e o botão de enviar some (foi assim que o
+   dono viu a conversa ao digitar). Abaixo de md todo campo de texto tem
+   16px; o desenho continua o mesmo, só a letra do campo cresce um pouco.
+   Preferível ao `maximum-scale=1` na viewport, que tira o zoom de quem
+   precisa dele para ler. */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  textarea,
+  select {
+    font-size: 16px !important; /* vence o text-[13.5px] do Tailwind, que é classe */
+  }
+}
+
+/* ── O cartão de destaque do Início: laranja claro e ondas de crescimento ──
+   O sólido --primary ficava escuro e pesado num bloco grande. Aqui um
+   gradiente que abre no claro, e duas ondas subindo (o desenho de
+   crescimento) que balançam devagar no fundo. O conteúdo fica por cima. */
+.vex-cartao-onda {
+  background: linear-gradient(135deg, #ff8a4c 0%, var(--primary) 52%, color-mix(in srgb, var(--primary) 82%, #000) 100%);
+}
+/* O balanço: anda de lado e sobe um tico, para a onda parecer viva sem
+   chamar atenção. Amplitude maior que a primeira versão, que quase não se
+   via; opacidade menor, para o texto continuar mandando no cartão. */
+@keyframes vex-onda-vai {
+  from { transform: translate(-26px, 3px); }
+  to   { transform: translate(26px, -3px); }
+}
+.vex-onda { will-change: transform; }
+/* A cor da onda vive aqui: a página do Início é conferida por teste e não
+   aceita cor literal (rgba/hex) no JSX. */
+.vex-onda-1 { fill: rgba(255, 255, 255, 0.07); }
+.vex-onda-2 { fill: rgba(255, 255, 255, 0.045); }
+.vex-onda-1 { animation: vex-onda-vai 7s ease-in-out infinite alternate; }
+.vex-onda-2 { animation: vex-onda-vai 11s ease-in-out infinite alternate-reverse; }
+@media (prefers-reduced-motion: reduce) { .vex-onda { animation: none; } }
+
+/* "Por canal" virou lista (components/inicio/CanaisDoPeriodo, o Início enxuto
+   de 02/10/2026): a rosca e o CSS dela saíram. */
+
+/* ═════════════════════════════════════════════════════════════════════
+ * Chat de Mensagens e dica do menu: superfícies neutras da VEX.
+ *
+ * Os seletores
+ * levam [data-autor] (só o balão do chat, MessageBubble, tem) ou
+ * [data-dica-menu] (só a dica do trilho, Sidebar), então as prévias de
+ * Disparos, Follow-up e Automações, que usam as mesmas classes, ficam como
+ * estão. Ganham das regras de cima por especificidade; dos utilitários do
+ * Tailwind, por estarem fora de @layer.
+ * ═════════════════════════════════════════════════════════════════════ */
+
+/* Conversas: fundos por autoria, contorno discreto e autor identificado em texto. */
+.papel-de-parede:has([data-autor]) {
+  background-color: var(--chat-fundo);
+  background-image: none;
+}
+.mt-3\.5:has(> [data-autor]) { margin-top: 1.5rem; }
+.mt-0\.5:has(> [data-autor]) { margin-top: 0.375rem; }
+.balao-nosso[data-autor],
+.balao-deles[data-autor] {
+  border-radius: var(--radius);
+  padding: 10px 16px;
+  box-shadow: none;
+}
+.balao-deles[data-autor] {
+  background: var(--card);
+  color: var(--foreground);
+  border-color: var(--border);
+}
+.balao-rabo-nosso[data-autor] { border-bottom-right-radius: 6px; }
+.balao-rabo-deles[data-autor] { border-bottom-left-radius: 6px; }
+
+/* A autoria define a cor, inclusive no tema escuro. Os textos pequenos
+   usam tokens legíveis sobre os dois fundos; os alertas continuam vermelhos. */
+.balao-nosso[data-autor="human"],
+.mensagem-assistente[data-autor] {
+  --muted-foreground: var(--balao-autor-texto);
+  --destructive: var(--destructive-texto);
+}
+.balao-nosso[data-autor="human"] {
+  background: var(--balao-atendente-fundo);
+}
+
+/* O gradiente tem três tons distintos do laranja da VEX. Selo e análises
+   de mídia usam a mesma composição; o balão tem fundo sólido e sem borda. */
+.mensagem-assistente[data-autor] {
+  border: 0;
+  border-radius: var(--radius);
+  border-top-left-radius: 0;
+  background: var(--balao-assistente-fundo);
+}
+.selo-lateral-ia {
+  --selo-chanfro: 6px;
+  --selo-filete: 3px;
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 0;
+  clip-path: polygon(
+    var(--selo-chanfro) 0, 100% 0, 100% 100%,
+    var(--selo-chanfro) 100%, 0 calc(100% - var(--selo-chanfro)), 0 var(--selo-chanfro)
+  );
+  color: var(--primary-foreground);
+  background: linear-gradient(135deg, var(--balao-ia-gradiente-inicio) 0%, var(--balao-ia-gradiente-meio) 45%, var(--balao-ia-gradiente-fim) 100%);
+}
+.selo-lateral-ia::before {
+  content: "";
+  position: absolute;
+  inset: var(--selo-filete);
+  border: 1px solid color-mix(in srgb, var(--primary-foreground) 26%, transparent);
+  clip-path: inherit;
+  pointer-events: none;
+}
+.selo-lateral-ia > svg {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  color: inherit;
+}
+/* A aba nasce do topo do balão. A aresta direita reta e a sobreposição de
+   4px unem as duas peças; os chanfros ficam somente na lateral externa. */
+.selo-resposta-ia {
+  z-index: 1;
+  align-self: flex-start;
+  margin-top: 0;
+  margin-right: -12px;
+}
+.selo-analise-ia {
+  --selo-chanfro: 4px;
+  --selo-filete: 2px;
+  width: 24px;
+  height: 24px;
+}
+.selo-analise-ia > svg {
+  width: 14px;
+  height: 14px;
+}
+@media (max-width: 767.98px) {
+  .selo-lateral-ia {
+    --selo-chanfro: 4px;
+    --selo-filete: 2px;
+    width: 24px;
+    height: 24px;
+  }
+  .selo-lateral-ia > svg {
+    width: 14px;
+    height: 14px;
+  }
+}
+.conteudo-gerado-ia {
+  position: relative;
+}
+.conteudo-gerado-ia::before {
+  content: "";
+  position: absolute;
+  inset-block: 1px;
+  left: 0;
+  width: 2px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--balao-ia-gradiente-inicio) 0%, var(--balao-ia-gradiente-meio) 45%, var(--balao-ia-gradiente-fim) 100%);
+  pointer-events: none;
+}
+
+/* A largura disponível do chat decide onde cabem as ações do cabeçalho. */
+.cabecalho-conversa {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.cabecalho-conversa [data-linha-do-nome] {
+  flex: 1 1 240px;
+  max-width: 480px;
+}
+.cabecalho-conversa [data-linha-acoes] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  min-width: 0;
+  max-width: 100%;
+  margin-left: auto;
+}
+.cabecalho-conversa [data-ferramentas-cabecalho],
+.cabecalho-conversa [data-atendimento-cabecalho] {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+/* A altura vale só para os atalhos. Modais e menus dessas ações possuem
+   botões de conteúdo e véus próprios, que precisam conservar suas medidas. */
+.cabecalho-conversa [data-ferramentas-cabecalho] > button,
+.cabecalho-conversa [data-atendimento-cabecalho] > button {
+  height: 36px;
+  flex-shrink: 0;
+}
+@container chat (max-width: 760px) {
+  .cabecalho-conversa {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+  }
+  .cabecalho-conversa [data-linha-do-nome] {
+    flex: none;
+    width: 100%;
+    max-width: 100%;
+  }
+  .cabecalho-conversa [data-linha-acoes] {
+    width: 100%;
+    margin-left: 0;
+  }
+}
+/* As duas faixas têm funções e larguras estáveis no celular e no chat
+   estreito do tablet. Só gatilhos diretos recebem estas medidas. */
+@container chat (max-width: 560px) {
+  .cabecalho-conversa {
+    gap: 10px;
+  }
+  .cabecalho-conversa [data-linha-do-nome] {
+    gap: 8px;
+  }
+  .cabecalho-conversa [data-linha-do-nome] > button {
+    width: 44px;
+    height: 44px;
+  }
+  .cabecalho-conversa [data-contato-cabecalho] {
+    gap: 8px;
+    padding: 0;
+    background: transparent;
+  }
+  .cabecalho-conversa .avatar-cabecalho {
+    width: 36px;
+    height: 36px;
+  }
+  .cabecalho-conversa [data-metadados-cabecalho] {
+    gap: 3px 6px;
+    font-size: 11px;
+  }
+  .cabecalho-conversa [data-situacao-cabecalho] {
+    flex-basis: 100%;
+    max-width: 100%;
+  }
+  .cabecalho-conversa [data-linha-acoes] {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .cabecalho-conversa [data-ferramentas-cabecalho] {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+  .cabecalho-conversa [data-ferramentas-cabecalho] > button {
+    flex-direction: column;
+    gap: 3px;
+    width: 100%;
+    min-width: 0;
+    height: 44px;
+    padding: 4px;
+    border: 0;
+    background: var(--secondary);
+    color: var(--muted-foreground);
+    font-size: 11px;
+  }
+  .cabecalho-conversa [data-ferramentas-cabecalho] > button:hover {
+    background: var(--accent);
+    color: var(--foreground);
+  }
+  .cabecalho-conversa [data-ferramentas-cabecalho] > button > span {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1.15;
+  }
+  .cabecalho-conversa [data-atendimento-cabecalho] > button {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+    height: 44px;
+    padding-inline: 8px;
+    font-size: 12.5px;
+  }
+  .cabecalho-conversa [data-atendimento-cabecalho] > button > span {
+    display: inline;
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    overflow: visible;
+    clip: auto;
+    clip-path: none;
+  }
+}
+
+/* Dicas do menu: superfície sólida, compartilhando os tokens dos popovers. */
+[data-dica-menu] {
+  width: 220px;
+  padding: 12px 14px;
+  color: var(--popover-foreground);
+  background: var(--popover);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  box-shadow: var(--sombra-leve);
+}
+[data-dica-menu] > span + span {
+  margin-top: 4px;
+  color: var(--muted-foreground);
+  opacity: 1;
+}
+
+/* Logo do menu recolhido um pouco maior (o dono, 01/10): 44 → 54px. Só CSS,
+   pelo endereço da imagem; a linha do <Image> na Sidebar fica como está. */
+aside img[src*="vex-sales-favicon"] {
+  width: 54px;
+  height: 54px;
+}
+
+/* ── Degradê laranja da marca nos destaques (o dono, 01/10) ─────────────────
+   "Onde é laranja cheio, degradê laranja puxado para o claro." Tudo por CSS
+   sobre o que já existe: os cartões e as faixas continuam com a cor sólida
+   por baixo (bg-primary / var(--grafico-1)), e isto pinta por cima.
+
+   O cartão laranja dos Relatórios: do laranja claro no canto superior direito
+   ao --primary embaixo à esquerda, esticado até o meio. Os dois do Início
+   (Negócios e Atendimento) ficam SÓLIDOS: o dono, 01/10/2026, "a tela do
+   Início com menos cara de IA". */
+section[aria-label="O período em um olhar"] > .bg-primary:first-child {
+  background-image: none;
+}
+/* Atendimento: o rótulo e o número em cima; o resto (a frase, a ressalva e
+   "Abrir a fila") embaixo. */
+section[aria-label="A espera e o período"] > .bg-primary:first-child > div:first-child {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+section[aria-label="A espera e o período"] > .bg-primary:first-child > div:first-child > div {
+  margin-top: auto;
+  padding-top: 12px;
+}
+/* Relatórios: o rótulo, o valor e a linha da variação em cima; só a ressalva
+   ("soma dos negócios ganhos…") embaixo. A Manchete de dentro tinha o próprio
+   fundo laranja: fica transparente para o degradê do cartão aparecer. */
+section[aria-label="O período em um olhar"] > .bg-primary:first-child {
+  justify-content: flex-start;
+}
+section[aria-label="O período em um olhar"] > .bg-primary:first-child > div {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+}
+section[aria-label="O período em um olhar"] > .bg-primary:first-child > div > p:last-child {
+  margin-top: auto;
+  padding-top: 12px;
+}
+/* Mensagens: a pasta escolhida. */
+button[aria-current="true"].bg-primary {
+  background-image: none;
+}
+/* Faixas em HTML pintadas com var(--grafico-1) ("Quem está atendendo" e as
+   bolinhas das legendas): o mesmo laranja, em degradê. */
+/* As roscas e as barras radiais dos Relatórios: o gradiente em SVG mora em
+   components/DegradesDaMarca.tsx. Linha (traço fino) fica de fora: num traço
+   reto o gradiente por caixa não pinta. */
+/* O caminho do lead: a rampa do funil puxada para o claro no tema claro (o
+   escuro já é clara). Continua escurecendo de etapa em etapa. */
+:root:not(.dark) {
+  --funil-1: #ff9a62;
+  --funil-2: #fb8148;
+  --funil-3: #f9682f;
+  --funil-4: #f74a13;
+}
+
+/* Abas do Início no celular (01/10): "Negócios · Atendimento · Atenção · Fila"
+   com os contadores passavam da tela e a página inteira arrastava de lado.
+   Menos respiro entre as abas e, se ainda não couber, elas rolam sozinhas. */
+@media (max-width: 639px) {
+  nav[aria-label="Visões"] {
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+  nav[aria-label="Visões"]::-webkit-scrollbar { display: none; }
+  nav[aria-label="Visões"] > a { padding-inline: 8px; }
+}
+
+/* ── Trilho laranja com a aba que desliza (o dono, 01/10) ───────────────────
+   Só o trilho de 80px no estilo "laranja" (Sidebar, ESTILO_DO_TRILHO, que
+   escreve data-trilho; a gaveta do celular fica como está). O fundo vira o
+   degradê da marca, os ícones ficam brancos, e o item ativo ganha a aba da
+   cor da página (components/shell/AbaDoTrilho.tsx), colada na borda direita.
+   A barrinha laranja do ativo (Marcador) sai: some
+   no laranja. */
+aside[data-trilho="laranja"] {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--degrade-marca-fim) 75%, var(--primary)) 0%, var(--primary) 70%);
+  border-right-width: 0;
+  color: #fff;
+}
+/* A logo da VEX no topo do trilho, fixa e toda branca (o dono, 01/10): a
+   versão colorida tem uma metade laranja que some no fundo laranja. */
+aside[data-trilho="laranja"] img[src*="vex-sales-favicon"] {
+  filter: brightness(0) invert(1);
+}
+/* A aba fica POR CIMA dos destinos (o hover de quem está ao lado não pinta
+   sobre ela) e só o destino ativo fica por cima da aba. */
+aside[data-trilho="laranja"] a[aria-current="page"] {
+  position: relative;
+  z-index: 2;
+}
+aside[data-trilho="laranja"] a:not([aria-current="page"]) {
+  color: rgb(255 255 255 / 0.9);
+}
+/* Hover dos destinos não selecionados: sem fundo; o ícone sobe 1px e cresce
+   um pouco (as partes dele continuam animando, pelo .ico-vivo). */
+aside[data-trilho="laranja"] a:not([aria-current="page"]):hover {
+  background: transparent;
+  color: #fff;
+}
+aside[data-trilho="laranja"] a:not([aria-current="page"]) > span {
+  transition: transform 0.2s var(--ease);
+}
+aside[data-trilho="laranja"] a:not([aria-current="page"]):hover > span {
+  transform: translateY(-1px) scale(1.05);
+}
+aside[data-trilho="laranja"] [data-marcador] {
+  display: none;
+}
+aside[data-trilho="laranja"] .bg-sidebar-border {
+  background: rgb(255 255 255 / 0.28);
+}
+aside[data-trilho="laranja"] .border-sidebar-border {
+  border-color: rgb(255 255 255 / 0.22);
+}
+/* O contador laranja some no laranja: vira branco com número laranja. */
+aside[data-trilho="laranja"] [data-contador] {
+  background: #fff;
+  color: var(--primary);
+}
+[data-aba-trilho] {
+  position: absolute;
+  top: 0;
+  left: 12px;
+  right: 0;
+  height: 48px;
+  z-index: 1;
+  /* 24px = metade da altura: a ponta da aba é um semicírculo (o dono, 02/10). */
+  border-radius: 24px 0 0 24px;
+  /* --corte (AbaDoTrilho): onde o cabeçalho termina. Acima dele a aba é da
+     cor do cabeçalho, com a linha de borda; abaixo, da cor da página. */
+  background: linear-gradient(to bottom, var(--card) 0, var(--card) calc(var(--corte, -99px) - 1px), var(--border) calc(var(--corte, -99px) - 1px), var(--border) var(--corte, -99px), var(--background) var(--corte, -99px));
+  opacity: 0;
+  pointer-events: none;
+}
+[data-aba-trilho][data-visivel] {
+  opacity: 1;
+}
+aside:not([data-trilho="laranja"]) [data-aba-trilho] {
+  display: none;
+}
+[data-aba-trilho][data-pronto] {
+  transition: transform 0.45s cubic-bezier(0.65, 0, 0.35, 1), height 0.3s ease, opacity 0.2s ease;
+}
+/* As curvas invertidas, em cima e embaixo, na borda direita, com raio de
+   24px (mais curvadas, o dono, 02/10). 25px de altura para entrarem 1px na
+   aba: sem a sobra aparecia uma fresta na emenda. */
+[data-aba-trilho]::before,
+[data-aba-trilho]::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  width: 24px;
+  height: 25px;
+}
+[data-aba-trilho]::before {
+  top: -24px;
+  background: linear-gradient(to bottom, var(--card) 0, var(--card) calc(var(--corte, -99px) + 23px), var(--border) calc(var(--corte, -99px) + 23px), var(--border) calc(var(--corte, -99px) + 24px), var(--background) calc(var(--corte, -99px) + 24px));
+  -webkit-mask: radial-gradient(circle at 0 0, transparent 23.5px, #000 24px);
+  mask: radial-gradient(circle at 0 0, transparent 23.5px, #000 24px);
+}
+[data-aba-trilho]::after {
+  bottom: -24px;
+  background: var(--background);
+  -webkit-mask: radial-gradient(circle at 0 100%, transparent 23.5px, #000 24px);
+  mask: radial-gradient(circle at 0 100%, transparent 23.5px, #000 24px);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-aba-trilho][data-pronto] { transition: none; }
+  aside[data-trilho="laranja"] a:not([aria-current="page"]):hover > span { transform: none; }
+}
+
+/* ── Sem a barra de cima no computador (o dono, 01/10) ──────────────────────
+   O perfil e o tema foram para Configurações; o sino e o Sair, para o pé do
+   trilho (shell/AcoesDoTrilho). No celular a barra fica: é ela que abre a
+   gaveta do menu. */
+@media (min-width: 768px) {
+  header.cabecalho-global {
+    display: none;
+  }
+}
+aside[data-trilho="laranja"] [data-pe-trilho] button,
+aside[data-trilho="laranja"] [data-pe-trilho] button:hover,
+aside[data-trilho="laranja"] [data-pe-trilho] button[data-state="open"] {
+  color: #fff;
+  background: transparent;
+}
+[data-pe-trilho] button > * {
+  transition: transform 0.2s var(--ease);
+}
+[data-pe-trilho] button:hover > * {
+  transform: translateY(-1px) scale(1.05);
+}
+/* O nome da tela (shell/TituloDaTela) some onde a tela já tem o próprio <h1>. */
+main:has(h1:not([data-titulo-tela] h1)) [data-titulo-tela] {
+  display: none;
+}
+
+/* Ajustes depois do #157 (o dono, 01/10):
+   - Os destinos do trilho com 3px a mais entre si, e o contador (49, 99+)
+     sempre por cima da aba: colados no ativo, ficavam meio cobertos.
+   - Tela cheia (Pipeline): o título é branco, como a barra de ferramentas
+     logo abaixo dele, e alinha com ela.
+   - O cabeçalho que a própria tela monta (PageHeader, nos Relatórios) com
+     respiro antes dos filtros de período: sem a barra de cima, eles
+     encostavam no título. */
+/* Os destinos juntos e o ativo com folga em cima e embaixo (o dono, 02/10):
+   as curvas da aba (24px) ocupam o vão entre ele e os vizinhos, e sem a
+   folga encostavam nos ícones de cima e de baixo. A margem anda junto com a
+   aba (AbaDoTrilho mede a cada quadro enquanto ela anda). */
+aside[data-trilho="laranja"] [data-destino] {
+  margin-block: 0;
+  transition: margin 0.45s cubic-bezier(0.65, 0, 0.35, 1);
+}
+aside[data-trilho="laranja"] [data-destino]:has(> a[aria-current="page"]) {
+  margin-block: 16px;
+}
+/* O contador sobre o ícone, por cima da aba. O tamanho (número em 10px) vem
+   do componente desde 04/10: os 8,5px de antes não se liam. */
+aside[data-trilho="laranja"] [data-contador] {
+  z-index: 3;
+}
+@media (prefers-reduced-motion: reduce) {
+  aside[data-trilho="laranja"] [data-destino] { transition: none; }
+}
+main:has([data-tela-cheia]) > [data-titulo-tela] {
+  background: var(--card);
+  padding: 20px 16px 14px;
+}
+.miolo > header:first-child + .mb-5 {
+  margin-top: 14px;
+}
+
+/* As barras hachuradas do gráfico grande do Início (a referência do dono,
+   01/10/2026): listras finas na cor da borda; o melhor dia vem cheio. */
+.barra-hachurada {
+  background: repeating-linear-gradient(135deg, var(--border) 0 2px, transparent 2px 7px);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+/* Os cartões de plano (Conta › Assinatura, a referência do dono, 01/10/2026):
+   a moldura em degradê da casa em volta do plano em destaque (a aba "Melhor
+   escolha" / "Seu plano" fica na própria moldura) e o botão dele. */
+.moldura-degrade {
+  background: var(--primary);
+}
+.botao-degrade {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.botao-degrade:hover { background: var(--primary-hover); }
+
+/* ── Meta do mês e Vendas por dia da semana em degradê (o dono, 01/10) ─────
+   O arco da meta: do laranja claro no começo ao cheio perto da meta
+   (gradiente em components/DegradesDaMarca). A barra do melhor dia: claro em
+   cima, cheio embaixo. */
+span.max-w-\[36px\].rounded-full.bg-primary {
+  background: var(--primary);
+}
+
+/* Relatórios › topo (o dono, 02/10): os cinco números numa faixa só, como em
+   Início › Negócios. A seção de antes, logo depois da faixa, sai de cena. */
+[data-faixa-relatorios] + section[aria-label="O período em um olhar"] {
+  display: none;
+}
+
+/* "O ritmo" novo (components/relatorios/MapaDoRitmo, o dono, 01/10): o
+   calendário antigo, logo depois dele, sai de cena. */
+[data-calendario-ritmo] + * {
+  display: none;
+}
+
+/* Configurações: a coluna da seção (Empresa, Equipe, Assinatura…) no mesmo
+   cinza da aba do trilho, como a coluna de pastas de Mensagens (o dono,
+   02/10). Sem a linha à direita, a aba emenda direto nela. O hover ganha
+   fundo branco, que o cinza do hover antigo sumia no cinza novo. */
+aside.w-\[232px\] {
+  background: var(--sidebar-background);
+  border-right-color: var(--sidebar-border);
+}
+aside.w-\[232px\] nav a:not([aria-current="page"]):hover {
+  background: var(--card);
+}
+
+/* ── Celular (o dono, 02/10) ────────────────────────────────────────────────
+   O X da gaveta dentro do menu, no canto de cima; o período com "de", "até"
+   e "Aplicar" numa linha; o primeiro card da faixa de números na largura
+   toda e os outros em 2×2; e a barra de baixo (shell/BarraInferior). */
+@media (max-width: 767.98px) {
+  .casca button.-right-11[aria-label="Fechar menu"] {
+    right: 12px;
+    background: var(--secondary);
+    box-shadow: none;
+  }
+}
+@media (min-width: 380px) and (max-width: 639.98px) {
+  form:has(> input[name="periodo"][value="custom"]) {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    gap: 6px;
+  }
+  form:has(> input[name="periodo"][value="custom"]) > button[type="submit"] {
+    grid-column: auto;
+    justify-self: stretch;
+    padding-inline: 12px;
+  }
+}
+@media (max-width: 639.98px) {
+  form:has(> input[name="periodo"][value="custom"]) input[type="date"] {
+    padding-inline: 10px;
+    font-size: 12px;
+  }
+  /* O ícone do calendário empurrava o campo para fora da tela; no celular
+     tocar em qualquer ponto do campo já abre o calendário. */
+  form:has(> input[name="periodo"][value="custom"]) input[type="date"]::-webkit-calendar-picker-indicator {
+    display: none;
+  }
+  section[aria-label="Os números do período"] > :first-child,
+  section[aria-label="Os números do relatório"] > :first-child {
+    grid-column: 1 / -1;
+  }
+}
+
+/* A barra de baixo: branca, arredondada e flutuando acima do pé da tela;
+   Mensagens no centro, num círculo laranja elevado; o indicador laranja
+   desliza até o destino da página. */
+[data-barra-inferior] {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  z-index: 30;
+  height: 64px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  align-items: center;
+  border-radius: 24px;
+  background: var(--card);
+  box-shadow: 0 10px 30px -12px rgb(15 23 42 / 0.28), 0 0 0 1px var(--border);
+}
+/* Só no celular: fora de layer esta regra venceria o md:hidden do componente. */
+@media (min-width: 768px) {
+  [data-barra-inferior] {
+    display: none;
+  }
+}
+[data-barra-inferior] > [data-indicador] {
+  position: absolute;
+  top: 6px;
+  left: 0;
+  width: 6px;
+  height: 6px;
+  margin-left: -3px;
+  border-radius: 999px;
+  background: var(--primary);
+  pointer-events: none;
+}
+[data-barra-inferior] > [data-indicador][data-pronto] {
+  transition: transform 0.45s cubic-bezier(0.65, 0, 0.35, 1), opacity 0.2s ease;
+}
+.vex-bi-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: 100%;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--muted-foreground);
+  -webkit-tap-highlight-color: transparent;
+}
+.vex-bi-item[aria-current="page"] {
+  color: var(--primary);
+  font-weight: 600;
+}
+.vex-bi-item:active > span:first-child {
+  transform: scale(0.92);
+}
+.vex-bi-centro > span:first-child {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  margin-top: -30px;
+  border-radius: 999px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--degrade-marca-fim) 0%, var(--primary) 100%);
+  box-shadow: 0 10px 20px -8px color-mix(in srgb, var(--primary) 70%, transparent), 0 0 0 5px var(--background);
+}
+.vex-bi-centro[aria-current="page"] > span:first-child {
+  box-shadow: 0 10px 20px -8px color-mix(in srgb, var(--primary) 70%, transparent), 0 0 0 5px var(--background), 0 0 0 7px color-mix(in srgb, var(--primary) 35%, transparent);
+}
+.vex-bi-contador {
+  position: absolute;
+  top: -6px;
+  right: -10px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+  background: var(--primary);
+  box-shadow: 0 0 0 2px var(--card);
+}
+.vex-bi-centro .vex-bi-contador {
+  top: -2px;
+  right: -2px;
+  color: var(--primary);
+  background: #fff;
+  box-shadow: 0 0 0 2px var(--primary);
+}
+@media (max-width: 767.98px) {
+  /* Páginas comuns: o conteúdo termina acima da barra, e o espaço rola junto
+     com o <main>. */
+  /* Todo respiro da barra só vale com ela NA TELA (.casca:has(...)): desligada
+     (BARRA_INFERIOR_LIGADA, 02/10/2026), o celular volta a terminar onde a
+     página termina, sem um vão vazio no pé. */
+  .casca:has([data-barra-inferior]) main > .miolo {
+    padding-bottom: 104px;
+  }
+  /* Tela cheia (Mensagens, Pipeline, editor de automações): o fundo vai até o
+     pé da tela, POR BAIXO da barra, que flutua. Quem rola reserva o espaço no
+     fim da própria rolagem ([data-rola-sob-barra]), para o último item subir
+     acima da barra e do botão do centro. Antes o respiro ficava no <main>
+     (88px) e no .miolo (104px, esta regra de cima empatava com a da tela
+     cheia e vencia por vir depois): virava uma faixa cinza fixa de 190px
+     tapando a lista de conversas (o dono, 02/10). A tela cheia com rodapé
+     próprio (o "Falta ajustar" do editor de automações) usa
+     [data-acima-da-barra]: ela inteira termina acima da barra. */
+  .casca:has([data-barra-inferior]) main:has([data-tela-cheia]) > .miolo {
+    padding-bottom: 0;
+  }
+  .casca:has([data-barra-inferior]) [data-rola-sob-barra],
+  .casca:has([data-barra-inferior]) [data-acima-da-barra] {
+    padding-bottom: calc(112px + env(safe-area-inset-bottom));
+  }
+  /* Com a conversa aberta, a barra sai: ali o pé é da caixa de escrever. */
+  .casca:has([data-conversa-aberta]) [data-barra-inferior] {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-barra-inferior] > [data-indicador][data-pronto] { transition: none; }
+}
+
+/* Ajustes do dono, 02/10:
+   - O ícone ativo do trilho 2px mais para a direita: centrado na aba (que
+     começa 12px depois da borda), e não no trilho.
+   - Pipeline: a coluna dos funis no cinza da aba, como as pastas de
+     Mensagens e a coluna de Configurações; o hover e a busca em branco. */
+aside[data-trilho="laranja"] a[aria-current="page"] > span {
+  transform: translateX(2px);
+}
+[data-tela-cheia] div.w-\[232px\].bg-card,
+[data-tela-cheia] div.w-11.border-r.bg-card {
+  background: var(--sidebar-background);
+}
+[data-tela-cheia] div.w-\[232px\].bg-card button:not([aria-current="true"]):hover {
+  background: var(--card);
+}
+[data-tela-cheia] div.w-\[232px\].bg-card input.bg-secondary {
+  background: var(--card);
+}
+
+/* ── Trilho claro (o dono, 04/10/2026, com a referência que mandou) ────────
+   O estilo "claro" do trilho (Sidebar, ESTILO_DO_TRILHO): o cinza dos menus,
+   sem a aba que desliza. As cores (ícone, ativo, linha, traço) são os tokens
+   --sidebar-*, nas classes da Sidebar; aqui só o movimento e o sino. */
+/* O hover não pinta fundo: o ícone sobe 1px e cresce um pouco, como no laranja. */
+aside[data-trilho="claro"] a > span {
+  transition: transform 0.2s var(--ease);
+}
+aside[data-trilho="claro"] a:not([aria-current="page"]):hover > span {
+  transform: translateY(-1px) scale(1.05);
+}
+/* O sino (lucide) com o mesmo traço e tamanho dos ícones do trilho: pequeno,
+   ele destoava dos de cima. */
+aside[data-trilho] [data-pe-trilho] svg.lucide {
+  width: 24px;
+  height: 24px;
+  stroke-width: 1.6;
+}
+/* O sino no pé, da cor dos ícones; o grafite do ativo ao passar o mouse. */
+aside[data-trilho="claro"] [data-pe-trilho] button {
+  color: var(--sidebar-icone);
+}
+aside[data-trilho="claro"] [data-pe-trilho] button:hover,
+aside[data-trilho="claro"] [data-pe-trilho] button[data-state="open"] {
+  color: var(--sidebar-icone-ativo);
+  background: transparent;
+}
+@media (prefers-reduced-motion: reduce) {
+  aside[data-trilho="claro"] a:not([aria-current="page"]):hover > span { transform: none; }
+}
+
+/* ── Os ícones do menu vivos (o dono, 04/10/2026: "daria para deixá-los
+   animados?") ───────────────────────────────────────────────────────────────
+   Os ícones do Phosphor (icones/menu) são um desenho de uma peça só, então
+   quem anima é o ícone inteiro, uma vez, ao passar o mouse no destino
+   (.ico-vivo), com um movimento que diz o que ele é: o avião voa e volta, a
+   engrenagem gira, o raio pisca, o robô mexe a cabeça. O destino que vira
+   ativo entra com um "pop" (a versão cheia nasce ao navegar). O sino, que
+   não é destino, toca ao passar o mouse. Quem pede menos movimento ao
+   sistema não vê nada disso. */
+@keyframes icm-pula { 0%, 100% { transform: translateY(0); } 35% { transform: translateY(-3px); } 65% { transform: translateY(0); } 82% { transform: translateY(-1px); } }
+@keyframes icm-balanca { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-10deg); } 55% { transform: rotate(8deg); } 80% { transform: rotate(-3deg); } }
+@keyframes icm-estica { 0%, 100% { transform: scaleY(1); } 35% { transform: scaleY(0.84); } 70% { transform: scaleY(1.08); } }
+@keyframes icm-pop { 0%, 100% { transform: scale(1); } 35% { transform: scale(0.84); } 70% { transform: scale(1.12); } }
+@keyframes icm-voa {
+  0% { transform: translate(0, 0); opacity: 1; }
+  40% { transform: translate(7px, -7px); opacity: 0; }
+  41% { transform: translate(-7px, 7px); opacity: 0; }
+  100% { transform: translate(0, 0); opacity: 1; }
+}
+@keyframes icm-pisca { 0%, 100% { transform: scale(1); opacity: 1; } 20% { transform: scale(1.14); } 35% { opacity: 0.35; } 50% { opacity: 1; } 62% { opacity: 0.5; } 75% { opacity: 1; } }
+@keyframes icm-gira { 0% { transform: rotate(0); } 100% { transform: rotate(120deg); } }
+@keyframes icm-meia-volta { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-28deg); } }
+@keyframes icm-desliza { 0%, 100% { transform: translateX(0); } 45% { transform: translateX(3px); } }
+@keyframes icm-sino { 0%, 100% { transform: rotate(0); } 15% { transform: rotate(14deg); } 32% { transform: rotate(-12deg); } 50% { transform: rotate(8deg); } 68% { transform: rotate(-5deg); } 84% { transform: rotate(2deg); } }
+@keyframes icm-entra { 0% { transform: scale(0.6); opacity: 0.4; } 65% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); } }
+
+@media (prefers-reduced-motion: no-preference) {
+  .ico-vivo:hover .ico-m.ico-linha { animation: icm-pop 480ms var(--ease) both; }
+  .ico-vivo:hover .ico-m-painel.ico-linha,
+  .ico-vivo:hover .ico-m-predios.ico-linha,
+  .ico-vivo:hover .ico-m-caixa.ico-linha,
+  .ico-vivo:hover .ico-m-grupo.ico-linha { animation: icm-pula 520ms var(--ease) both; }
+  .ico-vivo:hover .ico-m-balao.ico-linha,
+  .ico-vivo:hover .ico-m-interrogacao.ico-linha,
+  .ico-vivo:hover .ico-m-fone.ico-linha,
+  .ico-vivo:hover .ico-m-etiqueta.ico-linha { animation: icm-balanca 620ms var(--ease) both; transform-origin: 30% 90%; }
+  .ico-vivo:hover .ico-m-robo.ico-linha { animation: icm-balanca 620ms var(--ease) both; transform-origin: 50% 100%; }
+  .ico-vivo:hover .ico-m-calendario.ico-linha { animation: icm-balanca 620ms var(--ease) both; transform-origin: 50% 0%; }
+  .ico-vivo:hover .ico-m-quadro.ico-linha,
+  .ico-vivo:hover .ico-m-lista.ico-linha { animation: icm-estica 480ms var(--ease) both; transform-origin: 50% 0%; }
+  .ico-vivo:hover .ico-m-funil.ico-linha { animation: icm-estica 480ms var(--ease) both; transform-origin: 50% 100%; }
+  .ico-vivo:hover .ico-m-aviao.ico-linha { animation: icm-voa 640ms var(--ease) both; }
+  .ico-vivo:hover .ico-m-rotas.ico-linha { animation: icm-pisca 620ms var(--ease) both; }
+  .ico-vivo:hover .ico-m-engrenagem.ico-linha { animation: icm-gira 640ms var(--ease) both; }
+  .ico-vivo:hover .ico-m-grafico.ico-linha,
+  .ico-vivo:hover .ico-m-globo.ico-linha { animation: icm-meia-volta 620ms var(--ease) both; }
+  .ico-vivo:hover .ico-m-cartao.ico-linha,
+  .ico-vivo:hover .ico-m-plugue.ico-linha { animation: icm-desliza 480ms var(--ease) both; }
+
+  /* O destino que acabou de virar ativo. */
+  .ico-m.ico-cheio { animation: icm-entra 380ms var(--ease) both; }
+
+  /* O sino do pé do trilho toca. */
+  [data-pe-trilho] button:hover .lucide-bell { animation: icm-sino 700ms var(--ease) both; transform-origin: 50% 0%; }
+}
+
+
+
+/* ═════════════ herdado da Central ═════════════ */
 
 * {
   box-sizing: border-box;
 }
 
+/* --primary, --background e --border saíram daqui: valem os tokens da VEX
+   (laranja nas ações, fundo neutro). O azul-marinho fica só na marca. */
 :root {
-  --primary: #030A8C;
   --primary-dark: #02077a;
   --orange: #F74A13;
-  --background: #F0F2F8;
   --surface: #ffffff;
-  --border: #E5E7EB;
   --text: #111827;
   --text-secondary: #6B7280;
   --hover: #F3F4F6;
 }
 
-body {
-  background: var(--background);
-  color: var(--text);
-  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-  -webkit-font-smoothing: antialiased;
-}
+/* body da Central removido: o sistema visual do VEX Sales define fundo, cor e fonte */
 
 /* Utility input class */
 .input {

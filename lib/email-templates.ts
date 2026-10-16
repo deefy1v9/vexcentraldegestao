@@ -79,18 +79,18 @@ function button(label: string, url: string, secondary?: boolean): string {
   const color = secondary ? C.navy : '#FFFFFF'
   const border = secondary ? `1px solid ${C.navy}` : `1px solid ${C.navy}`
   return `<table role="presentation" cellpadding="0" cellspacing="0" style="display:inline-table;margin:6px 6px 0;">
-    <tr><td style="border-radius:10px;background:${bg};border:${border};">
-      <a href="${escapeHtml(url)}" style="display:inline-block;padding:14px 32px;font-family:${FONT};font-size:15px;font-weight:600;color:${color};text-decoration:none;border-radius:10px;">${escapeHtml(label)}</a>
+    <tr><td style="border-radius:10px;background:${bg} !important;border:${border};">
+      <a href="${escapeHtml(url)}" style="display:inline-block;padding:14px 32px;font-family:${FONT};font-size:15px;font-weight:600;color:${color} !important;text-decoration:none;border-radius:10px;">${escapeHtml(label)}</a>
     </td></tr></table>`
 }
 
 export function renderLayout(o: LayoutOpts): string {
   const details = o.details && o.details.length > 0
     ? `<tr><td style="padding:20px 40px 0;">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.boxBg};border-radius:12px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.boxBg} !important;border-radius:12px;">
           ${o.details.map(([k, v], i) => `<tr>
-            <td style="padding:${i === 0 ? 14 : 8}px 18px ${i === o.details!.length - 1 ? 14 : 8}px;font-family:${FONT};font-size:13px;color:${C.muted};width:42%;">${escapeHtml(k)}</td>
-            <td style="padding:${i === 0 ? 14 : 8}px 18px ${i === o.details!.length - 1 ? 14 : 8}px;font-family:${FONT};font-size:14px;color:${C.text};font-weight:600;text-align:right;">${v}</td>
+            <td style="padding:${i === 0 ? 14 : 8}px 18px ${i === o.details!.length - 1 ? 14 : 8}px;font-family:${FONT};font-size:13px;color:${C.muted} !important;width:42%;">${escapeHtml(k)}</td>
+            <td style="padding:${i === 0 ? 14 : 8}px 18px ${i === o.details!.length - 1 ? 14 : 8}px;font-family:${FONT};font-size:14px;color:${C.text} !important;font-weight:600;text-align:right;">${v}</td>
           </tr>`).join('')}
         </table>
       </td></tr>`
@@ -101,7 +101,7 @@ export function renderLayout(o: LayoutOpts): string {
     : ''
 
   const badge = o.badge
-    ? `<span style="display:inline-block;margin-bottom:12px;padding:4px 12px;border-radius:999px;background:${o.badge.color}1A;color:${o.badge.color};font-family:${FONT};font-size:12px;font-weight:700;letter-spacing:.3px;">${escapeHtml(o.badge.text)}</span><br>`
+    ? `<span style="display:inline-block;margin-bottom:12px;padding:4px 12px;border-radius:999px;background:${o.badge.color}1A !important;color:${o.badge.color} !important;font-family:${FONT};font-size:12px;font-weight:700;letter-spacing:.3px;">${escapeHtml(o.badge.text)}</span><br>`
     : ''
 
   return `<!doctype html>
@@ -112,24 +112,24 @@ export function renderLayout(o: LayoutOpts): string {
 <meta name="x-apple-disable-message-reformatting">
 <title>${escapeHtml(o.title)}</title>
 </head>
-<body style="margin:0;padding:0;background:#F5F6FA;">
+<body style="margin:0;padding:0;background:#F5F6FA !important;">
 <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${escapeHtml(o.preheader ?? o.intro)}</div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F5F6FA;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F5F6FA !important;">
 <tr><td align="center" style="padding:32px 12px;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#FFFFFF;border-radius:18px;overflow:hidden;border:1px solid #E9EBF2;">
-    <tr><td style="padding:0;line-height:0;background:#05081A;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#FFFFFF !important;border-radius:18px;overflow:hidden;border:1px solid #E9EBF2;">
+    <tr><td style="padding:0;line-height:0;background:#05081A !important;">
       <img src="${HEADER_IMG}" width="600" alt="VEX Growth" style="display:block;width:100%;max-width:600px;height:auto;border:0;">
     </td></tr>
     <tr><td align="center" style="padding:16px 40px 0;">
       ${badge}
-      <h1 style="margin:0 0 12px;font-family:${FONT};font-size:22px;line-height:1.3;font-weight:700;color:${C.text};">${escapeHtml(o.title)}</h1>
-      <p style="margin:0;font-family:${FONT};font-size:15px;line-height:1.65;color:${C.muted};">${escapeHtml(o.intro)}</p>
+      <h1 style="margin:0 0 12px;font-family:${FONT};font-size:22px;line-height:1.3;font-weight:700;color:${C.text} !important;">${escapeHtml(o.title)}</h1>
+      <p style="margin:0;font-family:${FONT};font-size:15px;line-height:1.65;color:${C.muted} !important;">${escapeHtml(o.intro)}</p>
     </td></tr>
     ${details}
     ${ctas}
-    ${o.extraHtml ? `<tr><td style="padding:20px 40px 0;font-family:${FONT};font-size:14px;line-height:1.65;color:${C.text};">${o.extraHtml}</td></tr>` : ''}
+    ${o.extraHtml ? `<tr><td style="padding:20px 40px 0;font-family:${FONT};font-size:14px;line-height:1.65;color:${C.text} !important;">${o.extraHtml}</td></tr>` : ''}
     <tr><td style="padding:30px 40px 0;"><div style="border-top:1px dashed ${C.line};height:0;line-height:0;">&nbsp;</div></td></tr>
-    <tr><td align="center" style="padding:22px 40px 6px;font-family:${FONT};font-size:13px;line-height:1.6;color:${C.muted};">${o.help}</td></tr>
+    <tr><td align="center" style="padding:22px 40px 6px;font-family:${FONT};font-size:13px;line-height:1.6;color:${C.muted} !important;">${o.help}</td></tr>
     <tr><td align="center" style="padding:8px 40px 34px;font-family:${FONT};font-size:13px;">
       <a href="${SITE_URL}" style="color:${C.muted};text-decoration:underline;">vexgrowth.com.br</a>
     </td></tr>

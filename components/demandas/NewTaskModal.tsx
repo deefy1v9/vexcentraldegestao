@@ -3,19 +3,22 @@
 import { useRef, useState } from 'react'
 import { Paperclip, X } from 'lucide-react'
 import { PLATFORMS, PRIORITY_CONFIG, type TaskPriority, type TaskStatus } from '@/lib/demandas-core'
-import type { Option, Task } from './types'
+import type { Option, ProcessOption, Task } from './types'
 
 /** Criação de demanda (admin). A data final é obrigatória: o processo deriva dela. */
 export default function NewTaskModal({
-  clients, users, defaultAssignee, onClose, onCreated,
+  clients, users, processes = [], defaultAssignee, onClose, onCreated,
 }: {
   clients: Option[]
   users: Option[]
+  processes?: ProcessOption[]
   defaultAssignee: string
   onClose: () => void
   onCreated: (t: Task) => void
 }) {
   const [title, setTitle] = useState('')
+  // Processo define a rota de etapas; o primeiro da lista é o de conteúdo
+  const [processId, setProcessId] = useState(processes[0]?.id ?? '')
   const [desc, setDesc] = useState('')
   const [client, setClient] = useState('')
   const [assignee, setAssignee] = useState(defaultAssignee)
@@ -41,6 +44,7 @@ export default function NewTaskModal({
         // Sem escolha explícita, o backend herda a prioridade do grupo do cliente
         priority: priorityTouched ? priority : null,
         clientId: client || null, assigneeId: assignee || null, dueDate: due, platform: platform || null,
+        processId: processId || null,
       }),
     })
     if (!res.ok) {
@@ -72,6 +76,15 @@ export default function NewTaskModal({
             <label className="text-xs font-medium text-gray-600 mb-1 block">Título *</label>
             <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ex.: Nobre · POST 13 · Ela achou que tinha perdido a bolsa" className={`${input} font-semibold`} />
           </div>
+          {processes.length > 0 && (
+            <div>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">Processo *</label>
+              <select value={processId} onChange={(e) => setProcessId(e.target.value)} className={input}>
+                {processes.map((p) => <option key={p.id} value={p.id}>{p.name} · {p.stageCount} etapas</option>)}
+              </select>
+              <p className="text-[10px] text-gray-400 mt-1">A demanda começa na primeira etapa do processo, com o responsável dela.</p>
+            </div>
+          )}
           <div>
             <label className="text-xs font-medium text-gray-600 mb-1 block">Briefing</label>
             <textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={5} placeholder={'COPY DA ARTE\n...\n\nLEGENDA\n...\n\nHASHTAGS\n#...'} className={`${input} resize-none font-mono text-xs`} />

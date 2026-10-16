@@ -54,6 +54,8 @@ model User {
   scheduledTasks   Task[]           @relation("TaskScheduler")
   taskComments     TaskComment[]
   taskEvents       TaskEvent[]
+  processStages    ProcessStage[]
+  teams            TeamMember[]
   salaryContracts  SalaryContract[]
   financialEntries FinancialEntry[]
   aiImports        AiImport[]
@@ -72,9 +74,9 @@ model User {
   ownedOpportunities   Opportunity[]      @relation("OpportunityOwner")
   createdOpportunities Opportunity[]      @relation("OpportunityCreator")
   opportunityEvents    OpportunityEvent[]
-  aiAgents             AiAgent[]             @relation("AiAgentCreator")
-  cashMovements        CashMovement[]        @relation("CashPartner")
-  cashCreated          CashMovement[]        @relation("CashCreator")
+  aiAgents             AiAgent[]          @relation("AiAgentCreator")
+  cashMovements        CashMovement[]     @relation("CashPartner")
+  cashCreated          CashMovement[]     @relation("CashCreator")
 }
 
 model Client {
@@ -509,8 +511,8 @@ model ServiceCatalog {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  clientServices    ClientService[]
-  opportunityItems  OpportunityItem[]
+  clientServices   ClientService[]
+  opportunityItems OpportunityItem[]
 }
 
 // Vigência de valor: alterar o negociado nunca reescreve o passado.
@@ -622,6 +624,17 @@ model Task {
   reminderProductionAt DateTime?
   reminderReviewAt     DateTime?
 
+  // Processo (rota de etapas). Sem processo, vale o fluxo fixo antigo.
+  processId      String?
+  stageId        String?
+  // Equipe da etapa atual: sem responsável, a tarefa fica na fila dela
+  teamId         String?
+  stageEnteredAt DateTime?
+  // Itens de checklist marcados: "stageId:indice"
+  checklistDone  String[]  @default([])
+  // Campos preenchidos nas etapas: { [stageId]: { link?, nota?, ... } }
+  processData    Json?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -631,6 +644,9 @@ model Task {
   producer    User?            @relation("TaskProducer", fields: [producerId], references: [id])
   reviewer    User?            @relation("TaskReviewer", fields: [reviewerId], references: [id])
   scheduler   User?            @relation("TaskScheduler", fields: [schedulerId], references: [id])
+  process     Process?         @relation(fields: [processId], references: [id])
+  stage       ProcessStage?    @relation(fields: [stageId], references: [id])
+  team        Team?            @relation(fields: [teamId], references: [id])
   comments    TaskComment[]
   attachments TaskAttachment[]
   events      TaskEvent[]
@@ -673,6 +689,85 @@ model TaskAttachment {
   createdAt DateTime @default(now())
 
   task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+// Processo: a rota de etapas de um tipo de entrega (site, LP, logo, conteúdo
+// para redes...). Admin cria e edita. Cada demanda segue um processo e anda
+// etapa por etapa; o status antigo (TaskStatus) é espelhado da etapa, para
+// quadro, calendário, lembretes e o assistente continuarem funcionando.
+model Process {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  color       String   @default("#030A8C")
+  active      Boolean  @default(true)
+  position    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  stages ProcessStage[]
+  tasks  Task[]
+}
+
+model ProcessStage {
+  id                String     @id @default(cuid())
+  processId         String
+  position          Int
+  name              String
+  instructions      String?
+  // EXECUCAO (alguém faz e conclui) | APROVACAO (aprova ou devolve) | FINAL
+  kind              String     @default("EXECUCAO")
+  // Status antigo que a demanda assume nesta etapa
+  status            TaskStatus @default(EM_ANDAMENTO)
+  // Quem assume: PRODUTOR | REVISOR | AGENDADOR | (vazio = defaultUserId)
+  role              String?
+  defaultUserId     String?
+  // Equipe que assume a etapa: com uma pessoa só, vai direto para ela;
+  // com mais, a tarefa entra na fila da equipe e alguém assume
+  teamId            String?
+  // Prazo da etapa: DIAS_APOS_ENTRADA (n dias depois de chegar) ou
+  // ANTES_DA_ENTREGA (n dias antes da data final da demanda)
+  dueMode           String     @default("DIAS_APOS_ENTRADA")
+  dueDays           Int        @default(2)
+  // Exigências para concluir: LINK_DRIVE | LINK | LINK_PUBLICACAO | DATA_PUBLICACAO | NOTA
+  fields            String[]   @default([])
+  checklist         String[]   @default([])
+  checklistRequired Boolean    @default(false)
+
+  process     Process @relation(fields: [processId], references: [id], onDelete: Cascade)
+  defaultUser User?   @relation(fields: [defaultUserId], references: [id])
+  team        Team?   @relation(fields: [teamId], references: [id])
+  tasks       Task[]
+
+  @@index([processId, position])
+}
+
+// Equipe: um grupo de pessoas que assume etapas de processo (Atendimento,
+// Criação, Desenvolvimento...). O admin monta as equipes e os processos.
+model Team {
+  id          String   @id @default(cuid())
+  name        String
+  color       String   @default("#030A8C")
+  description String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members TeamMember[]
+  stages  ProcessStage[]
+  tasks   Task[]
+}
+
+model TeamMember {
+  teamId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([teamId, userId])
 }
 
 model ActivityLog {
@@ -1050,7 +1145,7 @@ model Prospect {
   // ---- pipeline comercial ----
   source            String? // origem do lead (indicação, tráfego, evento...)
   ownerId           String? // responsável comercial
-  crmContactId      String? @unique // contato do CRM, preserva as conversas
+  crmContactId      String?   @unique // contato do CRM, preserva as conversas
   interestServices  String[]  @default([]) // nomes/ids de serviços de interesse
   zipCode           String?
   street            String?
@@ -1067,9 +1162,9 @@ model Prospect {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  createdBy     User            @relation(fields: [createdById], references: [id])
-  owner         User?           @relation("ProspectOwner", fields: [ownerId], references: [id])
-  crmContact    CrmContact?     @relation(fields: [crmContactId], references: [id])
+  createdBy     User          @relation(fields: [createdById], references: [id])
+  owner         User?         @relation("ProspectOwner", fields: [ownerId], references: [id])
+  crmContact    CrmContact?   @relation(fields: [crmContactId], references: [id])
   proposals     Proposal[]
   opportunities Opportunity[]
 
@@ -1082,39 +1177,39 @@ model Prospect {
 // O mesmo contato pode ter várias oportunidades — nunca se duplica o cadastro.
 // Valores aqui são POTENCIAL comercial: só viram contratação na conversão.
 model Opportunity {
-  id       String @id @default(cuid())
-  title    String
+  id         String  @id @default(cuid())
+  title      String
   // NOVO | EM_CONTATO | QUALIFICADO | PROPOSTA_ENVIADA | EM_NEGOCIACAO |
   // GANHO | PERDIDO
-  stage    String @default("NOVO")
+  stage      String  @default("NOVO")
   prospectId String?
   clientId   String?
   ownerId    String
   proposalId String? // proposta vigente da negociação
 
-  source          String?
+  source            String?
   // Estimativa antes de detalhar os itens (centavos, recorrente + avulso)
-  estimateCents   Int       @default(0)
-  estimateNote    String?
+  estimateCents     Int       @default(0)
+  estimateNote      String?
   expectedCloseDate DateTime?
-  closedAt        DateTime? // data real do fechamento (ganho ou perdido)
-  lossReason      String?
-  nextAction      String?
-  nextActionAt    DateTime?
-  notes           String?
+  closedAt          DateTime? // data real do fechamento (ganho ou perdido)
+  lossReason        String?
+  nextAction        String?
+  nextActionAt      DateTime?
+  notes             String?
 
-  stageChangedAt  DateTime  @default(now())
+  stageChangedAt    DateTime  @default(now())
   convertedClientId String?
-  convertedAt     DateTime? // trava de idempotência da conversão
-  createdById     String
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  convertedAt       DateTime? // trava de idempotência da conversão
+  createdById       String
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
-  prospect  Prospect?  @relation(fields: [prospectId], references: [id])
-  client    Client?    @relation(fields: [clientId], references: [id])
-  owner     User       @relation("OpportunityOwner", fields: [ownerId], references: [id])
-  createdBy User       @relation("OpportunityCreator", fields: [createdById], references: [id])
-  proposal  Proposal?  @relation(fields: [proposalId], references: [id])
+  prospect  Prospect? @relation(fields: [prospectId], references: [id])
+  client    Client?   @relation(fields: [clientId], references: [id])
+  owner     User      @relation("OpportunityOwner", fields: [ownerId], references: [id])
+  createdBy User      @relation("OpportunityCreator", fields: [createdById], references: [id])
+  proposal  Proposal? @relation(fields: [proposalId], references: [id])
 
   items  OpportunityItem[]
   events OpportunityEvent[]
@@ -1135,10 +1230,10 @@ model OpportunityItem {
   name          String
   scope         String?
   // RECORRENTE | AVULSO | PROJETO | QUANTIDADE | PERSONALIZADO
-  contractType  String  @default("RECORRENTE")
-  quantity      Int     @default(1)
-  unitCents     Int     @default(0) // valor negociado por unidade
-  discountCents Int     @default(0)
+  contractType  String    @default("RECORRENTE")
+  quantity      Int       @default(1)
+  unitCents     Int       @default(0) // valor negociado por unidade
+  discountCents Int       @default(0)
   months        Int? // prazo contratual, quando definido
   startDate     DateTime?
   competence    String? // YYYY-MM, obrigatório no avulso
@@ -1340,19 +1435,19 @@ model ProposalEvent {
 // Conta Google autorizada. Tokens ficam cifrados (lib/crypto) e nunca saem
 // para o frontend. Uma conexão atende várias propriedades.
 model GscConnection {
-  id           String    @id @default(cuid())
-  googleEmail  String    @unique
-  accessToken  String? // cifrado
-  refreshToken String? // cifrado — nunca sobrescrito por ausente na renovação
-  expiryDate   DateTime?
-  scope        String?
+  id            String    @id @default(cuid())
+  googleEmail   String    @unique
+  accessToken   String? // cifrado
+  refreshToken  String? // cifrado — nunca sobrescrito por ausente na renovação
+  expiryDate    DateTime?
+  scope         String?
   // ATIVA | SEM_REFRESH | REVOGADA | ERRO
-  status       String    @default("ATIVA")
-  lastError    String?
-  lastSyncAt   DateTime?
+  status        String    @default("ATIVA")
+  lastError     String?
+  lastSyncAt    DateTime?
   connectedById String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   connectedBy  User?         @relation(fields: [connectedById], references: [id])
   properties   GscProperty[]
@@ -1361,12 +1456,12 @@ model GscConnection {
 
 // Tentativa de autorização: state aleatório, curto e de uso único.
 model GscOAuthState {
-  state     String   @id
+  state     String    @id
   userId    String
   redirect  String?
   usedAt    DateTime?
   expiresAt DateTime
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   @@index([expiresAt])
 }
@@ -1411,21 +1506,21 @@ model GscCache {
 // Propriedade do GA4 vinculada a um cliente ou ao site da VEX. `propertyId`
 // é o ID NUMÉRICO da propriedade — nunca o ID de medição (G-XXXX).
 model GaProperty {
-  id            String   @id @default(cuid())
-  connectionId  String
-  propertyId    String // numérico, como "123456789"
-  displayName   String
-  accountName   String?
-  accountId     String?
-  timeZone      String?
-  currencyCode  String?
-  clientId      String? // nulo quando é o site da própria VEX
-  isVexSite     Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id           String   @id @default(cuid())
+  connectionId String
+  propertyId   String // numérico, como "123456789"
+  displayName  String
+  accountName  String?
+  accountId    String?
+  timeZone     String?
+  currencyCode String?
+  clientId     String? // nulo quando é o site da própria VEX
+  isVexSite    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  connection GscConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
-  client     Client?       @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  connection GscConnection   @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  client     Client?         @relation(fields: [clientId], references: [id], onDelete: SetNull)
   cache      GaCache[]
   mapping    GaEventMapping?
 
@@ -1436,20 +1531,20 @@ model GaProperty {
 // Quais eventos do GA4 representam contato nesta propriedade. Nada é
 // presumido: cada mapeamento guarda como foi verificado.
 model GaEventMapping {
-  id         String   @id @default(cuid())
-  propertyId String   @unique
+  id                  String    @id @default(cuid())
+  propertyId          String    @unique
   // Evento de formulário concluído (padrão do GA4: generate_lead)
-  leadEvent      String?
+  leadEvent           String?
   // NAO_VERIFICADO | VALIDADO | SEM_OCORRENCIA | CONFIGURACAO_NECESSARIA
-  leadStatus     String   @default("NAO_VERIFICADO")
-  leadCheckedAt  DateTime?
+  leadStatus          String    @default("NAO_VERIFICADO")
+  leadCheckedAt       DateTime?
   // Clique no WhatsApp: evento próprio ou click filtrado por destino
-  whatsappEvent      String?
-  whatsappUrlContains String? @default("wa.me")
-  whatsappStatus     String   @default("NAO_VERIFICADO")
-  whatsappCheckedAt  DateTime?
-  notes      String?
-  updatedAt  DateTime @updatedAt
+  whatsappEvent       String?
+  whatsappUrlContains String?   @default("wa.me")
+  whatsappStatus      String    @default("NAO_VERIFICADO")
+  whatsappCheckedAt   DateTime?
+  notes               String?
+  updatedAt           DateTime  @updatedAt
 
   property GaProperty @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 }
@@ -1472,33 +1567,32 @@ model GaCache {
 /// próprias e um conjunto de áreas (ferramentas) que ele pode usar. O que o
 /// agente pode fazer vem de `toolGroups`, nunca do texto das instruções.
 model AiAgent {
-  id           String   @id @default(cuid())
-  name         String   @unique
-  description  String?
-  instructions String?
+  id             String    @id @default(cuid())
+  name           String    @unique
+  description    String?
+  instructions   String?
   /// Áreas liberadas: clientes | financeiro | demandas | crm
-  toolGroups   String[] @default([])
+  toolGroups     String[]  @default([])
   /// Palavras que direcionam a mensagem para este agente
-  triggers     String[] @default([])
+  triggers       String[]  @default([])
   /// Modelo próprio; vazio usa o configurado na integração
-  model        String?
-  isActive     Boolean  @default(true)
+  model          String?
+  isActive       Boolean   @default(true)
   /// Atende quando ninguém mais casa. Só um por vez.
-  isDefault    Boolean  @default(false)
+  isDefault      Boolean   @default(false)
   /// Vigia: DESLIGADA | DIARIA | SEMANAL — varre a operação e avisa os donos
-  watchFrequency String  @default("DESLIGADA")
+  watchFrequency String    @default("DESLIGADA")
   /// Dia da semana da vigia semanal (0 = domingo)
   watchWeekday   Int?
   lastWatchAt    DateTime?
-  createdById  String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdById    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   createdBy User? @relation("AiAgentCreator", fields: [createdById], references: [id])
 
   @@index([isActive, isDefault])
 }
-
 
 /// Marca de aviso já enviado pelos agentes — um por (tipo, referência).
 /// Serve de idempotência: reiniciar o servidor não reenvia o mesmo alerta.

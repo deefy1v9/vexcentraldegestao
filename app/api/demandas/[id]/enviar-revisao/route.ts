@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
 import { isValidDriveLink, logTaskEvent, notifyWhatsApp, taskShortId } from '@/lib/task-flow'
 import { TIER_LABEL, Tier } from '@/lib/client-tier'
+import { alignStageToStatus } from '@/lib/processos-server'
 
 /**
  * Produção concluída → envia a demanda para revisão.
@@ -68,6 +69,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       _count: { select: { comments: true } },
     },
   })
+  // A etapa do processo acompanha o status
+  await alignStageToStatus(id)
 
   const senderName = session.user.name ?? 'Usuário'
   await logTaskEvent(id, 'ENVIO_REVISAO', `${senderName} enviou para revisão com link do Drive${note ? ` — obs.: ${note}` : ''}`, userId)

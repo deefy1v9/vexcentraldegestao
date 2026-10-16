@@ -374,7 +374,10 @@ export async function processAsaasEvent(event: string, payment: asaas.AsaasPayme
   if (event === 'PAYMENT_CONFIRMED' || event === 'PAYMENT_RECEIVED') {
     await bookRevenue(charge.id)
     if (payment.netValue != null) {
-      const fee = Number(charge.value) - payment.netValue
+      // A tarifa é do pagamento que chegou, não da cobrança inteira: numa
+      // entrada parcial (ex.: R$ 500 de R$ 2.500) usar charge.value lançava
+      // a diferença toda como tarifa.
+      const fee = Number(payment.value ?? charge.value) - payment.netValue
       await bookFee(charge.id, Math.round(fee * 100) / 100)
     }
     // Recibo ao cliente — uma vez só (refId da cobrança)

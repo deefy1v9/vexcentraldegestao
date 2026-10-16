@@ -14,7 +14,20 @@ export interface Task extends TaskLike {
   scheduledPlatform?: string | null
   publicationLink?: string | null
   _count: { comments: number }
+  // Processo e etapa atual (lista)
+  processId?: string | null
+  stageId?: string | null
+  stageEnteredAt?: Date | string | null
+  process?: { id: string; name: string; color: string } | null
+  stage?: { id: string; name: string; kind: string; dueMode: string; dueDays: number; position: number } | null
+  team?: { id: string; name: string; color: string } | null
 }
+
+/** Equipe, para a fila e os filtros. */
+export interface TeamOption { id: string; name: string; color: string }
+
+/** Processo para filtros e para escolher ao criar demanda. */
+export interface ProcessOption { id: string; name: string; color: string; stageCount: number }
 
 export interface TaskEvent {
   id: string
@@ -26,6 +39,6 @@ export interface TaskEvent {
 
 export interface Option { id: string; name: string }
 
-export type View = 'fila' | 'quadro' | 'lista' | 'calendario'
+export type View = 'tarefas' | 'fila' | 'quadro' | 'lista' | 'calendario'
 
 export type { TaskStatus, TaskPriority, UserRef }

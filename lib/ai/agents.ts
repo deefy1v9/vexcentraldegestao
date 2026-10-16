@@ -30,8 +30,8 @@ export const TOOL_GROUPS = [
   {
     key: 'demandas',
     label: 'Demandas',
-    hint: 'Criar demanda para a equipe (com confirmação) e acompanhar o que está aberto.',
-    tools: ['buscar_equipe', 'criar_demanda', 'listar_demandas'],
+    hint: 'Criar demanda (com confirmação), acompanhar o que está aberto, mudar prazo e responsável e andar com a etapa.',
+    tools: ['buscar_equipe', 'criar_demanda', 'listar_demandas', 'alterar_demanda', 'mover_demanda'],
   },
   {
     key: 'crm',

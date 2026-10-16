@@ -5,6 +5,9 @@ import Header from '@/components/layout/Header'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import Link from 'next/link'
 import { ArrowLeft, Pencil, FileText } from 'lucide-react'
+import { Badge } from '@/components/vex/badge'
+import { Button } from '@/components/vex/button'
+import MenuMaisCliente from '@/components/clientes/MenuMaisCliente'
 import ClientCredentialsPanel from '@/components/clientes/ClientCredentialsPanel'
 import ClientServicesPanel from '@/components/clientes/ClientServicesPanel'
 import ClientProfileTabs from '@/components/clientes/ClientProfileTabs'
@@ -19,21 +22,16 @@ import { tierRecommendation, TIER_LABEL } from '@/lib/client-tier'
 import { decryptSecret } from '@/lib/crypto'
 
 const TIER_PT: Record<string, string> = { START: 'Start', GROWTH: 'Growth', SCALE: 'Scale' }
-const TIER_PRIORITY_PT: Record<string, string> = {
-  SCALE: 'Máxima — cliente de maior valor',
-  GROWTH: 'Intermediária',
-  START: 'Padrão',
-}
-
-const CHARGE_STATUS_PT: Record<string, { label: string; cls: string }> = {
-  PENDING: { label: 'Aguardando pagamento', cls: 'bg-orange-100 text-orange-700' },
-  CONFIRMED: { label: 'Confirmado', cls: 'bg-green-100 text-green-700' },
-  RECEIVED: { label: 'Recebido', cls: 'bg-green-100 text-green-700' },
-  OVERDUE: { label: 'Vencido', cls: 'bg-red-100 text-red-700' },
-  REFUNDED: { label: 'Estornado', cls: 'bg-red-100 text-red-700' },
-  CANCELLED: { label: 'Cancelado', cls: 'bg-gray-100 text-gray-600' },
-  DELETED: { label: 'Cancelado', cls: 'bg-gray-100 text-gray-600' },
-  ERROR: { label: 'Erro', cls: 'bg-red-100 text-red-700' },
+type Tom = 'default' | 'success' | 'warning' | 'danger'
+const CHARGE_STATUS: Record<string, { label: string; variant: Tom }> = {
+  PENDING: { label: 'Aguardando', variant: 'warning' },
+  CONFIRMED: { label: 'Confirmado', variant: 'success' },
+  RECEIVED: { label: 'Recebido', variant: 'success' },
+  OVERDUE: { label: 'Vencido', variant: 'danger' },
+  REFUNDED: { label: 'Estornado', variant: 'danger' },
+  CANCELLED: { label: 'Cancelado', variant: 'default' },
+  DELETED: { label: 'Cancelado', variant: 'default' },
+  ERROR: { label: 'Erro', variant: 'danger' },
 }
 
 export default async function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -60,7 +58,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
       asaasCharges: { orderBy: [{ year: 'desc' }, { month: 'desc' }], take: 12, include: { nfse: true } },
       tasks: {
         where: { status: { not: 'CONCLUIDO' } },
-        include: { assignee: { select: { name: true } } },
+        include: { assignee: { select: { name: true } }, process: { select: { name: true } }, stage: { select: { name: true } } },
         orderBy: { createdAt: 'desc' },
         take: 6,
       },
@@ -77,10 +75,8 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
   const activeServices = client.services.filter((s) => s.status === 'ATIVO')
   // Ticket recorrente (só serviços que entram no MRR); avulso fica de fora
   const ticketMensal = (indicators?.ticketCents ?? 0) / 100
-  const previstoMes = (indicators?.previstaCents ?? 0) / 100
   const avulsoMes = (indicators?.avulsaCents ?? 0) / 100
   const billingMissing = missingBillingFields(client)
-  const nextCharge = client.asaasCharges.find((c) => ['PENDING', 'OVERDUE'].includes(c.status))
   const sanitizedServices = isAdmin
     ? client.services
     : client.services.map((s) => ({
@@ -97,334 +93,305 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
 
   /* ------------------------------ seções (server) ------------------------------ */
 
-  const infoCard = (
-    <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="font-semibold text-gray-900">Dados do Cliente</h2>
+  const emAbertoCents = client.payments
+    .filter((p) => p.status === 'PENDENTE')
+    .reduce((a, p) => a + Math.round(Number(p.amount) * 100), 0)
+  const proximoPendente = [...client.payments]
+    .filter((p) => p.status === 'PENDENTE')
+    .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime())[0]
+  const hojeUtc = new Date(new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }) + 'T00:00:00Z')
+  const emAtraso = client.payments.some((p) => p.status === 'PENDENTE' && p.dueDate < hojeUtc)
+
+  // Só o que está preenchido: os "—" ficam no Editar
+  const dados = ([
+    ['CNPJ/CPF', client.cnpj],
+    ['Razão social', client.legalName],
+    ['E-mail', client.billingEmail || client.email],
+    ['Telefone', client.phone],
+    ['Nicho', client.niche],
+    ['Contrato', client.contractStart ? `${formatDate(client.contractStart)}${client.contractEnd ? ` a ${formatDate(client.contractEnd)}` : ''}` : null],
+    ['Vencimento', client.paymentDay ? `Todo dia ${client.paymentDay}` : null],
+  ] as [string, string | null][]).filter(([, v]) => !!v && String(v).trim() !== '') as [string, string][]
+
+  const card = 'rounded-[12px] border border-border bg-card'
+  const tituloCard = 'flex items-center justify-between px-5 h-12 border-b border-border'
+
+  const numeros = isAdmin ? (
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className={`${card} p-5`}>
+        <p className="t-rotulo text-muted-foreground">Mensal recorrente</p>
+        <p className="mt-1 text-[22px] leading-7 font-semibold tabular text-foreground">{formatCurrency(ticketMensal)}</p>
+        <p className="t-legenda mt-1">{activeServices.length} serviço(s) ativo(s){avulsoMes > 0 ? ` · ${formatCurrency(avulsoMes)} avulso no mês` : ''}</p>
+      </div>
+      <div className={`${card} p-5`}>
+        <p className="t-rotulo text-muted-foreground">Em aberto</p>
+        <p className={`mt-1 text-[22px] leading-7 font-semibold tabular ${emAtraso ? 'text-destructive-texto' : 'text-foreground'}`}>{formatCurrency(emAbertoCents / 100)}</p>
+        <p className="t-legenda mt-1">{emAtraso ? 'Tem cobrança vencida' : emAbertoCents > 0 ? 'Dentro do prazo' : 'Nada em aberto'}</p>
+      </div>
+      <div className={`${card} p-5`}>
+        <p className="t-rotulo text-muted-foreground">Próximo vencimento</p>
+        <p className="mt-1 text-[22px] leading-7 font-semibold tabular text-foreground">{proximoPendente ? formatDate(proximoPendente.dueDate) : '—'}</p>
+        <p className="t-legenda mt-1">{proximoPendente ? formatCurrency(Number(proximoPendente.amount)) : 'Sem cobrança pendente'}</p>
+      </div>
+    </div>
+  ) : null
+
+  const servicosCard = (
+    <section className={card}>
+      <div className={tituloCard}>
+        <h2 className="t-secao text-foreground">Serviços ativos <span className="font-medium text-muted-foreground">{activeServices.length}</span></h2>
+      </div>
+      {activeServices.length === 0 ? (
+        <p className="px-5 py-6 t-corpo text-muted-foreground">Nenhum serviço ativo.</p>
+      ) : (
+        <ul className="divide-y divide-border">
+          {activeServices.slice(0, 6).map((s) => (
+            <li key={s.id} className="px-5 py-3 flex items-center gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="t-corpo text-foreground truncate">{s.customName || s.serviceName}</p>
+                <p className="t-legenda">{s.contractType === 'RECORRENTE' ? 'Recorrente' : s.contractType === 'AVULSO' ? 'Avulso' : s.contractType}</p>
+              </div>
+              {isAdmin && (s.priceCents != null || s.monthlyValue != null) && (
+                <span className="t-corpo font-semibold tabular text-foreground">
+                  {formatCurrency(s.priceCents != null ? s.priceCents / 100 : Number(s.monthlyValue))}{s.contractType === 'RECORRENTE' && <span className="t-legenda font-normal">/mês</span>}
+                </span>
+              )}
+            </li>
+          ))}
+          {activeServices.length > 6 && <li className="px-5 py-2.5 t-rotulo text-muted-foreground">+ {activeServices.length - 6} serviço(s) na aba Serviços</li>}
+        </ul>
+      )}
+    </section>
+  )
+
+  const demandasCard = (
+    <section className={card}>
+      <div className={tituloCard}>
+        <h2 className="t-secao text-foreground">Demandas em andamento <span className="font-medium text-muted-foreground">{client.tasks.length}</span></h2>
+        <Link href="/demandas" className="t-rotulo text-muted-foreground hover:text-foreground">Abrir demandas</Link>
+      </div>
+      {client.tasks.length === 0 ? (
+        <p className="px-5 py-6 t-corpo text-muted-foreground">Nenhuma demanda aberta.</p>
+      ) : (
+        <ul className="divide-y divide-border">
+          {client.tasks.map((t) => (
+            <li key={t.id}>
+              <Link href={`/demandas?t=${t.id}`} className="px-5 py-3 flex items-center gap-3 hover:bg-accent transition-colors">
+                <div className="min-w-0 flex-1">
+                  <p className="t-corpo text-foreground truncate">{t.title} <span className="text-muted-foreground">#{t.number}</span></p>
+                  <p className="t-legenda truncate">{t.process?.name ?? 'Sem processo'}{t.assignee?.name ? ` · ${t.assignee.name.split(' ')[0]}` : ''}</p>
+                </div>
+                <Badge variant={t.dueDate && t.dueDate < hojeUtc ? 'danger' : 'default'}>{t.stage?.name ?? '—'}</Badge>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  )
+
+  const dadosCard = (
+    <section className={card}>
+      <div className={tituloCard}>
+        <h2 className="t-secao text-foreground">Dados do cliente</h2>
         {isAdmin && (
-          <Link href={`/clientes/${id}/editar`} className="flex items-center gap-1 text-xs text-[#030A8C] hover:underline font-medium">
-            <Pencil className="w-3 h-3" /> Editar
+          <Link href={`/clientes/${id}/editar`} className="t-rotulo text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+            <Pencil className="w-3.5 h-3.5" /> Editar
           </Link>
         )}
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
-        {([
-          ['CNPJ/CPF', client.cnpj || '—'],
-          ['Email', client.email || '—'],
-          ['Telefone', client.phone || '—'],
-          ['Nicho', client.niche || '—'],
-          ['Início do Contrato', client.contractStart ? formatDate(client.contractStart) : '—'],
-          ['Fim do Contrato', client.contractEnd ? formatDate(client.contractEnd) : '—'],
-          ['Duração', client.contractMonths ? `${client.contractMonths} meses` : '—'],
-          ...(isAdmin ? [['Ticket mensal recorrente', formatCurrency(ticketMensal)] as [string, string]] : []),
-          ['Dia de Pagamento', client.paymentDay ? `Dia ${client.paymentDay}` : '—'],
-          ['Status', client.status],
-        ] as [string, string][]).map(([label, value]) => (
-          <div key={label}>
-            <p className="text-xs text-gray-500 font-medium">{label}</p>
-            <p className="text-gray-900 mt-0.5">{value}</p>
+      <dl className="px-5 py-4 space-y-2.5">
+        {dados.map(([rotulo, valor]) => (
+          <div key={rotulo} className="grid grid-cols-[110px_1fr] gap-3">
+            <dt className="t-rotulo text-muted-foreground">{rotulo}</dt>
+            <dd className="t-corpo text-foreground break-words">{valor}</dd>
           </div>
         ))}
-      </div>
+        {dados.length === 0 && <p className="t-corpo text-muted-foreground">Cadastro sem dados. Use Editar.</p>}
+      </dl>
       {clientLinks(client).length > 0 && (
-        <div className="mt-4 pt-4 border-t border-gray-100">
-          <p className="text-xs text-gray-500 font-medium mb-2">Site e redes</p>
+        <div className="px-5 pb-4">
           <ClientLinkChips client={client} size="md" />
         </div>
       )}
       {client.notes && (
-        <div className="mt-4 pt-4 border-t border-gray-100">
-          <p className="text-xs text-gray-500 font-medium mb-1">Observações</p>
-          <p className="text-sm text-gray-700">{client.notes}</p>
+        <div className="px-5 py-4 border-t border-border">
+          <p className="t-rotulo text-muted-foreground mb-1">Observações</p>
+          <p className="t-corpo text-foreground whitespace-pre-wrap">{client.notes}</p>
         </div>
       )}
-    </div>
+    </section>
   )
 
-  const segmentCard = (
-    <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-        <div>
-          <p className="text-xs text-gray-500 font-medium mb-1">Grupo do cliente</p>
-          <div className="flex items-center gap-2">
-            <TierBadge tier={client.tier} size="sm" />
-            {!client.tier && <span className="text-sm text-gray-400">Não classificado</span>}
-            <span className="text-[10px] text-gray-400">
-              {client.tier ? (client.tierManual ? 'definido manualmente' : 'classificação automática') : 'sem serviço recorrente ativo'}
-            </span>
-          </div>
-        </div>
-        <div>
-          <p className="text-xs text-gray-500 font-medium mb-1">Prioridade operacional</p>
-          <p className="text-sm font-semibold text-gray-900">{client.tier ? TIER_PRIORITY_PT[client.tier] : 'Padrão'}</p>
-        </div>
-        <div>
-          <p className="text-xs text-gray-500 font-medium mb-1">Última alteração de grupo</p>
-          <p className="text-sm text-gray-700">{client.tierChangedAt ? formatDate(client.tierChangedAt) : '—'}</p>
-        </div>
-      </div>
-
-      {isAdmin && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-3 border-t border-gray-100">
-          <div>
-            <p className="text-[10px] text-gray-500 uppercase tracking-wide">Ticket recorrente</p>
-            <p className="text-sm font-bold text-[#030A8C]">{formatCurrency(ticketMensal)}<span className="text-[10px] text-gray-400 font-normal">/mês</span></p>
-          </div>
-          <div>
-            <p className="text-[10px] text-gray-500 uppercase tracking-wide">Recorrentes ativos</p>
-            <p className="text-sm font-bold text-gray-900">{indicators?.recurringActive ?? 0}</p>
-          </div>
-          <div>
-            <p className="text-[10px] text-gray-500 uppercase tracking-wide">Avulsos no mês</p>
-            <p className="text-sm font-bold text-gray-900">
-              {indicators?.avulsosMes ?? 0}
-              {avulsoMes > 0 && <span className="text-[10px] text-gray-400 font-normal"> · {formatCurrency(avulsoMes)}</span>}
-            </p>
-          </div>
-          <div>
-            <p className="text-[10px] text-gray-500 uppercase tracking-wide">Previsto no mês</p>
-            <p className="text-sm font-bold text-gray-900">{formatCurrency(previstoMes)}</p>
-          </div>
-        </div>
-      )}
-
-      {isAdmin && recomendacao && recomendacao.recommended !== client.tier && (
-        <p className="text-[11px] text-orange-700 bg-orange-50 border border-orange-100 rounded-lg px-3 py-2">
-          Grupo definido manualmente. Pelo ticket atual ({formatCurrency(recomendacao.ticketCents / 100)}), a classificação automática seria{' '}
-          <span className="font-semibold">{recomendacao.recommended ? TIER_LABEL[recomendacao.recommended] : 'Não classificado'}</span>.
-        </p>
-      )}
-
-      {isAdmin && activeServices.length === 0 && (
-        <p className="text-[11px] text-gray-500">Nenhum serviço ativo — o cliente fica fora do ticket recorrente e da classificação.</p>
-      )}
-    </div>
-  )
-
-  const deliveriesCard = (
-    <div className="bg-white rounded-xl border border-gray-200 p-5">
-      <h2 className="font-semibold text-gray-900 mb-3 text-sm">Próximas Entregas</h2>
-      {client.calendarEvents.length === 0 ? (
-        <p className="text-xs text-gray-500">Nenhuma entrega próxima</p>
-      ) : (
-        <div className="space-y-2">
-          {client.calendarEvents.map((ev) => (
-            <div key={ev.id} className="flex items-start gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-[#030A8C] mt-1.5 shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-gray-900">{ev.title}</p>
-                <p className="text-xs text-gray-500">{formatDate(ev.startDate)}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-
-  const tasksCard = (
-    <div className="bg-white rounded-xl border border-gray-200 p-5">
-      <h2 className="font-semibold text-gray-900 mb-3 text-sm">Demandas em andamento</h2>
-      {client.tasks.length === 0 ? (
-        <p className="text-xs text-gray-500">Nenhuma demanda aberta</p>
-      ) : (
-        <div className="space-y-2">
-          {client.tasks.map((t) => (
-            <div key={t.id} className="flex items-center justify-between gap-2">
-              <p className="text-sm text-gray-900 truncate">#{t.number} {t.title}</p>
-              <span className="text-[11px] text-gray-400 shrink-0">{t.assignee?.name?.split(' ')[0] ?? '—'}</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
+  const statusPagamento = (s: string) => s === 'PAGO'
+    ? <Badge variant="success">Pago</Badge>
+    : s === 'CANCELADO' ? <Badge variant="default">Cancelado</Badge> : <Badge variant="warning">Pendente</Badge>
 
   const paymentsList = (limit?: number) => {
     const rows = limit ? client.payments.slice(0, limit) : client.payments
     return rows.length === 0 ? (
-      <p className="text-xs text-gray-500">Nenhum pagamento cadastrado</p>
+      <p className="px-5 py-6 t-corpo text-muted-foreground">Nenhum pagamento cadastrado.</p>
     ) : (
-      <div className="space-y-2">
+      <ul className="divide-y divide-border">
         {rows.map((p) => (
-          <div key={p.id} className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-medium text-gray-700">{p.month.toString().padStart(2, '0')}/{p.year}</p>
-              <p className="text-xs text-gray-500">{formatCurrency(p.amount)}</p>
+          <li key={p.id} className="px-5 py-3 flex items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="t-corpo text-foreground">{p.month.toString().padStart(2, '0')}/{p.year}</p>
+              <p className="t-legenda">vence {formatDate(p.dueDate)}</p>
             </div>
-            <span className={`text-xs px-2 py-0.5 rounded-full ${p.status === 'PAGO' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
-              {p.status}
-            </span>
-          </div>
+            <span className="t-corpo font-semibold tabular text-foreground">{formatCurrency(Number(p.amount))}</span>
+            {statusPagamento(p.status)}
+          </li>
         ))}
-      </div>
+      </ul>
     )
   }
 
-  const billingSection = isAdmin ? (
-    <div className="space-y-4">
-      <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-semibold text-gray-900">Faturamento e NFS-e</h2>
-          <Link href={`/clientes/${id}/editar`} className="flex items-center gap-1 text-xs text-[#030A8C] hover:underline font-medium">
-            <Pencil className="w-3 h-3" /> Editar dados de faturamento
-          </Link>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
-          {([
-            ['Cobrança automática', client.billingEnabled ? 'Ativada' : 'Desativada'],
-            ['Forma de pagamento', client.billingType === 'UNDEFINED' ? 'Cliente escolhe' : client.billingType],
-            ['Antecedência', `${client.billingLeadDays} dias`],
-            ['E-mail financeiro', client.billingEmail || client.email || '—'],
-            ['Sincronização Asaas', client.asaasSyncStatus === 'OK' ? 'Sincronizado' : client.asaasSyncStatus === 'ERRO' ? 'Erro' : 'Nunca sincronizado'],
-            ['ID no Asaas', client.asaasCustomerId || '—'],
-            ['NFS-e automática', client.nfseEnabled ? 'Ativada' : 'Desativada'],
-            ['Regra de emissão', client.nfseRule],
-          ] as [string, string][]).map(([label, value]) => (
-            <div key={label}>
-              <p className="text-xs text-gray-500 font-medium">{label}</p>
-              <p className="text-gray-900 mt-0.5 break-all">{value}</p>
-            </div>
-          ))}
-        </div>
-        {client.asaasSyncError && (
-          <p className="mt-3 text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{client.asaasSyncError}</p>
-        )}
-        {billingMissing.length > 0 && (
-          <p className="mt-3 text-xs text-orange-700 bg-orange-50 border border-orange-100 rounded-lg px-3 py-2">
-            Campos pendentes para cobrança: {billingMissing.join(', ')}
-          </p>
-        )}
+  const cobrancasCard = isAdmin ? (
+    <section className={card}>
+      <div className={tituloCard}>
+        <h2 className="t-secao text-foreground">Últimas cobranças</h2>
       </div>
+      {paymentsList(5)}
+    </section>
+  ) : null
 
-      <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
-        <h2 className="font-semibold text-gray-900 mb-3">Cobranças Asaas</h2>
-        {client.asaasCharges.length === 0 ? (
-          <p className="text-xs text-gray-500">Nenhuma cobrança gerada ainda — use os Recebimentos do Financeiro para gerar.</p>
-        ) : (
-          <div className="space-y-2">
-            {client.asaasCharges.map((c) => {
-              const st = CHARGE_STATUS_PT[c.status] ?? { label: c.status, cls: 'bg-gray-100 text-gray-600' }
-              return (
-                <div key={c.id} className="flex items-center justify-between gap-2 border border-gray-100 rounded-lg px-3 py-2">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-900">
-                      {String(c.month).padStart(2, '0')}/{c.year} · {formatCurrency(Number(c.value))}
-                    </p>
-                    <p className="text-[11px] text-gray-400">
-                      vence {formatDate(c.dueDate)}
-                      {c.nfse ? ` · NFS-e: ${c.nfse.status}` : ''}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {c.invoiceUrl && (
-                      <a href={c.invoiceUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] text-[#030A8C] hover:underline">
-                        fatura
-                      </a>
-                    )}
-                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${st.cls}`}>{st.label}</span>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
+  const recomendacaoAviso = isAdmin && recomendacao && recomendacao.recommended !== client.tier ? (
+    <p className="t-rotulo text-warning bg-warning-suave rounded-lg px-3 py-2">
+      Grupo definido à mão. Pelo ticket atual ({formatCurrency(recomendacao.ticketCents / 100)}), a classificação automática seria{' '}
+      <span className="font-semibold">{recomendacao.recommended ? TIER_LABEL[recomendacao.recommended] : 'Não classificado'}</span>.
+    </p>
+  ) : null
+
+  const configFaturamento = isAdmin ? (
+    <section className={card}>
+      <div className={tituloCard}>
+        <h2 className="t-secao text-foreground">Faturamento e NFS-e</h2>
+        <Link href={`/clientes/${id}/editar`} className="t-rotulo text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+          <Pencil className="w-3.5 h-3.5" /> Editar
+        </Link>
       </div>
-    </div>
-  ) : (
-    <p className="text-sm text-gray-500">Informações de faturamento são exclusivas de administradores.</p>
-  )
+      <dl className="px-5 py-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5">
+        {([
+          ['Cobrança automática', client.billingEnabled ? 'Ligada' : 'Desligada'],
+          ['Forma de pagamento', client.billingType === 'UNDEFINED' ? 'Cliente escolhe' : client.billingType],
+          ['Antecedência', `${client.billingLeadDays} dias`],
+          ['E-mail financeiro', client.billingEmail || client.email || '—'],
+          ['NFS-e automática', client.nfseEnabled ? 'Ligada' : 'Desligada'],
+          ['Asaas', client.asaasSyncStatus === 'OK' ? 'Sincronizado' : client.asaasSyncStatus === 'ERRO' ? 'Erro na sincronização' : 'Nunca sincronizado'],
+        ] as [string, string][]).map(([rotulo, valor]) => (
+          <div key={rotulo} className="grid grid-cols-[140px_1fr] gap-3">
+            <dt className="t-rotulo text-muted-foreground">{rotulo}</dt>
+            <dd className="t-corpo text-foreground break-all">{valor}</dd>
+          </div>
+        ))}
+      </dl>
+      {client.asaasSyncError && <p className="mx-5 mb-4 t-rotulo text-destructive-texto bg-destructive-suave rounded-lg px-3 py-2">{client.asaasSyncError}</p>}
+      {billingMissing.length > 0 && <p className="mx-5 mb-4 t-rotulo text-warning bg-warning-suave rounded-lg px-3 py-2">Falta para cobrar: {billingMissing.join(', ')}</p>}
+    </section>
+  ) : null
+
+  const cobrancasAsaas = isAdmin ? (
+    <section className={card}>
+      <div className={tituloCard}>
+        <h2 className="t-secao text-foreground">Cobranças e notas fiscais</h2>
+      </div>
+      {client.asaasCharges.length === 0 ? (
+        <p className="px-5 py-6 t-corpo text-muted-foreground">Nenhuma cobrança gerada no Asaas.</p>
+      ) : (
+        <ul className="divide-y divide-border">
+          {client.asaasCharges.map((c) => {
+            const st = CHARGE_STATUS[c.status] ?? { label: c.status, variant: 'default' as const }
+            return (
+              <li key={c.id} className="px-5 py-3 flex items-center gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="t-corpo text-foreground">{String(c.month).padStart(2, '0')}/{c.year} · {formatCurrency(Number(c.value))}</p>
+                  <p className="t-legenda">vence {formatDate(c.dueDate)}{c.nfse?.numero ? ` · NFS-e nº ${c.nfse.numero}` : ''}</p>
+                </div>
+                {c.nfse?.pdfUrl && <a href={c.nfse.pdfUrl} target="_blank" rel="noopener noreferrer" className="t-rotulo text-link hover:underline">Nota</a>}
+                {c.invoiceUrl && <a href={c.invoiceUrl} target="_blank" rel="noopener noreferrer" className="t-rotulo text-link hover:underline">Fatura</a>}
+                <Badge variant={st.variant}>{st.label}</Badge>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </section>
+  ) : null
 
   const historySection = (
-    <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
-      <h2 className="font-semibold text-gray-900 mb-3">Histórico do cliente</h2>
-      <div className="space-y-1.5">
-        <p className="text-[11px] text-gray-500">Cadastrado em {formatDate(client.createdAt)}</p>
+    <section className={card}>
+      <div className={tituloCard}><h2 className="t-secao text-foreground">Histórico do cliente</h2></div>
+      <ul className="px-5 py-4 space-y-2">
+        <li className="t-corpo text-foreground">Cadastrado em {formatDate(client.createdAt)}</li>
         {isAdmin && client.tierHistory.map((h) => (
-          <p key={h.id} className="text-[11px] text-gray-500">
-            {formatDate(h.createdAt)} · Grupo: {h.fromTier ? TIER_PT[h.fromTier] : 'Sem grupo'} → {h.toTier ? TIER_PT[h.toTier] : 'Sem grupo'}
-            {' '}· ticket {formatCurrency(h.ticket)} · {h.manual ? 'manual' : 'automática'}
-            {h.reason ? ` · ${h.reason}` : ''}
-          </p>
+          <li key={h.id} className="t-corpo text-foreground">
+            <span className="text-muted-foreground">{formatDate(h.createdAt)} · </span>
+            Grupo {h.fromTier ? TIER_PT[h.fromTier] : 'sem grupo'} → {h.toTier ? TIER_PT[h.toTier] : 'sem grupo'}
+            <span className="text-muted-foreground"> · ticket {formatCurrency(h.ticket)} · {h.manual ? 'manual' : 'automática'}{h.reason ? ` · ${h.reason}` : ''}</span>
+          </li>
         ))}
-        {isAdmin && client.tierHistory.length === 0 && (
-          <p className="text-[11px] text-gray-400">Nenhuma alteração de grupo registrada.</p>
-        )}
-      </div>
-    </div>
+      </ul>
+    </section>
   )
 
   /* --------------------------------- render --------------------------------- */
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <Header title={client.name} subtitle={client.niche || 'Cliente'} />
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <Link href="/clientes" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900">
-            <ArrowLeft className="w-4 h-4" /> Voltar para Clientes
-          </Link>
-          <div className="flex items-center gap-3 flex-wrap">
-            {isAdmin && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <Link
-                  href={`/propostas/nova?clientId=${id}`}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#030A8C] text-white rounded-lg text-xs font-semibold hover:bg-[#02077a] transition-colors"
-                >
-                  <FileText className="w-3.5 h-3.5" /> Nova proposta
-                </Link>
-                <Link
-                  href={`/propostas/nova?clientId=${id}&kind=ADITIVO`}
-                  className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-medium text-gray-700 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors"
-                >
-                  Criar aditivo
-                </Link>
-                <Link
-                  href={`/clientes/${id}/propostas`}
-                  className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-medium text-gray-700 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors"
-                >
-                  Histórico de propostas
-                </Link>
-              </div>
-            )}
-            {isAdmin && nextCharge && (
-              <div className="text-right">
-                <p className="text-[11px] text-gray-400">Próxima cobrança</p>
-                <p className="text-sm font-bold text-gray-900">
-                  {formatCurrency(Number(nextCharge.value))} · vence {formatDate(nextCharge.dueDate)}
-                </p>
-              </div>
-            )}
-            {isAdmin && <ClientEmailActions clientId={id} clientName={client.name} />}
+      <Header title="Clientes" subtitle="Perfil do cliente" />
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+        <Link href="/clientes" className="inline-flex items-center gap-1 t-rotulo text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="w-4 h-4" /> Clientes
+        </Link>
+
+        {/* identidade e ações */}
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="t-pagina text-foreground">{client.name}</h1>
+              <TierBadge tier={client.tier} size="sm" />
+              <Badge variant={client.status === 'ATIVO' ? 'success' : client.status === 'PAUSADO' ? 'warning' : 'default'}>
+                {client.status === 'ATIVO' ? 'Ativo' : client.status === 'PAUSADO' ? 'Pausado' : client.status === 'ENCERRADO' ? 'Encerrado' : client.status}
+              </Badge>
+            </div>
+            <p className="t-rotulo text-muted-foreground mt-1.5">
+              {[client.cnpj, client.phone, `cliente desde ${formatDate(client.contractStart ?? client.createdAt)}`].filter(Boolean).join(' · ')}
+            </p>
           </div>
+          {isAdmin && (
+            <div className="flex items-center gap-2">
+              <ClientEmailActions clientId={id} clientName={client.name} />
+              <Button asChild>
+                <Link href={`/propostas/nova?clientId=${id}`}><FileText /> Nova proposta</Link>
+              </Button>
+              <MenuMaisCliente clientId={id} />
+            </div>
+          )}
         </div>
 
         <ClientProfileTabs
           tabs={[
-            { key: 'geral', label: 'Visão geral' },
-            { key: 'servicos', label: 'Serviços' },
+            { key: 'resumo', label: 'Resumo' },
+            { key: 'servicos', label: 'Serviços e contrato' },
             ...(isAdmin ? [{ key: 'financeiro', label: 'Financeiro' }] : []),
-            ...(isAdmin ? [{ key: 'faturamento', label: 'Faturamento e NFS-e' }] : []),
-            ...(isAdmin ? [{ key: 'propostas', label: 'Propostas' }] : []),
-            ...(isAdmin ? [{ key: 'credenciais', label: 'Credenciais' }] : []),
+            ...(isAdmin ? [{ key: 'documentos', label: 'Documentos' }] : []),
             { key: 'historico', label: 'Histórico' },
           ]}
           sections={{
-            geral: (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                <div className="lg:col-span-2 space-y-4">
-                  {segmentCard}
-                  {infoCard}
-                  {tasksCard}
-                </div>
-                <div className="space-y-4">
-                  {deliveriesCard}
-                  {isAdmin && (
-                    <div className="bg-white rounded-xl border border-gray-200 p-5">
-                      <h2 className="font-semibold text-gray-900 mb-3 text-sm">Pagamentos recentes</h2>
-                      {paymentsList(6)}
-                    </div>
-                  )}
+            resumo: (
+              <div className="space-y-3">
+                {recomendacaoAviso}
+                {numeros}
+                <div className="grid grid-cols-1 lg:grid-cols-5 gap-3">
+                  <div className="lg:col-span-3 space-y-3">
+                    {servicosCard}
+                    {demandasCard}
+                  </div>
+                  <div className="lg:col-span-2 space-y-3">
+                    {dadosCard}
+                    {cobrancasCard}
+                  </div>
                 </div>
               </div>
             ),
@@ -432,28 +399,31 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
               <ClientServicesPanel clientId={id} initialServices={sanitizedServices} isAdmin={isAdmin} />
             ),
             financeiro: (
-              <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
-                <h2 className="font-semibold text-gray-900 mb-3">Histórico de Pagamentos</h2>
-                {paymentsList()}
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-3">
+                <div className="lg:col-span-3 space-y-3">
+                  {cobrancasAsaas}
+                  <section className={card}>
+                    <div className={tituloCard}><h2 className="t-secao text-foreground">Lançamentos</h2></div>
+                    {paymentsList()}
+                  </section>
+                </div>
+                <div className="lg:col-span-2">{configFaturamento}</div>
               </div>
             ),
-            faturamento: billingSection,
-            propostas: isAdmin ? (
+            documentos: isAdmin ? (
               <div className="space-y-3">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <p className="text-sm text-gray-500">Propostas e aditivos deste cliente.</p>
-                  <Link
-                    href={`/propostas/nova?clientId=${id}`}
-                    className="text-xs font-semibold text-[#030A8C] hover:underline"
-                  >
-                    Nova proposta
-                  </Link>
-                </div>
-                <ProposalsList clientId={id} compact />
+                <section className={card}>
+                  <div className={tituloCard}>
+                    <h2 className="t-secao text-foreground">Propostas e aditivos</h2>
+                    <Link href={`/propostas/nova?clientId=${id}`} className="t-rotulo text-muted-foreground hover:text-foreground">Nova proposta</Link>
+                  </div>
+                  <div className="p-4"><ProposalsList clientId={id} compact /></div>
+                </section>
+                <section className={card}>
+                  <div className={tituloCard}><h2 className="t-secao text-foreground">Acessos e credenciais</h2></div>
+                  <div className="p-4"><ClientCredentialsPanel clientId={id} initialCredentials={decryptedCredentials} /></div>
+                </section>
               </div>
-            ) : null,
-            credenciais: isAdmin ? (
-              <ClientCredentialsPanel clientId={id} initialCredentials={decryptedCredentials} />
             ) : null,
             historico: historySection,
           }}

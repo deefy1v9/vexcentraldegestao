@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
 import { logTaskEvent, notifyWhatsApp, taskShortId } from '@/lib/task-flow'
 import { TIER_LABEL, Tier } from '@/lib/client-tier'
+import { alignStageToStatus } from '@/lib/processos-server'
 
 /**
  * Revisão: aprovar (→ Aprovado para Agendamento, volta ao produtor/agendador)
@@ -65,6 +66,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         _count: { select: { comments: true } },
       },
     })
+    // A etapa do processo acompanha o status
+    await alignStageToStatus(id)
 
     await logTaskEvent(id, 'APROVACAO', `${userName} aprovou a demanda${note ? ` — obs.: ${note}` : ''}`, userId)
     await logActivity(userId, 'aprovou demanda', 'Demandas', task.title)
@@ -96,6 +99,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       _count: { select: { comments: true } },
     },
   })
+  // A etapa do processo acompanha o status
+  await alignStageToStatus(id)
 
   await prisma.taskComment.create({ data: { taskId: id, userId, content: `[Ajustes solicitados] ${note}` } }).catch(() => {})
   await logTaskEvent(id, 'AJUSTES', `${userName} solicitou ajustes: ${note}`, userId)

@@ -5,20 +5,25 @@ import { Copy, Check, AlertTriangle, Image as ImageIcon, MessageSquare, Hash, Mo
 import { parseBrief, splitHashtags, captionWithHashtags, type BriefKind } from '@/lib/task-brief'
 
 const ESTILO: Record<BriefKind, { icon: React.ElementType; cls: string; label: string }> = {
-  copy: { icon: LayoutTemplate, cls: 'border-[#030A8C]/20 bg-[#030A8C]/[0.03]', label: 'Copy da arte' },
-  legenda: { icon: MessageSquare, cls: 'border-gray-200 bg-white', label: 'Legenda' },
-  hashtags: { icon: Hash, cls: 'border-gray-200 bg-white', label: 'Hashtags' },
-  cta: { icon: MousePointerClick, cls: 'border-gray-200 bg-white', label: 'CTA' },
-  imagem: { icon: ImageIcon, cls: 'border-gray-200 bg-gray-50', label: 'Imagem' },
+  copy: { icon: LayoutTemplate, cls: 'border-primary/25 bg-destaque', label: 'Copy da arte' },
+  legenda: { icon: MessageSquare, cls: 'border-border bg-card', label: 'Legenda' },
+  hashtags: { icon: Hash, cls: 'border-border bg-card', label: 'Hashtags' },
+  cta: { icon: MousePointerClick, cls: 'border-border bg-card', label: 'CTA' },
+  imagem: { icon: ImageIcon, cls: 'border-border bg-secondary', label: 'Imagem' },
   alerta: { icon: AlertTriangle, cls: 'border-orange-200 bg-orange-50', label: 'Atenção' },
-  texto: { icon: MessageSquare, cls: 'border-gray-200 bg-white', label: 'Descrição' },
+  texto: { icon: MessageSquare, cls: 'border-border bg-card', label: 'Descrição' },
+}
+
+/** Cabeçalho do briefing em caixa normal: "COPY DA ARTE" vira "Copy da arte". */
+function caixaNormal(t: string) {
+  return t === t.toUpperCase() ? t.charAt(0) + t.slice(1).toLowerCase() : t
 }
 
 /** URLs viram links clicáveis; o resto do texto fica intacto. */
 function comLinks(texto: string) {
   return texto.split(/(https?:\/\/\S+)/g).map((parte, i) => (
     /^https?:\/\//.test(parte)
-      ? <a key={i} href={parte} target="_blank" rel="noopener noreferrer" className="text-[#030A8C] underline break-all hover:text-[#02077a]">{parte}</a>
+      ? <a key={i} href={parte} target="_blank" rel="noopener noreferrer" className="text-link underline break-all">{parte}</a>
       : <span key={i}>{parte}</span>
   ))
 }
@@ -34,7 +39,7 @@ function BotaoCopiar({ texto, rotulo = 'Copiar' }: { texto: string; rotulo?: str
           setTimeout(() => setOk(false), 1500)
         }).catch(() => {})
       }}
-      className="inline-flex items-center gap-1 text-[11px] font-semibold text-gray-500 hover:text-[#030A8C] px-2 py-1 rounded-md hover:bg-white/70"
+      className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-secondary"
     >
       {ok ? <Check className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3" />}
       {ok ? 'Copiado' : rotulo}
@@ -60,9 +65,9 @@ export default function TaskBrief({ description }: { description: string | null 
         return (
           <section key={i} className={`rounded-xl border p-3.5 ${e.cls}`}>
             <div className="flex items-center justify-between gap-2 mb-2">
-              <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500 inline-flex items-center gap-1.5">
+              <p className="t-rotulo text-muted-foreground inline-flex items-center gap-1.5">
                 <Icon className="w-3.5 h-3.5" />
-                {s.title || e.label}
+                {caixaNormal(s.title || e.label)}
               </p>
               {s.kind !== 'alerta' && <BotaoCopiar texto={s.body} />}
             </div>
@@ -70,13 +75,13 @@ export default function TaskBrief({ description }: { description: string | null 
             {s.kind === 'hashtags' ? (
               <div className="flex flex-wrap gap-1.5">
                 {splitHashtags(s.body).map((h) => (
-                  <span key={h} className="text-xs font-medium text-[#030A8C] bg-[#030A8C]/5 border border-[#030A8C]/15 rounded-full px-2 py-0.5">{h}</span>
+                  <span key={h} className="text-[11.5px] font-medium text-muted-foreground bg-secondary rounded-md px-2 py-0.5">{h}</span>
                 ))}
               </div>
             ) : s.kind === 'alerta' ? (
               <p className="text-sm text-orange-800 whitespace-pre-wrap">{s.body}</p>
             ) : (
-              <p className={`text-sm text-gray-800 whitespace-pre-wrap leading-relaxed ${s.kind === 'copy' ? 'font-medium' : ''}`}>{comLinks(s.body)}</p>
+              <p className={`t-corpo text-foreground whitespace-pre-wrap leading-relaxed ${s.kind === 'copy' ? 'font-medium' : ''}`}>{comLinks(s.body)}</p>
             )}
           </section>
         )

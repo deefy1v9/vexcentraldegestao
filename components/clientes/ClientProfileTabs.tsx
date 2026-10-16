@@ -23,17 +23,17 @@ export default function ClientProfileTabs({
 
   return (
     <div>
-      <div className="flex flex-wrap gap-1 border-b border-gray-200 mb-5 overflow-x-auto">
+      <div className="flex gap-1 border-b border-border mb-4 overflow-x-auto" role="tablist">
         {tabs.map((t) => (
           <button
             key={t.key}
             onClick={() => setActive(t.key)}
             aria-selected={active === t.key}
             role="tab"
-            className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 -mb-px ${
+            className={`h-10 px-3 t-rotulo whitespace-nowrap transition-colors border-b-2 -mb-px focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring ${
               active === t.key
-                ? 'text-[#030A8C] border-[#030A8C]'
-                : 'text-gray-500 border-transparent hover:text-gray-900'
+                ? 'text-foreground border-marca'
+                : 'text-muted-foreground border-transparent hover:text-foreground'
             }`}
           >
             {t.label}

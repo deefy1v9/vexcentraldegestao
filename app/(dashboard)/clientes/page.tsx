@@ -2,7 +2,6 @@ import { prisma } from '@/lib/prisma'
 import { getSessionUser } from '@/lib/api-auth'
 import Header from '@/components/layout/Header'
 import ClientRowActions from '@/components/clientes/ClientRowActions'
-import TierRangesConfig from '@/components/clientes/TierRangesConfig'
 import ProposalsNav from '@/components/propostas/ProposalsNav'
 import TierBadge from '@/components/ui/TierBadge'
 import Link from 'next/link'
@@ -66,8 +65,7 @@ export default async function ClientesPage({
         {/* Navegação interna da área de Clientes (menu lateral não muda) */}
         {isAdmin && <ProposalsNav />}
 
-        {/* Faixas da segmentação — só administradores configuram */}
-        {isAdmin && <TierRangesConfig />}
+        {/* Os grupos (Start, Growth, Scale) saem sozinhos do ticket recorrente: sem card de faixas na tela (o dono, 15/10) */}
 
         {/* Filtro por grupo + ordenação */}
         <div className="flex flex-wrap items-center gap-2 mb-4">

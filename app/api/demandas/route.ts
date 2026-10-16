@@ -7,6 +7,7 @@ import { isConfigured, uazSendText } from '@/lib/uazapi'
 import { defaultAssignments, logTaskEvent, maybeImmediateReminder, taskShortId } from '@/lib/task-flow'
 import { tierPriority } from '@/lib/client-tier'
 import { visibilityWhere } from '@/lib/demandas-core'
+import { attachOrphanTasks, myTeamIds, startProcessData } from '@/lib/processos-server'
 
 export async function GET(req: NextRequest) {
   const session = await auth()
@@ -16,10 +17,13 @@ export async function GET(req: NextRequest) {
   const clientId = searchParams.get('clientId')
   const assigneeId = searchParams.get('assigneeId')
 
+  // Demandas criadas por caminhos que não escolhem processo entram no padrão
+  await attachOrphanTasks()
+
   const tasks = await prisma.task.findMany({
     where: {
       // Colaborador só enxerga as demandas em que tem papel
-      ...visibilityWhere(session.user.id, session.user.role === 'ADMIN'),
+      ...visibilityWhere(session.user.id, session.user.role === 'ADMIN', await myTeamIds(session.user.id)),
       ...(clientId ? { clientId } : {}),
       ...(assigneeId ? { assigneeId } : {}),
     },
@@ -30,6 +34,9 @@ export async function GET(req: NextRequest) {
       producer: { select: { id: true, name: true } },
       reviewer: { select: { id: true, name: true } },
       scheduler: { select: { id: true, name: true } },
+      process: { select: { id: true, name: true, color: true } },
+      stage: { select: { id: true, name: true, kind: true, dueMode: true, dueDays: true, position: true } },
+      team: { select: { id: true, name: true, color: true } },
       _count: { select: { comments: true } },
     },
     orderBy: [{ status: 'asc' }, { position: 'asc' }, { createdAt: 'desc' }],
@@ -73,6 +80,11 @@ export async function POST(req: NextRequest) {
     inheritedPriority = tierPriority(c?.tier)
   }
 
+  // Processo escolhido: começa na primeira etapa, com o responsável dela
+  const inicio = body.processId
+    ? await startProcessData(String(body.processId), { assigneeId: assigneeId || producerId || null, producerId, reviewerId, schedulerId })
+    : {}
+
   const task = await prisma.task.create({
     data: {
       title,
@@ -89,6 +101,7 @@ export async function POST(req: NextRequest) {
       platform: platform || null,
       creatorId: session.user.id,
       tags: tags || [],
+      ...inicio,
     },
     include: {
       client: { select: { id: true, name: true, tier: true, ...CLIENT_LINK_SELECT } },

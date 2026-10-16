@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { Ban, CalendarDays, Check, ChevronDown, MoreHorizontal, Send } from 'lucide-react'
 import PortalMenu from '@/components/ui/PortalMenu'
 import TierBadge from '@/components/ui/TierBadge'
@@ -50,8 +50,8 @@ export default function ReceivablesTable({ rows, actions }: { rows: ReceivableRo
   const totals = totalsBySituation(rows)
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col">
-      <div className="flex-1 min-h-0 overflow-auto bg-white border border-gray-200 rounded-2xl">
+    <div className="flex flex-col">
+      <div className="overflow-x-auto bg-white border border-gray-200 rounded-2xl">
         <table className="w-full text-sm min-w-[820px]">
           <thead className="text-[11px] text-gray-500 sticky top-0 bg-white z-10">
             <tr className="border-b border-gray-100">
@@ -76,8 +76,8 @@ export default function ReceivablesTable({ rows, actions }: { rows: ReceivableRo
               const busy = actions.busyKey != null && (actions.busyKey.endsWith(charge?.id ?? '') || actions.busyKey.endsWith(r.client.id))
               const pago = r.situation === 'pago'
               return (
-                <>
-                  <tr key={r.id} className={`hover:bg-gray-50 ${r.situation === 'cancelado' ? 'opacity-60' : ''}`}>
+                <Fragment key={r.id}>
+                  <tr className={`hover:bg-gray-50 ${r.situation === 'cancelado' ? 'opacity-60' : ''}`}>
                     <td className="px-4 py-3 cursor-pointer" onClick={() => setOpen(aberto ? null : r.id)}>
                       <p className="font-semibold text-gray-900 text-[13px] inline-flex items-center gap-2">
                         {r.client.name.split(' /')[0]}
@@ -216,7 +216,7 @@ export default function ReceivablesTable({ rows, actions }: { rows: ReceivableRo
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               )
             })}
           </tbody>

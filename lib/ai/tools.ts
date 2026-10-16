@@ -9,6 +9,7 @@ import { isConfigured as uazConfigured, uazSendText } from '../uazapi'
 import { getMonthSummary } from '../finance-summary'
 import { CLIENT_LINK_SELECT, clientLinks } from '../client-links'
 import { cashLabel, cashTotals, isCashKind, parseAmountCents, withdrawalsByPartner } from '../caixa-core'
+import { moveTaskStage, StageError } from '../processos-server'
 
 export interface ToolContext {
   /** Número do chat de comando que está falando com a IA. */
@@ -306,6 +307,40 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
         responsavelId: { type: 'string', description: 'id da pessoa (de buscar_equipe).' },
         clienteId: { type: 'string', description: 'id do cliente (de buscar_clientes).' },
       },
+    },
+  },
+  {
+    name: 'alterar_demanda',
+    description:
+      'Altera uma demanda existente: data final, responsável atual e/ou prioridade. Executa na hora (não precisa de confirmação). Ache o número com listar_demandas e a pessoa com buscar_equipe.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        demanda: { type: 'number', description: 'Número da demanda, sem o # (ex.: 193).' },
+        prazo: { type: 'string', description: 'Nova data final, YYYY-MM-DD.' },
+        responsavelId: { type: 'string', description: 'id de quem passa a ser o responsável atual (de buscar_equipe).' },
+        prioridade: { type: 'string', enum: TASK_PRIORITIES },
+      },
+      required: ['demanda'],
+    },
+  },
+  {
+    name: 'mover_demanda',
+    description:
+      'Anda com a demanda no processo dela. "avancar" conclui ou aprova a etapa atual; "devolver" volta uma etapa de aprovação (exige observação); "mover" leva a qualquer etapa pelo nome (exige observação como justificativa). Executa na hora. Se faltar algo que a etapa exige (link do Drive, data de publicação), devolve o que falta: peça ao usuário.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        demanda: { type: 'number', description: 'Número da demanda, sem o #.' },
+        acao: { type: 'string', enum: ['avancar', 'devolver', 'mover'] },
+        etapa: { type: 'string', description: 'Nome da etapa de destino (só para "mover").' },
+        observacao: { type: 'string', description: 'O que precisa ajustar (devolver) ou a justificativa (mover).' },
+        linkDrive: { type: 'string', description: 'Link do Google Drive, se a etapa exigir.' },
+        link: { type: 'string', description: 'Link da entrega, se a etapa exigir.' },
+        linkPublicacao: { type: 'string', description: 'Link publicado, se a etapa exigir.' },
+        dataPublicacao: { type: 'string', description: 'Data/hora da publicação em ISO-8601 com fuso (-03:00), se a etapa exigir.' },
+      },
+      required: ['demanda', 'acao'],
     },
   },
   {
@@ -889,10 +924,74 @@ export async function executeTool(
         },
         orderBy: [{ dueDate: { sort: 'asc', nulls: 'last' } }, { number: 'asc' }],
         take: 25,
-        include: { client: { select: { name: true } }, assignee: { select: { name: true } } },
+        include: { client: { select: { name: true } }, assignee: { select: { name: true } }, process: { select: { name: true } }, stage: { select: { name: true } } },
       })
       if (list.length === 0) return 'Nenhuma demanda aberta com esse filtro.'
-      return list.map((t) => `- ${taskShortId(t.number)} | ${t.dueDate ? dayBr(t.dueDate) : 'sem prazo'} | ${t.status} | ${t.title} | ${t.assignee?.name ?? 'sem responsável'}`).join('\n')
+      return list.map((t) => `- ${taskShortId(t.number)} | ${t.dueDate ? dayBr(t.dueDate) : 'sem prazo'} | ${t.process?.name ?? 'sem processo'} › ${t.stage?.name ?? t.status} | ${t.title} | ${t.client?.name ?? 'sem cliente'} | ${t.assignee?.name ?? 'sem responsável'}`).join('\n')
+    }
+
+    case 'alterar_demanda': {
+      const numero = Number(input.demanda)
+      const task = Number.isInteger(numero) ? await prisma.task.findUnique({ where: { number: numero } }) : null
+      if (!task) throw new ToolError('Demanda não encontrada. Confira o número com listar_demandas.')
+      const data: Record<string, unknown> = {}
+      const mudou: string[] = []
+      if (typeof input.prazo === 'string' && input.prazo) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(input.prazo)) throw new ToolError('prazo deve ser YYYY-MM-DD')
+        data.dueDate = new Date(`${input.prazo}T12:00:00Z`)
+        data.reminderProductionAt = null
+        data.reminderReviewAt = null
+        mudou.push(`data final para ${dayBr(data.dueDate as Date)}`)
+      }
+      if (typeof input.responsavelId === 'string' && input.responsavelId) {
+        const u = await prisma.user.findUnique({ where: { id: input.responsavelId }, select: { id: true, name: true, isActive: true } })
+        if (!u?.isActive) throw new ToolError('Responsável não encontrado ou inativo. Use buscar_equipe.')
+        data.assigneeId = u.id
+        mudou.push(`responsável para ${u.name}`)
+      }
+      if (typeof input.prioridade === 'string' && TASK_PRIORITIES.includes(input.prioridade)) {
+        data.priority = input.prioridade
+        mudou.push(`prioridade para ${input.prioridade}`)
+      }
+      if (mudou.length === 0) throw new ToolError('Nada para alterar: informe prazo, responsavelId ou prioridade.')
+      await prisma.task.update({ where: { id: task.id }, data })
+      await logTaskEvent(task.id, 'ALTERACAO', `Assistente alterou ${mudou.join(', ')}`, ctx.userId)
+      return `${taskShortId(task.number)} ${task.title}: ${mudou.join(', ')}.`
+    }
+
+    case 'mover_demanda': {
+      const numero = Number(input.demanda)
+      const task = Number.isInteger(numero)
+        ? await prisma.task.findUnique({ where: { number: numero }, include: { process: { include: { stages: true } } } })
+        : null
+      if (!task) throw new ToolError('Demanda não encontrada. Confira o número com listar_demandas.')
+      if (!ctx.userId) throw new ToolError('Não sei quem está pedindo: só um usuário vinculado pode mover demandas.')
+      const quem = await prisma.user.findUnique({ where: { id: ctx.userId }, select: { id: true, role: true, name: true } })
+      if (!quem) throw new ToolError('Usuário não encontrado.')
+      const acao = String(input.acao) as 'avancar' | 'devolver' | 'mover'
+      let toStageId: string | undefined
+      if (acao === 'mover') {
+        const alvo = String(input.etapa ?? '').trim().toLowerCase()
+        const etapas = [...(task.process?.stages ?? [])].sort((a, b) => a.position - b.position)
+        const etapa = etapas.find((s) => s.name.toLowerCase() === alvo) ?? etapas.find((s) => alvo && s.name.toLowerCase().includes(alvo))
+        if (!etapa) throw new ToolError(`Etapa não encontrada. Etapas deste processo: ${etapas.map((s) => s.name).join(', ') || 'nenhuma'}.`)
+        toStageId = etapa.id
+      }
+      try {
+        const t = await moveTaskStage(task.id, {
+          action: acao, toStageId,
+          note: typeof input.observacao === 'string' ? input.observacao : undefined,
+          driveLink: typeof input.linkDrive === 'string' ? input.linkDrive : undefined,
+          link: typeof input.link === 'string' ? input.link : undefined,
+          publicationLink: typeof input.linkPublicacao === 'string' ? input.linkPublicacao : undefined,
+          publicationDate: typeof input.dataPublicacao === 'string' ? parseWhen(input.dataPublicacao, 'dataPublicacao').toISOString() : undefined,
+        }, quem)
+        const agora = await prisma.task.findUnique({ where: { id: t.id }, select: { stage: { select: { name: true } }, assignee: { select: { name: true } } } })
+        return `${taskShortId(task.number)} ${task.title}: agora em "${agora?.stage?.name ?? t.status}" com ${agora?.assignee?.name ?? 'ninguém'}.`
+      } catch (err) {
+        if (err instanceof StageError) throw new ToolError(err.message)
+        throw err
+      }
     }
 
     case 'listar_atividades': {

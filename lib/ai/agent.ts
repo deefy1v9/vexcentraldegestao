@@ -49,7 +49,7 @@ Sobre datas:
 
 Estilo: você está no WhatsApp. Escreva em português do Brasil, direto, poucas linhas, sem markdown pesado e sem títulos. Use *negrito* do WhatsApp no que importa. Não repita o pedido de volta — responda o que foi feito ou o que falta.`
 
-interface HistoryMessage {
+export interface HistoryMessage {
   role: 'user' | 'assistant'
   content: string
 }
@@ -101,24 +101,31 @@ function textFrom(content: Anthropic.ContentBlock[]): string {
  * Não envia nada por conta própria além da própria resposta.
  */
 export async function runCommandAgent(params: {
-  conversationId: string
+  conversationId?: string
   commandChat: string
   incomingText: string
   since: Date
   cfg?: AiConfig
+  /** Chat da Central: o histórico vem da tela e o usuário já é conhecido. */
+  channel?: 'whatsapp' | 'web'
+  history?: HistoryMessage[]
+  ownerId?: string | null
 }): Promise<string> {
+  const web = params.channel === 'web'
   const cfg = params.cfg ?? (await getAiConfig())
   if (cfg.provider === 'gemini' && !cfg.geminiApiKey) throw new Error('GEMINI_API_KEY não configurada')
   if (cfg.provider === 'anthropic' && !cfg.apiKey) throw new Error('ANTHROPIC_API_KEY não configurada')
 
   // Vincula o número a um usuário do sistema, quando houver, para que as ações
   // fiquem atribuídas a uma pessoa real (compara os 8 últimos dígitos).
-  const chatDigits = normalizeNumber(params.commandChat)
-  const people = await prisma.user.findMany({
+  const chatDigits = web ? params.commandChat : normalizeNumber(params.commandChat)
+  const people = web ? [] : await prisma.user.findMany({
     where: { isActive: true, phone: { not: null } },
     select: { id: true, phone: true },
   })
-  const ownerId = people.find((u) => u.phone && chatDigits.endsWith(normalizeNumber(u.phone).slice(-8)))?.id ?? null
+  const ownerId = web
+    ? (params.ownerId ?? null)
+    : people.find((u) => u.phone && chatDigits.endsWith(normalizeNumber(u.phone).slice(-8)))?.id ?? null
 
   const ctx: ToolContext = { commandChat: chatDigits, userId: ownerId }
 
@@ -132,14 +139,15 @@ export async function runCommandAgent(params: {
   const systemBase = agent ? `${SYSTEM_PROMPT}\n\n${agentSystemBlock(agent)}` : SYSTEM_PROMPT
   const modelo = (agent?.model || '').trim() || cfg.agentModel
 
-  const history = await loadHistory(params.conversationId, params.since)
+  const history = params.history ?? (params.conversationId ? await loadHistory(params.conversationId, params.since) : [])
   // Quem está falando entra no contexto: sem isso, "minha retirada" vira a
   // retirada de outra pessoa quando a IA tem que escolher um sócio.
   const quem = ownerId ? await prisma.user.findUnique({ where: { id: ownerId }, select: { name: true, role: true } }) : null
   const assinatura = quem
     ? `[quem está falando com você: ${quem.name} (id ${ownerId}${quem.role === 'ADMIN' ? ', sócio' : ''}). "eu", "meu" e "minha" se referem a ${quem.name}.]`
     : '[quem está falando não está vinculado a um usuário do sistema: pergunte o nome antes de registrar algo pessoal.]'
-  const context = `[contexto: agora é ${nowInBrazil()} (horário de Brasília)]\n${assinatura}${await pendingActionsBlock(chatDigits)}`
+  const canal = web ? '\n[canal: chat da Central de Gestão, na tela do computador. Pode usar listas curtas; *negrito* continua valendo.]' : ''
+  const context = `[contexto: agora é ${nowInBrazil()} (horário de Brasília)]\n${assinatura}${canal}${await pendingActionsBlock(chatDigits)}`
 
   const userText = `${context}\n\n${pedido}`
 

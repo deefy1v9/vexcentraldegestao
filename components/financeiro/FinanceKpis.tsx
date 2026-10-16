@@ -82,7 +82,7 @@ export default function FinanceKpis({
 
   if (loading || !s) {
     return (
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         {[...Array(4)].map((_, i) => <div key={i} className="h-[96px] bg-white border border-gray-200 rounded-xl animate-pulse" />)}
       </div>
     )
@@ -125,7 +125,7 @@ export default function FinanceKpis({
 
   return (
     <div className="space-y-2">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         {tiles.map((t) => {
           const Icon = t.icon
           const on = active === t.key
@@ -160,7 +160,7 @@ export default function FinanceKpis({
       </button>
 
       {aberto && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           {extras.map((e) => (
             <div key={e.label} className="bg-white rounded-xl border border-gray-200 p-4">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{e.label}</p>

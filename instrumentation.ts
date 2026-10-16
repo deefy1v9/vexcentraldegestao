@@ -15,6 +15,12 @@
  */
 export async function register() {
   if (process.env.NEXT_RUNTIME !== 'nodejs') return
+  // Numa prévia local o agendador fica de fora: ele envia WhatsApp, e-mail e
+  // gera cobrança de verdade. `VEX_SCHEDULER=off` no .env.local desliga.
+  if (process.env.VEX_SCHEDULER === 'off') {
+    console.log('[scheduler] desligado por VEX_SCHEDULER=off')
+    return
+  }
 
   const { prisma } = await import('./lib/prisma')
   const { spNow, getBillingSetting } = await import('./lib/billing-whatsapp')

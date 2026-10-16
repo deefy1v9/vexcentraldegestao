@@ -75,7 +75,7 @@ export default function ClientEmailActions({ clientId, clientName }: { clientId:
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-medium text-gray-700 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors"
+        className="inline-flex items-center gap-1.5 h-9 px-3.5 border border-border bg-card rounded-lg text-[13.5px] font-medium text-foreground hover:bg-accent transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       >
         <Mail className="w-3.5 h-3.5" />
         Enviar e-mail
@@ -83,26 +83,26 @@ export default function ClientEmailActions({ clientId, clientName }: { clientId:
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-1 w-56 bg-white border border-gray-100 rounded-xl shadow-lg z-30 py-1 overflow-hidden">
+        <div className="absolute right-0 top-full mt-1 w-56 bg-card border border-border rounded-[12px] shadow-[0_8px_24px_rgb(16_24_40/0.12)] z-30 py-1 overflow-hidden">
           {ITEMS.map((it) => (
             <button
               key={it.kind}
               type="button"
               disabled={busy != null}
               onClick={() => { if (confirm(it.confirm)) void send(it.kind) }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors text-left"
+              className="w-full flex items-center gap-2 px-3 py-2 text-[13.5px] text-foreground hover:bg-accent disabled:opacity-50 transition-colors text-left"
             >
-              <it.icon className="w-4 h-4 text-gray-400" />
+              <it.icon className="w-4 h-4 text-muted-foreground" />
               {busy === it.kind ? 'Enviando...' : it.label}
             </button>
           ))}
-          <div className="border-t border-gray-100 my-1" />
+          <div className="border-t border-border my-1" />
           <button
             type="button"
             onClick={() => { setOpen(false); setModal(true) }}
-            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors text-left"
+            className="w-full flex items-center gap-2 px-3 py-2 text-[13.5px] text-foreground hover:bg-accent transition-colors text-left"
           >
-            <Megaphone className="w-4 h-4 text-gray-400" />
+            <Megaphone className="w-4 h-4 text-muted-foreground" />
             Comunicado…
           </button>
         </div>

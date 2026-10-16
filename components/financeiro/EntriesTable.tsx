@@ -26,8 +26,8 @@ export default function EntriesTable<T extends EntryLike>({
   const pago = entries.filter((e) => e.status === 'PAGO').reduce((s, e) => s + e.amount, 0)
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col">
-      <div className="flex-1 min-h-0 overflow-auto bg-white border border-gray-200 rounded-2xl">
+    <div className="flex flex-col">
+      <div className="overflow-x-auto bg-white border border-gray-200 rounded-2xl">
         <table className="w-full text-sm min-w-[760px]">
           <thead className="text-[11px] text-gray-500 sticky top-0 bg-white z-10">
             <tr className="border-b border-gray-100">

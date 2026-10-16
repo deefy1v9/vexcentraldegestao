@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
 import { isConfigured, uazSendText } from '@/lib/uazapi'
 import { validateDragTransition, logTaskEvent, TaskStatusValue } from '@/lib/task-flow'
+import { alignStageToStatus } from '@/lib/processos-server'
 
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
@@ -31,6 +32,8 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
         include: { user: { select: { id: true, name: true } } },
         orderBy: { createdAt: 'asc' },
       },
+      process: { include: { stages: { orderBy: { position: 'asc' }, include: { defaultUser: { select: { id: true, name: true } }, team: { select: { id: true, name: true } } } } } },
+      team: { select: { id: true, name: true, color: true } },
     },
   })
 
@@ -125,6 +128,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       _count: { select: { comments: true } },
     },
   })
+  // A etapa do processo acompanha o status
+  if (has('status')) await alignStageToStatus(id)
 
   // Troca de responsável fica registrada na linha do tempo da demanda
   if (isAdmin && assigneeChanged) {

@@ -47,7 +47,7 @@ interface MonthData {
   recent: Movement[]
 }
 
-const PAGE = 10
+const PAGE = 15
 const TABS: FinTab[] = ['visao', 'recebiveis', 'atrasados', 'custos', 'salarios', 'caixa']
 const SORTS: FinSort[] = ['vencimento', 'valor', 'nome']
 
@@ -261,8 +261,8 @@ export default function FinanceiroPanel() {
   }
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col">
-      <div className="px-4 sm:px-6 pt-4 pb-3 space-y-3 shrink-0">
+    <div className="flex-1 flex flex-col">
+      <div className="px-4 sm:px-6 pt-4 pb-3 space-y-3">
         {/* Período e ações do mês */}
         <div className="flex items-center gap-2 flex-wrap">
           <MonthPicker period={period} isCurrent={isCurrentMonth} onChange={(p) => push({ period: p })} onToday={() => push({ period: currentPeriod() })} />
@@ -301,10 +301,11 @@ export default function FinanceiroPanel() {
         {flash && <p className="text-xs font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5">{flash}</p>}
         {error && <p className="text-sm font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-3 text-center">{error}</p>}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+        {/* Saldo do caixa à esquerda, os quatro números do mês em 2x2 ao lado */}
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] gap-3 items-stretch">
           <CashBalanceCard mes={`${period.year}-${String(period.month).padStart(2, '0')}`} href="/financeiro?aba=caixa" />
+          <FinanceKpis s={data?.summary ?? null} loading={loading} active={activeTile} onToggle={toggleTile} />
         </div>
-        <FinanceKpis s={data?.summary ?? null} loading={loading} active={activeTile} onToggle={toggleTile} />
         <FinanceTabs active={tab} counts={counts} onChange={(t) => push({ tab: t })} />
 
         {tab === 'caixa' && <CaixaPanel />}
@@ -331,7 +332,7 @@ export default function FinanceiroPanel() {
         )}
       </div>
 
-      <div className="flex-1 min-h-0 flex flex-col px-4 sm:px-6 pb-4">
+      <div className="flex flex-col px-4 sm:px-6 pb-6">
         {loading ? (
           <div className="space-y-3 animate-pulse py-2">
             {[...Array(5)].map((_, i) => <div key={i} className="h-14 bg-white border border-gray-200 rounded-xl" />)}

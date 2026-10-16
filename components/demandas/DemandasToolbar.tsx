@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { ArrowUpDown, CalendarDays, Filter, Kanban, List, ListChecks, Plus, Search, Sparkles, User, Users, X } from 'lucide-react'
+import { ArrowUpDown, CalendarDays, Filter, Inbox, Kanban, List, ListChecks, Plus, Search, Sparkles, User, Users, X } from 'lucide-react'
 import SearchSelect from '@/components/ui/SearchSelect'
 import {
   STAGES, LIST_TAB_LABEL, SORT_LABEL, type DemandasFilters, type Period, type ListTab, type SortKey,
@@ -14,6 +14,7 @@ const TIER_LABEL: Record<string, string> = { SCALE: 'Scale', GROWTH: 'Growth', S
 /* ------------------------------ linha de cima ------------------------------ */
 
 const VIEWS: Array<{ key: View; label: string; icon: React.ElementType; mobileOnly?: boolean }> = [
+  { key: 'tarefas', label: 'Tarefas', icon: Inbox },
   { key: 'fila', label: 'Fila', icon: ListChecks, mobileOnly: true },
   { key: 'lista', label: 'Lista', icon: List },
   { key: 'quadro', label: 'Quadro', icon: Kanban },
@@ -34,7 +35,7 @@ export function DemandasTopBar({
   return (
     <div className="flex items-center gap-2 flex-wrap">
       {/* Escopo é do admin: o colaborador só tem as próprias demandas */}
-      {isAdmin && (
+      {isAdmin && view !== 'tarefas' && (
       <div className="inline-flex rounded-lg border border-gray-200 bg-white p-0.5" role="group" aria-label="Escopo">
         {([[true, 'Minhas demandas', User], [false, 'Toda a equipe', Users]] as const).map(([m, label, Icon]) => (
           <button

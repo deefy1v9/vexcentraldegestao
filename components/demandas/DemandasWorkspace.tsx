@@ -15,9 +15,11 @@ import BoardView from './BoardView'
 import ListView from './ListView'
 import CalendarTab from './CalendarTab'
 import NewTaskModal from './NewTaskModal'
-import type { Option, Task, View } from './types'
+import TarefasView from './tarefas/TarefasView'
+import BarraDaVisao from './tarefas/BarraDaVisao'
+import type { Option, ProcessOption, Task, View } from './types'
 
-const VIEWS: View[] = ['fila', 'lista', 'quadro', 'calendario']
+const VIEWS: View[] = ['tarefas', 'fila', 'lista', 'quadro', 'calendario']
 const PERIODS: Period[] = ['hoje', 'semana', 'mes']
 const SORTS: SortKey[] = ['prazo', 'prioridade', 'cliente', 'recentes']
 
@@ -28,10 +30,12 @@ const SORTS: SortKey[] = ['prazo', 'prioridade', 'cliente', 'recentes']
  * lentes alternativas do mesmo conjunto. Filtros e visão vivem na URL.
  */
 export default function DemandasWorkspace({
-  initialTasks, clients, users, currentUserId, isAdmin,
+  initialTasks, clients, users, processes, myTeamIds = [], currentUserId, isAdmin,
 }: {
   initialTasks: Task[]
   clients: Option[]
+  processes: ProcessOption[]
+  myTeamIds?: string[]
   users: Option[]
   currentUserId: string
   isAdmin: boolean
@@ -42,13 +46,13 @@ export default function DemandasWorkspace({
 
   const [allTasks, setTasks] = useState<Task[]>(initialTasks)
   // Colaborador não vê o que está com o revisor
-  const tasks = useMemo(() => allTasks.filter((t) => canSee(t, currentUserId, isAdmin)), [allTasks, currentUserId, isAdmin])
+  const tasks = useMemo(() => allTasks.filter((t) => canSee(t, currentUserId, isAdmin, myTeamIds)), [allTasks, currentUserId, isAdmin, myTeamIds])
   const [showNew, setShowNew] = useState(false)
   const [showAiImport, setShowAiImport] = useState(false)
   const [asideTab, setAsideTab] = useState<'equipe' | 'fila'>(isAdmin ? 'equipe' : 'fila')
 
   /* ------------------------- estado que vive na URL ------------------------- */
-  const view: View = VIEWS.includes(params.get('visao') as View) ? (params.get('visao') as View) : 'lista'
+  const view: View = VIEWS.includes(params.get('visao') as View) ? (params.get('visao') as View) : 'tarefas'
   const sort: SortKey = SORTS.includes(params.get('ordem') as SortKey) ? (params.get('ordem') as SortKey) : 'prazo'
   const filters: DemandasFilters = useMemo(() => {
     const periodo = params.get('periodo') ?? ''
@@ -72,7 +76,7 @@ export default function DemandasWorkspace({
     const m = { ...filters, ...next }
     const q = new URLSearchParams()
     const v = next.view ?? view
-    if (v !== 'lista') q.set('visao', v)
+    if (v !== 'tarefas') q.set('visao', v)
     const s = next.sort ?? sort
     if (s !== 'prazo') q.set('ordem', s)
     if (m.q) q.set('q', m.q)
@@ -143,6 +147,52 @@ export default function DemandasWorkspace({
     ? <TeamPanel tasks={tasks} users={users} selected={filters.assignee} onSelect={(id) => push({ assignee: id, mine: false })} />
     : <MyQueue tasks={tasks} userId={currentUserId} onOpen={open} />
 
+  const modais = (
+    <>
+      {showNew && isAdmin && (
+        <NewTaskModal
+          clients={clients}
+          users={users}
+          processes={processes}
+          defaultAssignee={filters.assignee && filters.assignee !== 'none' ? filters.assignee : ''}
+          onClose={() => setShowNew(false)}
+          onCreated={(t) => { setTasks((prev) => [t, ...prev]); setShowNew(false); reloadTasks() }}
+        />
+      )}
+      {showAiImport && isAdmin && (
+        <AiImportModal clients={clients} users={users} onClose={() => setShowAiImport(false)} onCreated={reloadTasks} />
+      )}
+    </>
+  )
+
+  // Visão padrão: lista de tarefas + resumo lateral, sem painel nem abas
+  if (view === 'tarefas') {
+    return (
+      <div className="flex-1 min-h-0 flex flex-col">
+        <div className="px-2 py-2 shrink-0">
+          <BarraDaVisao
+            view={view}
+            onView={(v) => push({ view: v })}
+            isAdmin={isAdmin}
+            onNew={() => setShowNew(true)}
+            onImport={() => setShowAiImport(true)}
+          />
+        </div>
+        <TarefasView
+          tasks={allTasks}
+          processes={processes}
+          myTeamIds={myTeamIds}
+          clients={clients}
+          users={users}
+          currentUserId={currentUserId}
+          isAdmin={isAdmin}
+          onReload={reloadTasks}
+        />
+        {modais}
+      </div>
+    )
+  }
+
   return (
     <div className="flex-1 min-h-0 flex">
       {/* Painel lateral de altura inteira: fila pessoal (colaborador) ou equipe/fila (admin) */}
@@ -209,19 +259,7 @@ export default function DemandasWorkspace({
         {view === 'calendario' && <CalendarTab tasks={sorted} onOpen={open} />}
       </main>
 
-      {showNew && isAdmin && (
-        <NewTaskModal
-          clients={clients}
-          users={users}
-          defaultAssignee={filters.assignee && filters.assignee !== 'none' ? filters.assignee : ''}
-          onClose={() => setShowNew(false)}
-          onCreated={(t) => { setTasks((prev) => [t, ...prev]); setShowNew(false); router.push(`/demandas/${t.id}`) }}
-        />
-      )}
-
-      {showAiImport && isAdmin && (
-        <AiImportModal clients={clients} users={users} onClose={() => setShowAiImport(false)} onCreated={reloadTasks} />
-      )}
+      {modais}
     </div>
   )
 }
