@@ -48,8 +48,25 @@ async function blindCopy(): Promise<string | undefined> {
   return lista.length > 0 ? lista.join(', ') : undefined
 }
 
+/** O que vai para a equipe da VEX, não para cliente. */
+const PARA_EQUIPE = new Set(['admin-digest', 'integration-alert'])
+
+/**
+ * E-mail automático para CLIENTE fica desligado (o dono, 17/10: "não é para
+ * enviar mais para nenhum cliente"). Volta só com EMAIL_AUTOMATICO_CLIENTE =
+ * "on" nas configurações. Resumo diário e alertas da equipe seguem saindo.
+ */
+async function clienteLiberado(): Promise<boolean> {
+  const { getSetting } = await import('./settings')
+  return ((await getSetting('EMAIL_AUTOMATICO_CLIENTE').catch(() => '')) || '').trim() === 'on'
+}
+
 async function deliver(mail: T.RenderedMail, to: string, refId?: string): Promise<boolean> {
   try {
+    if (!PARA_EQUIPE.has(mail.kind) && !(await clienteLiberado())) {
+      console.log(`[email] ${mail.kind} para cliente não enviado: e-mail automático a cliente está desligado`)
+      return false
+    }
     if (!(await smtpConfigured(mail.profile))) return false
     const bcc = await blindCopy()
     const r = await sendMail({ to, bcc, subject: mail.subject, html: mail.html, profile: mail.profile, kind: mail.kind, refId })

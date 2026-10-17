@@ -287,11 +287,15 @@ const VEX_SALES_MATCH = /vex\s*sales/i
  * Avisa os donos quando um cliente assina a VEX Sales. Detecta pelo serviço
  * contratado (qualquer caminho: tela, proposta, pipeline ou script) e a marca
  * em AgentNotice garante um aviso só por contratação.
+ *
+ * Só serviço recorrente conta: um avulso com "VEX Sales" no nome (o repasse
+ * do custo de IA da Nobre, 16/10) não é assinatura e não pode virar aviso.
  */
 export async function runVexSalesAlerts(): Promise<{ enviados: number }> {
   const servicos = await prisma.clientService.findMany({
     where: {
       status: 'ATIVO',
+      contractType: { not: 'AVULSO' },
       createdAt: { gte: new Date(Date.now() - 30 * 86_400_000) },
       OR: [{ serviceName: { contains: 'VEX Sales', mode: 'insensitive' } }, { catalog: { name: { contains: 'VEX Sales', mode: 'insensitive' } } }],
     },
@@ -312,9 +316,11 @@ export async function runVexSalesAlerts(): Promise<{ enviados: number }> {
     const marca = await prisma.agentNotice.findUnique({ where: { kind_refId: { kind: 'vexsales', refId: s.id } } }).catch(() => null)
     if (marca) continue
 
-    const totalClientes = await prisma.clientService.count({
-      where: { status: 'ATIVO', OR: [{ serviceName: { contains: 'VEX Sales', mode: 'insensitive' } }, { catalog: { name: { contains: 'VEX Sales', mode: 'insensitive' } } }] },
-    })
+    // Clientes, não serviços: quem tem dois serviços da VEX Sales conta uma vez
+    const totalClientes = (await prisma.clientService.groupBy({
+      by: ['clientId'],
+      where: { status: 'ATIVO', contractType: { not: 'AVULSO' }, OR: [{ serviceName: { contains: 'VEX Sales', mode: 'insensitive' } }, { catalog: { name: { contains: 'VEX Sales', mode: 'insensitive' } } }] },
+    })).length
     const texto = [
       '🟢 *VEX Sales contratada*',
       '',
