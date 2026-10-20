@@ -184,6 +184,9 @@ export default function PipelineBoard({ isAdmin, currentUserId }: { isAdmin: boo
     return { rec, pontual }
   }
 
+  // Previsão de entrada: só o que ainda está em negociação (ganho já é receita, perdido não entra)
+  const previsto = columnTotals(filtered.filter((o) => o.stage !== 'GANHO' && o.stage !== 'PERDIDO'))
+
   const colunas = filters.stage ? STAGES.filter((s) => s === filters.stage) : STAGES
   const etapaCelular = colunas.includes(mobileStage) ? mobileStage : colunas[0]
   const ownerName = owners.find((o) => o.id === filters.owner)?.name ?? null
@@ -192,9 +195,21 @@ export default function PipelineBoard({ isAdmin, currentUserId }: { isAdmin: boo
     <div className="flex flex-col h-full min-h-0 gap-3">
       {/* Cabeçalho: contexto à esquerda, ação principal à direita */}
       <div className="flex items-start justify-between gap-3 shrink-0">
-        <p className="text-sm text-gray-500">
-          {loading ? 'Carregando negociações…' : `${filtered.length} negociação(ões) no funil comercial.`}
-        </p>
+        <div className="min-w-0">
+          <p className="text-sm text-gray-500">
+            {loading ? 'Carregando negociações…' : `${filtered.length} negociação(ões) no funil comercial.`}
+          </p>
+          {!loading && (previsto.rec > 0 || previsto.pontual > 0) && (
+            <p className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-xs text-gray-500">
+              <span title="Receita recorrente mensal prevista das negociações em aberto">
+                MRR previsto <span className="text-base font-bold text-[#030A8C]">{brl(previsto.rec)}</span>/mês
+              </span>
+              {previsto.pontual > 0 && (
+                <span>+ <span className="font-semibold text-purple-700">{brl(previsto.pontual)}</span> pontual</span>
+              )}
+            </p>
+          )}
+        </div>
         <button
           onClick={() => setShowNew(true)}
           className="shrink-0 h-10 px-4 inline-flex items-center gap-1.5 bg-[#030A8C] text-white rounded-lg text-xs font-semibold hover:bg-[#02077a] transition-colors"
