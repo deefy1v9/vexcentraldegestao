@@ -201,8 +201,8 @@ export default function PipelineBoard({ isAdmin, currentUserId }: { isAdmin: boo
           </p>
           {!loading && (previsto.rec > 0 || previsto.pontual > 0) && (
             <p className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-xs text-gray-500">
-              <span title="Receita recorrente mensal prevista das negociações em aberto">
-                MRR previsto <span className="text-base font-bold text-[#030A8C]">{brl(previsto.rec)}</span>/mês
+              <span title="Receita recorrente mensal que entra se as negociações em aberto fecharem (soma ao MRR da carteira no Financeiro)">
+                MRR em negociação <span className="text-base font-bold text-[#030A8C]">{brl(previsto.rec)}</span>/mês
               </span>
               {previsto.pontual > 0 && (
                 <span>+ <span className="font-semibold text-purple-700">{brl(previsto.pontual)}</span> pontual</span>

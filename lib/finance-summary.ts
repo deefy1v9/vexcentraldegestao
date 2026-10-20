@@ -1,7 +1,7 @@
 import { prisma } from './prisma'
 import { materializeMonth } from './financeiro'
 import { materializeReceivables } from './receivables'
-import { competenceBreakdown, recurringTicketCents } from './billing-core'
+import { competenceBreakdown, competenceRange, recurringTicketCents } from './billing-core'
 import { getTierRanges } from './client-tier'
 
 /**
@@ -10,7 +10,8 @@ import { getTierRanges } from './client-tier'
  *
  * Definições:
  * - MRR: soma dos serviços recorrentes ativos hoje (clientes ativos).
- * - Receita prevista: recorrentes da competência + avulsos da competência.
+ * - Receita prevista: recorrentes da competência + avulsos da competência,
+ *   incluindo o que foi encerrado durante ou depois dela (o mês ainda é devido).
  * - Recebida: parcelas PAGAS da competência (+ receitas extras pagas).
  * - Pendente: parcelas abertas dentro do prazo.
  * - Atrasada: parcelas abertas vencidas.
@@ -68,8 +69,29 @@ function prevPeriod(year: number, month: number) {
 const SERVICE_SELECT = {
   id: true, serviceName: true, status: true, monthlyValue: true, startDate: true, endDate: true,
   contractType: true, priceCents: true, quantity: true, discountCents: true, competence: true,
-  billingDescription: true,
+  billingDescription: true, endedAt: true,
 } as const
+
+type ServiceRow = { status: string; contractType: string; endDate: Date | null; endedAt: Date | null }
+
+/**
+ * Para a previsão, o que terminou durante ou depois do mês ainda conta naquele
+ * mês: cliente encerrado em 31/10 deve outubro; avulso concluído (ENCERRADO)
+ * continua na competência dele. A cobrança segue usando competenceBreakdown
+ * puro, que só olha o que está ativo.
+ */
+function forecastBreakdown<C extends { status: string; contractEnd: Date | null; services: S[] }, S extends ServiceRow>(
+  c: C, year: number, month: number,
+) {
+  const { start } = competenceRange(year, month)
+  const services = c.services.map((s) => {
+    if (s.status !== 'ENCERRADO') return s
+    const fim = s.endedAt ?? s.endDate
+    const vivo = s.contractType === 'AVULSO' || (fim != null && new Date(fim) >= start)
+    return vivo ? { ...s, status: 'ATIVO' } : s
+  })
+  return competenceBreakdown({ ...c, status: 'ATIVO' }, services, year, month)
+}
 
 /** Números "crus" de uma competência, sem materializar nem comparar. */
 async function rawMonth(year: number, month: number) {
@@ -78,7 +100,7 @@ async function rawMonth(year: number, month: number) {
 
   const [clients, payments, entries] = await Promise.all([
     prisma.client.findMany({
-      where: { status: 'ATIVO' },
+      where: { OR: [{ status: 'ATIVO' }, { status: 'ENCERRADO', contractEnd: { gte: new Date(Date.UTC(year, month - 1, 1)) } }] },
       select: { id: true, status: true, contractEnd: true, tier: true, services: { select: SERVICE_SELECT } },
     }),
     prisma.clientPayment.findMany({
@@ -99,9 +121,10 @@ async function rawMonth(year: number, month: number) {
   let mrr = 0
   const segMap = new Map<string | null, { count: number; recurringCents: number }>()
   for (const c of clients) {
-    const b = competenceBreakdown(c, c.services, year, month)
+    const b = forecastBreakdown(c, year, month)
     previstaRecorrente += b.recurringCents
     previstaAvulsa += b.avulsoCents
+    if (c.status !== 'ATIVO') continue // encerrado: entra na previsão do mês, não no MRR nem na carteira
     const ticket = recurringTicketCents(c.services, today)
     mrr += ticket
     const key = ticket > 0 ? c.tier : c.tier // grupo já reflete o ticket; mantém o do cadastro
