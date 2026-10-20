@@ -167,7 +167,7 @@ export default function ResumoTarefa({
       })
       const b = await r.json().catch(() => ({}))
       if (!r.ok) { setAviso({ tipo: 'erro', texto: b.error || 'Não foi possível concluir.' }); return }
-      setAviso({ tipo: 'ok', texto: action === 'devolver' ? 'Tarefa devolvida.' : action === 'mover' ? 'Tarefa movida.' : 'Etapa concluída. A tarefa seguiu para a próxima.' })
+      setAviso({ tipo: 'ok', texto: action === 'devolver' ? 'Ajuste pedido. A tarefa voltou para a etapa anterior.' : action === 'mover' ? 'Tarefa movida.' : 'Etapa concluída. A tarefa seguiu para a próxima.' })
       await carregar()
       onChanged()
     } finally { setBusy(null) }
@@ -345,7 +345,7 @@ export default function ResumoTarefa({
               )}
 
               <label className="block space-y-1.5">
-                <span className={rotulo}>Observação <span className="text-muted-foreground font-normal">{campos.includes('NOTA') ? '(obrigatória)' : acoes?.back ? '(obrigatória para devolver)' : '(opcional)'}</span></span>
+                <span className={rotulo}>Observação <span className="text-muted-foreground font-normal">{campos.includes('NOTA') ? '(obrigatória)' : acoes?.back ? '(obrigatória para pedir ajuste)' : '(opcional)'}</span></span>
                 <textarea value={nota} onChange={(e) => setNota(e.target.value)} rows={2} className={`${inputCls} h-auto py-2 resize-y`} placeholder={acoes?.back ? 'O que precisa ser ajustado?' : 'Algo que a próxima pessoa precise saber?'} />
               </label>
 

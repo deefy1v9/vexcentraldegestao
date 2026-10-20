@@ -215,7 +215,7 @@ export function linkFromData(task: TaskForStage, stageId: string): string | unde
 /** Rótulos dos botões da etapa, no vocabulário da equipe. */
 export function stageActions(stage: StageLike): { advance: string; back?: string } | null {
   if (stage.kind === 'FINAL') return null
-  if (stage.kind === 'APROVACAO') return { advance: 'Aprovar', back: 'Devolver' }
+  if (stage.kind === 'APROVACAO') return { advance: 'Aprovar', back: 'Pedir ajuste' }
   return { advance: 'Concluir etapa' }
 }
 
