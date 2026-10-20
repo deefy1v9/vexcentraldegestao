@@ -112,10 +112,17 @@ export function nextStage<T extends StageLike>(stages: T[], stageId: string | nu
   return i >= 0 && i < list.length - 1 ? list[i + 1] : null
 }
 
+/**
+ * Para onde vai um pedido de ajuste: a última etapa de execução antes desta.
+ * Aprovações no caminho (ex.: revisão interna antes da aprovação do cliente)
+ * são puladas, porque o ajuste é de quem faz, não de quem aprova.
+ */
 export function prevStage<T extends StageLike>(stages: T[], stageId: string | null | undefined): T | null {
   const list = ordered(stages)
   const i = list.findIndex((s) => s.id === stageId)
-  return i > 0 ? list[i - 1] : null
+  if (i <= 0) return null
+  for (let j = i - 1; j >= 0; j--) if (list[j].kind === 'EXECUCAO') return list[j]
+  return list[i - 1]
 }
 
 /**
