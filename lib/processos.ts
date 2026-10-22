@@ -152,6 +152,21 @@ export function stageDue(stage: StageLike, task: TaskForStage): Date | null {
 }
 
 /**
+ * Prazo que vale agora: o da etapa. Se ele já passou mas a data final ainda
+ * não, o prazo é hoje: a demanda foi replanejada e não está atrasada (a
+ * produção D-2 de um post que sai hoje não vira "atrasada").
+ */
+export function prazoAtual(stage: StageLike | null | undefined, task: TaskForStage, agora: Date = new Date()): Date | null {
+  const final = task.dueDate ? new Date(task.dueDate) : null
+  const etapa = stage ? stageDue(stage, task) : null
+  if (!etapa) return final
+  const hoje = new Date(agora)
+  hoje.setHours(0, 0, 0, 0)
+  if (etapa < hoje && final && final >= hoje) return hoje
+  return etapa
+}
+
+/**
  * Quem assume a etapa, nesta ordem: o papel na demanda, a pessoa fixa da
  * etapa, a equipe (com uma pessoa só vai direto para ela; com mais, ninguém:
  * a tarefa entra na fila da equipe) e, sem nada disso, quem já estava.

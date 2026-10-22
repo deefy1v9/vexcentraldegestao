@@ -3,7 +3,7 @@
 import { Search } from 'lucide-react'
 import SearchSelect from '@/components/ui/SearchSelect'
 import { Badge } from '@/components/vex/badge'
-import { stageDue } from '@/lib/processos'
+import { prazoAtual } from '@/lib/processos'
 import type { Option, ProcessOption, Task } from '../types'
 
 export type Recorte = 'abertas' | 'atrasadas' | 'hoje' | 'semana' | 'concluidas'
@@ -20,11 +20,7 @@ const DAY = 24 * 60 * 60 * 1000
 
 /** Prazo que importa agora: o da etapa atual; sem ele, a data final. */
 export function prazoDaTarefa(t: Task): Date | null {
-  if (t.stage) {
-    const d = stageDue({ ...t.stage, fields: [], checklist: [], checklistRequired: false, status: t.status }, t)
-    if (d) return d
-  }
-  return t.dueDate ? new Date(t.dueDate) : null
+  return prazoAtual(t.stage ? { ...t.stage, fields: [], checklist: [], checklistRequired: false, status: t.status } : null, t)
 }
 
 function inicioDoDia(d = new Date()) {

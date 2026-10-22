@@ -11,7 +11,7 @@ import { Button } from '@/components/vex/button'
 import { Card } from '@/components/vex/card'
 import { Avatar } from './ListaTarefas'
 import {
-  FIELD_LABEL, checklistKey, missingToAdvance, ordered, stageActions, stageDue,
+  FIELD_LABEL, checklistKey, missingToAdvance, ordered, prazoAtual, stageActions,
   type StageField, type StageLike,
 } from '@/lib/processos'
 
@@ -152,7 +152,7 @@ export default function ResumoTarefa({
   const podeAssumir = emFila && (isAdmin || (!!t?.team && myTeamIds.includes(t.team.id)))
   const podeAgir = !!t && !concluida && (isAdmin || t.assigneeId === currentUserId)
   const acoes = atual ? stageActions(atual) : null
-  const prazoEtapa = atual && t ? stageDue(atual, t) : null
+  const prazoEtapa = atual && t ? prazoAtual(atual, t) : null
   const atrasada = !!prazoEtapa && !concluida && prazoEtapa.getTime() < new Date().setHours(0, 0, 0, 0)
 
   const entrada = { driveLink, link, publicationLink, publicationDate: publicationDate || undefined, note: nota }
