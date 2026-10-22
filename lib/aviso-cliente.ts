@@ -10,7 +10,7 @@ import {
 } from './aviso-cliente-core'
 
 /**
- * Liga o aviso de demanda concluída (lib/aviso-cliente-core.ts) ao banco, à
+ * Liga o aviso ao cliente por etapa (lib/aviso-cliente-core.ts) ao banco, à
  * fila ClientNotice e ao WhatsApp da Central (UAZAPI). A regra mora no core.
  */
 
@@ -29,10 +29,12 @@ const depsEnfileirar: DepsEnfileirar = {
     prisma.task.findUnique({
       where: { id: taskId },
       select: {
-        id: true, number: true, title: true, assigneeId: true,
+        id: true, number: true, title: true, assigneeId: true, stageId: true, clientText: true,
+        scheduledFor: true, dueDate: true, stageEnteredAt: true,
+        process: { select: { stages: { select: { id: true, name: true, position: true, notifyClient: true, clientPhrase: true, kind: true, dueMode: true, dueDays: true } } } },
         client: { select: { id: true, name: true, avisoConclusaoAtivo: true, whatsappGroupId: true } },
       },
-    }),
+    }).then((t) => (t ? { ...t, stages: t.process?.stages ?? [] } : null)),
   geralLigado,
   pendentesDoCliente: async (clientId) =>
     (await prisma.clientNotice.findMany({ where: { clientId, status: 'PENDENTE' }, select: { concludedAt: true } })).map((n) => n.concludedAt),
@@ -41,7 +43,7 @@ const depsEnfileirar: DepsEnfileirar = {
       await prisma.clientNotice.create({ data: a })
       return 'criado'
     } catch (e) {
-      // taskId é único: a demanda já teve aviso (reaberta e concluída de novo)
+      // (taskId, stageId) é único: esta etapa da demanda já teve aviso
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') return 'ja-existe'
       throw e
     }
@@ -64,8 +66,8 @@ const depsProcessar: DepsProcessar = {
       orderBy: { concludedAt: 'asc' },
       take: 200,
       select: {
-        id: true, taskId: true, clientId: true, attempts: true,
-        task: { select: { number: true, title: true, clientText: true, assigneeId: true } },
+        id: true, taskId: true, clientId: true, attempts: true, line: true,
+        task: { select: { number: true, title: true, assigneeId: true } },
         client: { select: { name: true, avisoConclusaoAtivo: true, whatsappGroupId: true } },
       },
     })
@@ -103,19 +105,19 @@ const depsProcessar: DepsProcessar = {
   avisarResponsavel: (userId, texto) => notifyWhatsApp(userId, texto),
 }
 
-/** Põe a conclusão na fila agora (útil em scripts). Nunca lança. */
-export function avisarConclusao(taskId: string, antes: string | null | undefined, depois: string): Promise<ResultadoEnfileirar> {
-  return enfileirarAviso({ taskId, antes, depois }, depsEnfileirar)
+/** Avalia agora o fim da etapa `deStageId` (útil em scripts). Nunca lança. */
+export function avisarEtapa(taskId: string, deStageId: string | null | undefined): Promise<ResultadoEnfileirar> {
+  return enfileirarAviso({ taskId, deStageId }, depsEnfileirar)
 }
 
 /**
- * Chamado nos pontos de conclusão. A entrada na fila roda depois da resposta:
- * quem concluiu não espera, e uma falha aqui nunca volta como erro da
- * conclusão. Fora de uma requisição, roda em segundo plano do mesmo jeito.
+ * Chamado depois que a demanda muda de etapa, com a etapa de onde ela saiu.
+ * Roda depois da resposta: quem moveu não espera, e uma falha aqui nunca volta
+ * como erro. Fora de uma requisição, roda em segundo plano do mesmo jeito.
  */
-export function dispararAvisoConclusao(taskId: string, antes: string | null | undefined, depois: string): void {
-  if (depois !== 'CONCLUIDO' || antes === 'CONCLUIDO') return
-  const run = () => avisarConclusao(taskId, antes, depois).then(() => undefined, () => undefined)
+export function dispararAvisoEtapa(taskId: string, deStageId: string | null | undefined): void {
+  if (!deStageId) return
+  const run = () => avisarEtapa(taskId, deStageId).then(() => undefined, () => undefined)
   try {
     after(run)
   } catch {

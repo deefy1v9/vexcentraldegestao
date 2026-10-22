@@ -26,6 +26,8 @@ export interface ParsedStage {
   fields: string[]
   checklist: string[]
   checklistRequired: boolean
+  notifyClient: boolean
+  clientPhrase: string | null
 }
 
 export function parseStages(raw: unknown): { stages: ParsedStage[] } | { error: string } {
@@ -52,6 +54,8 @@ export function parseStages(raw: unknown): { stages: ParsedStage[] } | { error: 
       fields: Array.isArray(s.fields) ? s.fields.map(String).filter((f) => FIELDS.includes(f)) : [],
       checklist: Array.isArray(s.checklist) ? s.checklist.map((c) => String(c).trim()).filter(Boolean).slice(0, 20) : [],
       checklistRequired: !!s.checklistRequired,
+      clientPhrase: s.clientPhrase ? String(s.clientPhrase).replace(/\s+/g, ' ').trim().slice(0, 200) || null : null,
+      notifyClient: !!s.notifyClient && !!String(s.clientPhrase ?? '').trim() && kind !== 'FINAL',
     })
   }
   const finais = stages.filter((s) => s.kind === 'FINAL')

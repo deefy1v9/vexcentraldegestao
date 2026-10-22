@@ -9,6 +9,16 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/vex/button'
 import { Switch } from '@/components/vex/switch'
+import { linhaDaEtapa } from '@/lib/aviso-cliente-core'
+
+/** Dados de exemplo para a prévia da frase no construtor. */
+const EXEMPLO_FRASE = {
+  entrega: 'o post de Outubro Rosa',
+  data: new Date('2026-10-12T12:00:00Z'),
+  proxima: 'Desenvolvimento',
+  prazo: new Date('2026-10-15T15:00:00Z'),
+  prazoFinal: new Date('2026-10-30T15:00:00Z'),
+}
 import {
   FIELD_LABEL, ROLE_LABEL, STATUS_LABEL, type StageField, type StageKind, type StageRole, type StatusEspelho,
 } from '@/lib/processos'
@@ -30,6 +40,8 @@ export interface EtapaRascunho {
   instructions: string
   checklist: string
   checklistRequired: boolean
+  notifyClient: boolean
+  clientPhrase: string
 }
 
 export interface ProcessoParaEditar {
@@ -57,7 +69,7 @@ function etapa(kind: StageKind, patch: Partial<EtapaRascunho> = {}): EtapaRascun
     key: novaChave(), name: '', kind, status: STATUS_PADRAO[kind],
     role: kind === 'APROVACAO' ? 'REVISOR' : '', defaultUserId: '', teamId: '',
     dueMode: 'DIAS_APOS_ENTRADA', dueDays: kind === 'FINAL' ? 0 : 2,
-    fields: [], instructions: '', checklist: '', checklistRequired: false, ...patch,
+    fields: [], instructions: '', checklist: '', checklistRequired: false, notifyClient: false, clientPhrase: '', ...patch,
   }
 }
 
@@ -159,6 +171,7 @@ export default function ConstrutorProcesso({ inicial, pessoas, equipes }: { inic
         id: s.id, name: s.name, kind: s.kind, status: s.status, role: s.role || null, defaultUserId: s.defaultUserId || null,
         teamId: s.teamId || null, dueMode: s.dueMode, dueDays: s.dueDays, fields: s.fields, instructions: s.instructions,
         checklist: s.checklist.split('\n').map((c) => c.trim()).filter(Boolean), checklistRequired: s.checklistRequired,
+        notifyClient: s.notifyClient, clientPhrase: s.clientPhrase.trim() || null,
       })),
     }
     const r = id
@@ -392,6 +405,24 @@ export default function ConstrutorProcesso({ inicial, pessoas, equipes }: { inic
                     <input type="checkbox" checked={atual.checklistRequired} onChange={(e) => muda(atual.key, { checklistRequired: e.target.checked })} className="w-4 h-4 accent-[var(--marca)]" />
                     Só conclui com o checklist completo
                   </label>
+
+                  {/* Aviso ao cliente quando a demanda sai desta etapa */}
+                  <div className="rounded-xl border border-border p-3 space-y-2">
+                    <label className="flex items-center gap-2 t-corpo text-foreground">
+                      <input type="checkbox" checked={atual.notifyClient} onChange={(e) => muda(atual.key, { notifyClient: e.target.checked })} className="w-4 h-4 accent-[var(--marca)]" />
+                      Avisar o cliente quando esta etapa terminar
+                    </label>
+                    {atual.notifyClient && (
+                      <>
+                        <label className="block"><span className={rotulo}>Frase para o cliente</span>
+                          <input value={atual.clientPhrase} maxLength={200} onChange={(e) => muda(atual.key, { clientPhrase: e.target.value })} placeholder="Ex.: Finalizamos o briefing do seu site" className={input} /></label>
+                        <p className="text-xs text-muted-foreground">
+                          Variáveis: {'{entrega}'} (nome na demanda; reserva depois da barra: {'{entrega|mais uma publicação}'}), {'{data}'} (data agendada), {'{proxima}'} e {'{prazo}'} (próxima etapa e prazo dela), {'{prazo_final}'} (data final). O que estiver entre [colchetes] só aparece se tiver o dado.
+                          {' '}Exemplo do que o cliente lê: <span className="text-foreground font-medium">✅ {linhaDaEtapa(atual.clientPhrase, EXEMPLO_FRASE) ?? '…'}.</span>
+                        </p>
+                      </>
+                    )}
+                  </div>
 
                   <details>
                     <summary className="t-rotulo text-muted-foreground cursor-pointer">Avançado</summary>

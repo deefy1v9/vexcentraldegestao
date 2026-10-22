@@ -379,7 +379,7 @@ export default function TaskDetail({
               {/* O que o cliente vai ler no aviso de conclusão */}
               {task.clientText && (
                 <div className="rounded-xl border border-green-100 bg-green-50/60 px-3 py-2.5">
-                  <p className="text-[11px] font-semibold text-green-800 uppercase tracking-wide">Texto para o cliente</p>
+                  <p className="text-[11px] font-semibold text-green-800 uppercase tracking-wide">Nome da entrega para o cliente</p>
                   <p className="text-sm text-gray-800 mt-0.5">{task.clientText}</p>
                 </div>
               )}
@@ -454,15 +454,15 @@ export default function TaskDetail({
                 <textarea value={editForm.description} onChange={(e) => setEditForm((p) => ({ ...p, description: e.target.value }))} rows={10} className={`${INPUT} resize-y font-mono text-xs`} />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Texto para o cliente <span className="font-normal text-gray-400">(opcional)</span></label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Nome da entrega para o cliente <span className="font-normal text-gray-400">(opcional)</span></label>
                 <input
                   value={editForm.clientText}
                   maxLength={300}
                   onChange={(e) => setEditForm((p) => ({ ...p, clientText: e.target.value }))}
-                  placeholder="Ex.: o post de Outubro Rosa já está no ar"
+                  placeholder="Ex.: o post de Outubro Rosa"
                   className={INPUT}
                 />
-                <p className="text-[11px] text-gray-400 mt-1">Vai no aviso de conclusão no grupo do cliente. Vazio, sai &quot;Concluímos mais uma entrega para vocês&quot;. O título interno nunca vai para o cliente.</p>
+                <p className="text-[11px] text-gray-400 mt-1">Entra no aviso ao cliente no lugar de {'{entrega}'} (ex.: &quot;Agendamos o post de Outubro Rosa&quot;). O título interno nunca vai para o cliente.</p>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>

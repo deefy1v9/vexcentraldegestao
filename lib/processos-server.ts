@@ -1,9 +1,9 @@
 import { Prisma } from '@prisma/client'
 import { prisma } from './prisma'
 import { logTaskEvent, notifyWhatsApp, taskShortId } from './task-flow'
-import { dispararAvisoConclusao } from './aviso-cliente'
+import { dispararAvisoEtapa } from './aviso-cliente'
 import {
-  DEFAULT_PROCESSES, DEFAULT_PROCESS_SLUG, inferProcessSlug, missingToAdvance, nextStage, ordered, prevStage,
+  DEFAULT_PROCESSES, EXIGENCIAS_REMOVIDAS, FRASES_CLIENTE_PADRAO, DEFAULT_PROCESS_SLUG, inferProcessSlug, semExigenciasRemovidas, missingToAdvance, nextStage, ordered, prevStage,
   responsibleFor, stageForStatus, type ProcessData, type StageInput,
 } from './processos'
 
@@ -28,7 +28,47 @@ export async function myTeamIds(userId: string): Promise<string[]> {
 const STAGES_ORDER = { orderBy: { position: 'asc' as const } }
 
 /** Cria os processos padrão que ainda não existem (idempotente pelo slug). */
+/**
+ * Uma vez só: põe as frases padrão do aviso ao cliente nas etapas dos
+ * processos que já existiam. Etapa que já tem frase não é tocada, e depois da
+ * marca o que vale é o que for ajustado no construtor de processos.
+ */
+async function aplicarFrasesPadrao() {
+  const MARCA = 'AVISO_FRASES_PADRAO'
+  const ja = await prisma.systemSettings.findUnique({ where: { key: MARCA } })
+  if (ja?.value === 'v1') return
+  const procs = await prisma.process.findMany({ where: { slug: { in: Object.keys(FRASES_CLIENTE_PADRAO) } }, include: { stages: true } })
+  for (const p of procs) {
+    for (const st of p.stages) {
+      const frase = FRASES_CLIENTE_PADRAO[p.slug]?.[st.name]
+      if (frase && !st.clientPhrase) await prisma.processStage.update({ where: { id: st.id }, data: { notifyClient: true, clientPhrase: frase } })
+    }
+  }
+  await prisma.systemSettings.upsert({ where: { key: MARCA }, update: { value: 'v1' }, create: { key: MARCA, value: 'v1' } })
+}
+
+/**
+ * Uma vez só: tira dos processos que já existiam as exigências de link que só
+ * travavam a etapa (lista em EXIGENCIAS_REMOVIDAS). Só remove exigência;
+ * etapas, prazos e demandas ficam como estão.
+ */
+async function removerExigenciasDoMapa() {
+  const MARCA = 'PROCESSOS_MAPA'
+  const ja = await prisma.systemSettings.findUnique({ where: { key: MARCA } })
+  if (ja?.value === 'v1') return
+  for (const r of EXIGENCIAS_REMOVIDAS) {
+    const st = await prisma.processStage.findFirst({ where: { name: r.etapa, process: { slug: r.slug } } })
+    const novos = st ? semExigenciasRemovidas(r.slug, st.name, st.fields) : null
+    if (st && novos && novos.length !== st.fields.length) {
+      await prisma.processStage.update({ where: { id: st.id }, data: { fields: novos } })
+    }
+  }
+  await prisma.systemSettings.upsert({ where: { key: MARCA }, update: { value: 'v1' }, create: { key: MARCA, value: 'v1' } })
+}
+
 export async function ensureDefaultProcesses() {
+  await aplicarFrasesPadrao().catch(() => {})
+  await removerExigenciasDoMapa().catch(() => {})
   const existentes = new Set((await prisma.process.findMany({ select: { slug: true } })).map((p) => p.slug))
   let pos = existentes.size
   for (const p of DEFAULT_PROCESSES) {
@@ -42,6 +82,8 @@ export async function ensureDefaultProcesses() {
             dueMode: s.dueMode ?? 'DIAS_APOS_ENTRADA', dueDays: s.dueDays ?? 2,
             fields: s.fields ?? [], checklist: s.checklist ?? [], checklistRequired: s.checklistRequired ?? false,
             instructions: s.instructions ?? null,
+            notifyClient: !!FRASES_CLIENTE_PADRAO[p.slug]?.[s.name],
+            clientPhrase: FRASES_CLIENTE_PADRAO[p.slug]?.[s.name] ?? null,
           })),
         },
       },
@@ -216,8 +258,8 @@ export async function moveTaskStage(taskId: string, input: StageMoveInput, user:
     teamId: destino.kind === 'FINAL' ? null : (destino.teamId ?? null),
   })
   const atualizada = await prisma.task.update({ where: { id: taskId }, data })
-  // Chegou ao fim do processo: avisa o grupo do cliente depois da resposta
-  dispararAvisoConclusao(taskId, task.status, destino.status)
+  // Saiu de uma etapa marcada para adiante: avisa o grupo do cliente (fila)
+  if (input.action === 'avancar' || input.action === 'mover') dispararAvisoEtapa(taskId, atual.id)
 
   const verbo = input.action === 'avancar' ? (atual.kind === 'APROVACAO' ? 'aprovou' : 'concluiu') : input.action === 'devolver' ? 'devolveu' : 'moveu'
   const detalhe = input.action === 'mover'

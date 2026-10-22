@@ -2,7 +2,6 @@
 import { useEffect, useState } from 'react'
 import { MessageCircle } from 'lucide-react'
 import { Switch } from '@/components/vex/switch'
-import { MENSAGEM_GENERICA } from '@/lib/aviso-cliente-core'
 
 export interface AvisoForm {
   whatsappGroupId: string
@@ -51,7 +50,7 @@ export default function ClientAvisoSection({
         Aviso no WhatsApp
       </h2>
       <p className="text-sm text-gray-500">
-        Quando uma demanda deste cliente for concluída, a Central avisa no grupo dele pelo WhatsApp da VEX e conta ao responsável se o aviso saiu.
+        Quando uma demanda deste cliente avança de uma etapa marcada no processo (briefing, desenvolvimento, publicação...), a Central avisa no grupo dele pelo WhatsApp da VEX.
       </p>
 
       <div>
@@ -79,15 +78,15 @@ export default function ClientAvisoSection({
           onCheckedChange={(v) => onChange('avisoConclusaoAtivo', v)}
           aria-label="Avisar o grupo quando a demanda for concluída"
         />
-        Avisar o grupo quando a demanda for concluída
+        Avisar o grupo quando uma etapa terminar
       </label>
 
       <div className="rounded-xl bg-gray-50 border border-gray-100 px-3 py-2 text-xs text-gray-600">
-        <span className="font-semibold text-gray-700">Mensagem: </span>
-        o &quot;Texto para o cliente&quot; da demanda ou, sem ele, {MENSAGEM_GENERICA}
+        <span className="font-semibold text-gray-700">Exemplo: </span>
+        ✅ Atualização do seu projeto: • Finalizamos o briefing do seu site • Agendamos o post de Outubro Rosa. Qualquer dúvida, é só chamar.
       </div>
       <p className="text-xs text-gray-400">
-        Sai de segunda a sexta, das 8h às 20h; fora disso espera o próximo horário. O que for concluído em até 10 minutos vai numa mensagem só. Precisa também do aviso ligado no geral (CRM › WhatsApp).
+        Sai de segunda a sexta, das 8h às 20h; fora disso espera o próximo horário. O que avançar em até 10 minutos vai numa mensagem só. As etapas e as frases são definidas em Processos. Precisa também do aviso ligado no geral (CRM › WhatsApp).
       </p>
     </div>
   )

@@ -32,6 +32,10 @@ export interface StageLike {
   fields: string[]
   checklist: string[]
   checklistRequired: boolean
+  /** Avisa o cliente (grupo do WhatsApp) quando a demanda sai desta etapa para adiante */
+  notifyClient?: boolean
+  /** Frase que o cliente lê; aceita {entrega} e {entrega|reserva} */
+  clientPhrase?: string | null
 }
 
 export interface ProcessLike {
@@ -167,12 +171,24 @@ export function responsibleFor(stage: StageLike, task: TaskForStage, membrosDaEq
  */
 export function inferProcessSlug(contentType?: string | null): string {
   const t = (contentType ?? '').toLowerCase()
+  // A ordem importa: o primeiro que casar decide ("Consultoria de CRM" é
+  // consultoria; "Pacote CRM + ... Manutenção" é CRM)
   if (/logo|identidade/.test(t)) return 'logo'
-  if (/landing|\blp\b/.test(t)) return 'landing-page'
+  if (/consultoria/.test(t)) return 'consultoria'
+  if (/\bcrm\b|vex sales/.test(t)) return 'crm'
+  if (/landing|\blp\b|link da bio/.test(t)) return 'landing-page'
+  if (/nuvemshop|revitaliza/.test(t)) return 'site-apresentacao'
+  if (/web ?design/.test(t)) return 'site'
+  if (/manuten/.test(t)) return 'manutencao-site'
   if (/site/.test(t)) return 'site'
-  if (/artigo|blog/.test(t)) return 'artigo-seo'
-  if (/an[uú]ncio|campanha|tr[aá]fego/.test(t)) return 'trafego-pago'
-  if (/design|apresenta|e-?book|pptx/.test(t)) return 'design'
+  if (/relat[oó]rio.*seo|seo.*relat[oó]rio/.test(t)) return 'seo-relatorio'
+  if (/artigo|blog|^seo/.test(t)) return 'artigo-seo'
+  if (/an[uú]ncio|campanha|tr[aá]fego|meta ads|google ads/.test(t)) return 'trafego-pago'
+  if (/perfil.*google|google meu neg|\bgmb\b|\bgbp\b/.test(t)) return 'perfil-google'
+  if (/e-?mail/.test(t)) return 'email-marketing'
+  // "vídeo" sozinho é peça de redes (fica no conteúdo); captação e edição têm processo próprio
+  if (/capta[cç][aã]o|edi[cç][aã]o de v[ií]deo/.test(t)) return 'video'
+  if (/design|apresenta|e-?book|pptx|projeto adicional/.test(t)) return 'design'
   return DEFAULT_PROCESS_SLUG
 }
 
@@ -281,7 +297,7 @@ export const DEFAULT_PROCESSES: ProcessSeed[] = [
     slug: 'landing-page', name: 'Criação de landing page', color: '#10B981',
     description: 'Página de captura ou venda, com copy, design e publicação.',
     stages: [
-      exec('Briefing e copy', 3, { fields: ['LINK'], instructions: 'Defina oferta, público e escreva a copy. Cole o link do documento.' }),
+      exec('Briefing e copy', 3, { instructions: 'Defina oferta, público e escreva a copy.' }),
       exec('Design', 3, { fields: ['LINK'] }),
       aprov('Aprovação do design', 1),
       exec('Desenvolvimento', 4, { fields: ['LINK'] }),
@@ -296,7 +312,7 @@ export const DEFAULT_PROCESSES: ProcessSeed[] = [
     description: 'Logo e identidade visual, das referências aos arquivos finais.',
     stages: [
       exec('Briefing', 2, { instructions: 'Entenda a marca, o público e o que o cliente gosta e não gosta.' }),
-      exec('Pesquisa e referências', 3, { fields: ['LINK'] }),
+      exec('Pesquisa e referências', 3),
       exec('Criação das propostas', 5, { fields: ['LINK_DRIVE'] }),
       aprov('Revisão interna', 1),
       aprov('Apresentação ao cliente', 3, { instructions: 'Apresente as propostas e registre a escolhida.' }),
@@ -313,7 +329,7 @@ export const DEFAULT_PROCESSES: ProcessSeed[] = [
       aprov('Aprovação dos criativos', 1),
       exec('Configuração da campanha', 2, { checklist: ['Pixel e eventos', 'Públicos', 'UTMs', 'Orçamento'], checklistRequired: true }),
       aprov('Revisão', 1),
-      exec('Publicação', 1, { fields: ['LINK'], instructions: 'Ative a campanha e cole o link do gerenciador.' }),
+      exec('Publicação', 1, { instructions: 'Ative a campanha e confira se começou a veicular.' }),
       FIM,
     ],
   },
@@ -324,7 +340,7 @@ export const DEFAULT_PROCESSES: ProcessSeed[] = [
       exec('Criação', 3, { fields: ['LINK_DRIVE'], instructions: 'Crie a peça conforme o briefing e cole o link da pasta no Google Drive.' }),
       aprov('Revisão interna', 1),
       aprov('Aprovação do cliente', 2),
-      exec('Arquivos finais', 1, { fields: ['LINK_DRIVE'], instructions: 'Exporte nos formatos combinados e entregue ao cliente.' }),
+      exec('Arquivos finais', 1, { instructions: 'Exporte nos formatos combinados e entregue ao cliente.' }),
       FIM,
     ],
   },
@@ -339,6 +355,150 @@ export const DEFAULT_PROCESSES: ProcessSeed[] = [
       FIM,
     ],
   },
+  {
+    slug: 'site-apresentacao', name: 'Site: desenvolvimento e apresentação', color: '#0284C7',
+    description: 'Site ou loja já em andamento: ajustes e apresentação ao cliente.',
+    stages: [
+      exec('Desenvolvimento e ajustes', 3, { role: 'PRODUTOR', instructions: 'Faça os ajustes combinados e confira antes de apresentar.' }),
+      aprov('Apresentação ao cliente', 2, { instructions: 'Apresente ao cliente e registre o aceite ou o que precisa mudar.' }),
+      FIM,
+    ],
+  },
+  {
+    slug: 'video', name: 'Vídeo: captação e edição', color: '#8B5CF6',
+    description: 'Vídeos captados e editados pela VEX, do roteiro ao agendamento.',
+    stages: [
+      exec('Roteiro', 2, { role: 'PRODUTOR', instructions: 'Escreva o roteiro e o texto de tela.' }),
+      exec('Captação', 3),
+      exec('Edição', 3, { fields: ['LINK_DRIVE'], instructions: 'Edite o vídeo e cole o link da pasta no Google Drive.' }),
+      aprov('Revisão', 1),
+      aprov('Aprovação do cliente', 2),
+      { name: 'Agendamento', kind: 'EXECUCAO', status: 'APROVADO', role: 'AGENDADOR', dueMode: 'ANTES_DA_ENTREGA', dueDays: 0, fields: ['DATA_PUBLICACAO'], instructions: 'Agende a publicação na plataforma e informe a data.' },
+      FIM,
+    ],
+  },
+  {
+    slug: 'manutencao-site', name: 'Manutenção de site', color: '#0891B2',
+    description: 'Pedido de ajuste no site do cliente: execução, conferência e entrega.',
+    stages: [
+      exec('Pedido do cliente', 1, { role: 'PRODUTOR', instructions: 'Registre o que o cliente pediu e confirme o escopo.' }),
+      exec('Execução', 2),
+      aprov('Conferência', 1, { checklist: ['Funciona no celular', 'Nada quebrou em outras páginas'] }),
+      exec('Entrega', 0, { instructions: 'Confirme com o cliente que o ajuste foi feito.' }),
+      FIM,
+    ],
+  },
+  {
+    slug: 'seo-relatorio', name: 'SEO: relatório mensal', color: '#0D9488',
+    description: 'Relatório mensal dos planos de SEO: dados, análise e envio.',
+    stages: [
+      exec('Coleta de dados', 2, { role: 'PRODUTOR', checklist: ['Search Console', 'Analytics', 'Posições das palavras-chave'] }),
+      exec('Análise', 2),
+      exec('Envio ao cliente', 1, { fields: ['LINK'], instructions: 'Envie o relatório ao cliente e cole o link dele.' }),
+      FIM,
+    ],
+  },
+  {
+    slug: 'perfil-google', name: 'Perfil da Empresa no Google', color: '#F97316',
+    description: 'Criação ou otimização do perfil no Google.',
+    stages: [
+      exec('Acessos', 2, { role: 'PRODUTOR', instructions: 'Consiga com o cliente o acesso ao perfil (ou os dados para criar).' }),
+      exec('Configuração e fotos', 3, { checklist: ['Categorias', 'Horários', 'Descrição', 'Fotos', 'Link do site e WhatsApp'] }),
+      aprov('Revisão', 1),
+      exec('Publicação', 1, { fields: ['LINK_PUBLICACAO'], instructions: 'Publique e cole o link do perfil.' }),
+      FIM,
+    ],
+  },
+  {
+    slug: 'crm', name: 'CRM / VEX Sales', color: '#FF6B00',
+    description: 'Implantação de CRM e atendimento com IA (VEX Sales).',
+    stages: [
+      exec('Acessos e briefing', 2, { role: 'PRODUTOR', checklist: ['Número de WhatsApp', 'Instagram', 'Informações da empresa para a IA'] }),
+      exec('Configuração', 5, { checklist: ['Canais conectados', 'IA treinada', 'Funil e etapas', 'Equipe cadastrada'] }),
+      exec('Treinamento', 2, { instructions: 'Treine a equipe do cliente na plataforma.' }),
+      exec('No ar', 1, { instructions: 'Confirme com o cliente que o atendimento está rodando.' }),
+      FIM,
+    ],
+  },
+  {
+    slug: 'consultoria', name: 'Consultoria', color: '#6366F1',
+    description: 'Consultoria comercial, estratégica ou de CRM.',
+    stages: [
+      exec('Diagnóstico', 5, { role: 'PRODUTOR' }),
+      exec('Plano de ação', 3, { fields: ['LINK'], instructions: 'Monte o plano e cole o link do documento.' }),
+      exec('Apresentação', 2, { instructions: 'Apresente o plano ao cliente.' }),
+      exec('Acompanhamento', 30),
+      FIM,
+    ],
+  },
+  {
+    slug: 'email-marketing', name: 'E-mail marketing', color: '#DB2777',
+    description: 'Campanha de e-mail: copy, design, aprovação e disparo.',
+    stages: [
+      exec('Copy', 2, { role: 'PRODUTOR' }),
+      exec('Design', 2, { fields: ['LINK'], instructions: 'Monte o e-mail e cole o link da prévia.' }),
+      aprov('Revisão', 1),
+      aprov('Aprovação do cliente', 2),
+      { name: 'Disparo', kind: 'EXECUCAO', status: 'APROVADO', role: 'AGENDADOR', dueMode: 'ANTES_DA_ENTREGA', dueDays: 0, fields: ['DATA_PUBLICACAO'], instructions: 'Agende ou dispare e informe a data.' },
+      FIM,
+    ],
+  },
 ]
 
 export const DEFAULT_PROCESS_SLUG = 'conteudo-redes'
+
+/**
+ * Exigências de link tiradas dos processos que já existiam: só travavam a
+ * etapa, sem entregável de fato (ex.: validar um site não gera link).
+ */
+export const EXIGENCIAS_REMOVIDAS: { slug: string; etapa: string; campos: StageField[] }[] = [
+  { slug: 'site-apresentacao', etapa: 'Desenvolvimento e ajustes', campos: ['LINK', 'LINK_DRIVE'] },
+  { slug: 'landing-page', etapa: 'Briefing e copy', campos: ['LINK'] },
+  { slug: 'logo', etapa: 'Pesquisa e referências', campos: ['LINK'] },
+  { slug: 'trafego-pago', etapa: 'Publicação', campos: ['LINK'] },
+  { slug: 'design', etapa: 'Arquivos finais', campos: ['LINK_DRIVE'] },
+]
+
+/** Exigências da etapa sem as que o mapa removeu; o resto fica igual. */
+export function semExigenciasRemovidas(slug: string, etapa: string, campos: string[]): string[] {
+  const r = EXIGENCIAS_REMOVIDAS.find((x) => x.slug === slug && x.etapa === etapa)
+  return r ? campos.filter((c) => !(r.campos as string[]).includes(c)) : campos
+}
+
+/**
+ * Frases padrão do aviso ao cliente, por processo e etapa. Só as etapas que o
+ * cliente acompanha; revisão interna e produção ficam sem aviso. Variáveis:
+ * {entrega} (nome na demanda; depois da barra, o reserva), {data} (agendada),
+ * {proxima} e {prazo} (próxima etapa e prazo dela), {prazo_final} (data final).
+ * Trecho entre [colchetes] some se faltar algum dado dele.
+ */
+export const FRASES_CLIENTE_PADRAO: Record<string, Record<string, string>> = {
+  'conteudo-redes': { Agendamento: 'Agendamos {entrega|mais uma publicação}[ para {data}]' },
+  site: {
+    'Briefing e conteúdo': 'Finalizamos o briefing do seu site[. Próxima etapa: {proxima}, até {prazo}]',
+    'Aprovação do layout': 'O layout do seu site está aprovado[. Próxima etapa: {proxima}, até {prazo}]',
+    Desenvolvimento: 'Finalizamos o desenvolvimento do seu site[. Previsão de publicação: {prazo_final}]',
+    Publicação: 'Seu site está no ar',
+  },
+  'landing-page': {
+    'Briefing e copy': 'Finalizamos o briefing da sua landing page[. Próxima etapa: {proxima}, até {prazo}]',
+    'Aprovação do design': 'O design da sua landing page está aprovado[. Próxima etapa: {proxima}, até {prazo}]',
+    Desenvolvimento: 'Finalizamos o desenvolvimento da sua landing page[. Previsão de publicação: {prazo_final}]',
+    Publicação: 'Sua landing page está no ar',
+  },
+  logo: {
+    Briefing: 'Finalizamos o briefing da sua marca[. Próxima etapa: {proxima}, até {prazo}]',
+    'Ajustes e arquivos finais': 'Os arquivos finais da sua marca estão prontos',
+  },
+  'trafego-pago': { Publicação: 'Sua campanha está no ar[ desde {data}]' },
+  design: { 'Arquivos finais': 'Finalizamos {entrega|mais uma peça}' },
+  'artigo-seo': { Publicação: 'Publicamos {entrega|um novo artigo no seu site}' },
+  'site-apresentacao': { 'Apresentação ao cliente': 'Finalizamos {entrega|o seu site}' },
+  video: { Agendamento: 'Agendamos {entrega|o seu vídeo}[ para {data}]' },
+  'manutencao-site': { Entrega: 'Fizemos {entrega|o ajuste no seu site}' },
+  'seo-relatorio': { 'Envio ao cliente': 'Enviamos {entrega|o relatório de SEO do mês}' },
+  'perfil-google': { Publicação: 'Seu perfil no Google está no ar' },
+  crm: { 'No ar': 'Seu atendimento com IA está no ar' },
+  consultoria: { Apresentação: 'Apresentamos {entrega|o plano de ação}' },
+  'email-marketing': { Disparo: 'Agendamos {entrega|o seu e-mail}[ para {data}]' },
+}

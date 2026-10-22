@@ -660,17 +660,19 @@ model Task {
   comments    TaskComment[]
   attachments TaskAttachment[]
   events      TaskEvent[]
-  clientNotice ClientNotice?
+  clientNotices ClientNotice[]
 }
 
-// Fila do aviso de demanda concluída no grupo do cliente. Uma linha por
-// demanda (taskId único): concluir de novo nunca gera um segundo aviso.
+// Fila do aviso ao cliente quando uma etapa marcada termina. Uma linha por
+// demanda e etapa (único): devolver e concluir de novo não repete o aviso.
 // Sai em horário comercial (seg a sex, 8h às 20h de Brasília) e o que for
 // concluído para o mesmo cliente em até 10 minutos vai numa mensagem só.
 model ClientNotice {
   id          String    @id @default(cuid())
-  taskId      String    @unique
+  taskId      String
+  stageId     String?
   clientId    String
+  line        String    @default("") // o que o cliente lê (frase da etapa já montada)
   concludedAt DateTime  @default(now())
   sendAfter   DateTime // quando pode sair (janela + agrupamento)
   // PENDENTE | ENVIANDO | ENVIADO | FALHOU | CANCELADO
@@ -685,6 +687,7 @@ model ClientNotice {
   task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
   client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
+  @@unique([taskId, stageId])
   @@index([status, sendAfter])
   @@index([clientId, status])
 }
@@ -771,6 +774,11 @@ model ProcessStage {
   fields            String[]   @default([])
   checklist         String[]   @default([])
   checklistRequired Boolean    @default(false)
+  // Aviso ao cliente quando esta etapa termina (grupo de WhatsApp dele).
+  // A frase aceita {entrega} (nome da entrega na demanda) e um reserva:
+  // {entrega|mais uma publicação}.
+  notifyClient      Boolean    @default(false)
+  clientPhrase      String?
 
   process     Process @relation(fields: [processId], references: [id], onDelete: Cascade)
   defaultUser User?   @relation(fields: [defaultUserId], references: [id])

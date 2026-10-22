@@ -25,7 +25,7 @@ export default async function ProcessoPage({ params }: { params: Promise<{ id: s
       id: null, name: '', color: '#030A8C', description: '', active: true, taskCount: 0,
       stages: [{
         key: 'fim', name: 'Concluído', kind: 'FINAL', status: 'CONCLUIDO', role: '', defaultUserId: '', teamId: '',
-        dueMode: 'DIAS_APOS_ENTRADA', dueDays: 0, fields: [], instructions: '', checklist: '', checklistRequired: false,
+        dueMode: 'DIAS_APOS_ENTRADA', dueDays: 0, fields: [], instructions: '', checklist: '', checklistRequired: false, notifyClient: false, clientPhrase: '',
       }],
     }
   } else {
@@ -42,6 +42,7 @@ export default async function ProcessoPage({ params }: { params: Promise<{ id: s
         role: (s.role ?? '') as EtapaRascunho['role'], defaultUserId: s.defaultUserId ?? '', teamId: s.teamId ?? '',
         dueMode: s.dueMode as EtapaRascunho['dueMode'], dueDays: s.dueDays, fields: s.fields as EtapaRascunho['fields'],
         instructions: s.instructions ?? '', checklist: s.checklist.join('\n'), checklistRequired: s.checklistRequired,
+        notifyClient: s.notifyClient, clientPhrase: s.clientPhrase ?? '',
       })),
     }
   }

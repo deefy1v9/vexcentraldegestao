@@ -1,5 +1,5 @@
 /**
- * Aviso no grupo de WhatsApp do cliente quando a demanda fica pronta.
+ * Aviso no grupo de WhatsApp do cliente quando uma etapa marcada termina.
  *
  * Regras puras e os dois executores (enfileirar e processar a fila) com
  * dependências injetadas: aqui não há banco nem WhatsApp, por isso os testes
@@ -7,17 +7,20 @@
  * lib/aviso-cliente.ts.
  *
  * Regras:
- * - só a passagem para CONCLUIDO avisa (aprovado internamente não é pronto);
+ * - avisa quando a demanda AVANÇA de uma etapa marcada com "avisar o cliente";
+ *   o que o cliente lê é a frase da etapa, com as variáveis preenchidas:
+ *   {entrega} nome da entrega, {data} data agendada, {proxima} próxima etapa,
+ *   {prazo} prazo dela e {prazo_final} data final da demanda. Trecho entre
+ *   [colchetes] só aparece se todas as variáveis dele tiverem valor;
  * - desligado no geral ou no cliente, ou sem grupo válido, nada entra na fila;
- * - o título interno NUNCA vai ao cliente: usa o "Texto para o cliente" da
- *   demanda ou a frase genérica;
+ * - o título interno NUNCA vai ao cliente: a mensagem só conhece a frase;
  * - ao cliente, só de segunda a sexta, das 8h às 20h (Brasília); fora disso o
  *   aviso espera o próximo horário válido. O responsável é avisado na hora;
- * - o que for concluído para o mesmo cliente em até 10 minutos sai numa
- *   mensagem só, em lista;
- * - uma linha de fila por demanda (único no banco): nunca avisa duas vezes;
- * - os executores nunca lançam: falha vira registro, e a demanda segue
- *   concluída.
+ * - o que avançar para o mesmo cliente em até 10 minutos sai numa mensagem
+ *   só, em lista do que avançou;
+ * - uma linha de fila por demanda e etapa (único no banco): devolver e
+ *   concluir a mesma etapa de novo não repete o aviso;
+ * - os executores nunca lançam: falha vira registro, e a demanda segue.
  */
 
 /* ------------------------------ horário ------------------------------ */
@@ -87,6 +90,7 @@ export function quandoSai(envio: Date, agora: Date): string {
 
 export const MENSAGEM_GENERICA = '✅ Concluímos mais uma entrega para vocês. Qualquer dúvida, é só chamar.'
 const FECHO = 'Qualquer dúvida, é só chamar.'
+const ENTREGA_PADRAO = 'mais uma entrega'
 
 /** Texto do cliente limpo: uma linha, sem ponto final, até 300 caracteres. */
 export function limparTextoCliente(t: string | null | undefined): string | null {
@@ -94,25 +98,94 @@ export function limparTextoCliente(t: string | null | undefined): string | null 
   return s || null
 }
 
-/**
- * Mensagem ao cliente para um ou mais avisos do mesmo lote. Recebe só os
- * "Textos para o cliente" — o título interno não chega aqui, de propósito.
- */
-export function mensagemCliente(textos: Array<string | null | undefined>): string {
-  const limpos = textos.map(limparTextoCliente)
-  const comTexto = limpos.filter((t): t is string => !!t)
-  const total = limpos.length
-  if (total <= 1) return comTexto.length ? `✅ Entrega concluída: ${comTexto[0]}.\n\n${FECHO}` : MENSAGEM_GENERICA
-  if (comTexto.length === 0) return `✅ Concluímos ${total} entregas para vocês. ${FECHO}`
-  const resto = total - comTexto.length
-  const linhas = comTexto.map((t) => `• ${t}`)
-  if (resto > 0) linhas.push(`• mais ${resto} ${resto === 1 ? 'entrega' : 'entregas'}`)
-  return `✅ Concluímos ${total} entregas para vocês:\n${linhas.join('\n')}\n\n${FECHO}`
+/** "12/10" no horário de Brasília. */
+export function dataCurta(d: Date): string {
+  const t = emSP(d)
+  return `${String(t.getUTCDate()).padStart(2, '0')}/${String(t.getUTCMonth() + 1).padStart(2, '0')}`
 }
 
-/** Para o responsável (interno), com o título e o número da demanda. */
-export function mensagemResponsavelNaFila(titulo: string, numero: number, quando: string): string {
-  return `✅ ${titulo} (#${numero}) concluída. O cliente será avisado no grupo ${quando}.`
+/** "12/10 às 9h" ou "12/10 às 9h30" no horário de Brasília. */
+export function dataHora(d: Date): string {
+  const t = emSP(d)
+  const min = t.getUTCMinutes()
+  return `${dataCurta(d)} às ${t.getUTCHours()}h${min ? String(min).padStart(2, '0') : ''}`
+}
+
+/** O que preenche as variáveis da frase da etapa. */
+export interface DadosFrase {
+  entrega?: string | null
+  /** Data agendada (publicação) */
+  data?: Date | null
+  /** Próxima etapa da demanda */
+  proxima?: string | null
+  /** Prazo da próxima etapa */
+  prazo?: Date | null
+  /** Data final da demanda */
+  prazoFinal?: Date | null
+}
+
+const VARIAVEL = /\{(entrega|data|proxima|prazo_final|prazo)(?:\|([^}]*))?\}/g
+
+/**
+ * Linha que o cliente lê para uma etapa: a frase com as variáveis preenchidas.
+ * {entrega} usa o nome da entrega ou o reserva depois da barra ("mais uma
+ * publicação"). Um trecho entre [colchetes] some se alguma variável dele
+ * ficar sem valor — assim "Agendamos o post[ para {data}]" sem data não sai
+ * quebrado. Sem frase, não há aviso.
+ */
+export function linhaDaEtapa(frase: string | null | undefined, dados: DadosFrase = {}): string | null {
+  const valor = (nome: string, reserva?: string): string => {
+    const r = reserva?.trim() ?? ''
+    if (nome === 'entrega') return limparTextoCliente(dados.entrega) ?? (r || ENTREGA_PADRAO)
+    if (nome === 'data') return dados.data ? dataHora(dados.data) : r
+    if (nome === 'proxima') return limparTextoCliente(dados.proxima) ?? r
+    if (nome === 'prazo') return dados.prazo ? dataCurta(dados.prazo) : r
+    if (nome === 'prazo_final') return dados.prazoFinal ? dataCurta(dados.prazoFinal) : r
+    return ''
+  }
+  const comTrechos = (frase ?? '').replace(/\[([^\]]*)\]/g, (_m: string, trecho: string) => {
+    let faltou = false
+    const montado = trecho.replace(VARIAVEL, (_v: string, nome: string, reserva?: string) => {
+      const x = valor(nome, reserva)
+      if (!x) faltou = true
+      return x
+    })
+    return faltou ? '' : montado
+  })
+  const montada = comTrechos.replace(VARIAVEL, (_v: string, nome: string, reserva?: string) => valor(nome, reserva))
+  const limpa = limparTextoCliente(montada)
+  return limpa ? limpa.charAt(0).toUpperCase() + limpa.slice(1) : null
+}
+
+/** Prazo de uma etapa para quem acabou de entrar nela (mesma regra do processo). */
+export function prazoDaEtapa(
+  etapa: { dueMode: string; dueDays: number; kind: string },
+  task: { dueDate: Date | null; stageEnteredAt: Date | null },
+): Date | null {
+  if (etapa.kind === 'FINAL') return null
+  const dia = 24 * 60 * MINUTO
+  if (etapa.dueMode === 'ANTES_DA_ENTREGA') return task.dueDate ? new Date(task.dueDate.getTime() - etapa.dueDays * dia) : null
+  return task.stageEnteredAt ? new Date(task.stageEnteredAt.getTime() + etapa.dueDays * dia) : null
+}
+
+/**
+ * Mensagem ao cliente para um ou mais avisos do mesmo lote. Recebe só as
+ * linhas já montadas a partir das frases das etapas — o título interno da
+ * demanda não chega aqui, de propósito. Linhas iguais viram uma com a contagem.
+ */
+export function mensagemCliente(linhas: Array<string | null | undefined>): string {
+  const limpas = linhas.map(limparTextoCliente).filter((l): l is string => !!l)
+  if (limpas.length === 0) return MENSAGEM_GENERICA
+  const contagem = new Map<string, number>()
+  for (const l of limpas) contagem.set(l, (contagem.get(l) ?? 0) + 1)
+  const itens = [...contagem].map(([l, n]) => (n > 1 ? `${l} (${n}x)` : l))
+  if (limpas.length === 1) return `✅ ${itens[0]}. ${FECHO}`
+  return `✅ Atualização do seu projeto:\n${itens.map((l) => `• ${l}`).join('\n')}\n\n${FECHO}`
+}
+
+/** Para o responsável (interno), com o título, o número e o que o cliente vai ler. */
+export function mensagemResponsavelNaFila(titulo: string, numero: number, etapa: string, quando: string, linha: string): string {
+  return `✅ ${titulo} (#${numero}): etapa "${etapa}" concluída. O cliente será avisado no grupo ${quando}: "${linha}".`
 }
 export function mensagemResponsavelFalha(titulo: string, numero: number, erro: string): string {
   return `⚠️ O aviso de ${titulo} (#${numero}) no grupo do cliente não saiu (${erro}). Avise por lá manualmente.`
@@ -140,7 +213,9 @@ export function resultadoEnvio(status: number, body: unknown): { ok: boolean; er
 /* ------------------------------ entrada na fila ------------------------------ */
 
 export type MotivoSemAviso =
-  | 'nao-concluiu'
+  | 'sem-etapa'
+  | 'nao-avancou'
+  | 'etapa-sem-aviso'
   | 'desligado-geral'
   | 'sem-cliente'
   | 'cliente-desligado'
@@ -148,18 +223,27 @@ export type MotivoSemAviso =
   | 'grupo-invalido'
   | 'ja-enviado'
 
+export interface EtapaParaAviso {
+  id: string; name: string; position: number; notifyClient: boolean; clientPhrase: string | null
+  kind?: string; dueMode?: string; dueDays?: number
+}
+
 export interface EntradaDecisao {
-  antes: string | null | undefined
-  depois: string
+  /** Etapa em que a demanda estava (a que terminou). */
+  de: EtapaParaAviso | null
+  /** Etapa em que ficou. */
+  para: { position: number } | null
   geralLigado: boolean
   cliente: { avisoConclusaoAtivo: boolean; whatsappGroupId: string | null } | null
 }
 
 export type Decisao = { entra: true } | { entra: false; motivo: MotivoSemAviso }
 
-/** Decide se a conclusão entra na fila. A primeira trava que bater responde. */
+/** Decide se o fim desta etapa entra na fila. A primeira trava que bater responde. */
 export function decidirAviso(e: EntradaDecisao): Decisao {
-  if (e.depois !== 'CONCLUIDO' || e.antes === 'CONCLUIDO') return { entra: false, motivo: 'nao-concluiu' }
+  if (!e.de) return { entra: false, motivo: 'sem-etapa' }
+  if (!e.para || e.para.position <= e.de.position) return { entra: false, motivo: 'nao-avancou' }
+  if (!e.de.notifyClient || !(e.de.clientPhrase ?? '').trim()) return { entra: false, motivo: 'etapa-sem-aviso' }
   if (!e.geralLigado) return { entra: false, motivo: 'desligado-geral' }
   if (!e.cliente) return { entra: false, motivo: 'sem-cliente' }
   if (!e.cliente.avisoConclusaoAtivo) return { entra: false, motivo: 'cliente-desligado' }
@@ -173,6 +257,15 @@ export interface DemandaParaAviso {
   number: number
   title: string
   assigneeId: string | null
+  stageId: string | null
+  clientText: string | null
+  /** Data agendada da publicação */
+  scheduledFor?: Date | null
+  /** Data final da demanda */
+  dueDate?: Date | null
+  /** Quando entrou na etapa atual (para o prazo da próxima) */
+  stageEnteredAt?: Date | null
+  stages: EtapaParaAviso[]
   client: { id: string; name: string; avisoConclusaoAtivo: boolean; whatsappGroupId: string | null } | null
 }
 
@@ -181,43 +274,57 @@ export interface DepsEnfileirar {
   carregar(taskId: string): Promise<DemandaParaAviso | null>
   geralLigado(): Promise<boolean>
   pendentesDoCliente(clientId: string): Promise<Date[]>
-  /** Cria a linha da fila; 'ja-existe' quando a demanda já teve aviso (único no banco). */
-  criarAviso(a: { taskId: string; clientId: string; concludedAt: Date; sendAfter: Date }): Promise<'criado' | 'ja-existe'>
+  /** Cria a linha da fila; 'ja-existe' quando esta etapa da demanda já teve aviso (único no banco). */
+  criarAviso(a: { taskId: string; stageId: string; clientId: string; line: string; concludedAt: Date; sendAfter: Date }): Promise<'criado' | 'ja-existe'>
   registrarEvento(taskId: string, texto: string): Promise<void>
   avisarResponsavel(userId: string, texto: string): Promise<void>
 }
 
 export type ResultadoEnfileirar =
-  | { situacao: 'na-fila'; sendAfter: Date }
+  | { situacao: 'na-fila'; sendAfter: Date; linha: string }
   | { situacao: 'ignorado'; motivo: MotivoSemAviso }
   | { situacao: 'falhou'; erro: string }
 
 const msgErro = (e: unknown) => (e instanceof Error ? e.message : String(e)).slice(0, 300)
 
-/** Põe a conclusão na fila e avisa o responsável na hora. Nunca lança. */
+/**
+ * Chamado depois que a demanda mudou de etapa: se saiu de uma etapa marcada
+ * para uma etapa adiante, põe o aviso na fila e avisa o responsável na hora.
+ * Nunca lança.
+ */
 export async function enfileirarAviso(
-  entrada: { taskId: string; antes: string | null | undefined; depois: string },
+  entrada: { taskId: string; deStageId: string | null | undefined },
   deps: DepsEnfileirar,
 ): Promise<ResultadoEnfileirar> {
   try {
-    if (entrada.depois !== 'CONCLUIDO' || entrada.antes === 'CONCLUIDO') return { situacao: 'ignorado', motivo: 'nao-concluiu' }
+    if (!entrada.deStageId) return { situacao: 'ignorado', motivo: 'sem-etapa' }
     const task = await deps.carregar(entrada.taskId)
-    if (!task) return { situacao: 'ignorado', motivo: 'sem-cliente' }
+    if (!task) return { situacao: 'ignorado', motivo: 'sem-etapa' }
+    const de = task.stages.find((x) => x.id === entrada.deStageId) ?? null
+    const para = task.stages.find((x) => x.id === task.stageId) ?? null
     const decisao = decidirAviso({
-      antes: entrada.antes, depois: entrada.depois, geralLigado: await deps.geralLigado(),
+      de, para, geralLigado: await deps.geralLigado(),
       cliente: task.client ? { avisoConclusaoAtivo: task.client.avisoConclusaoAtivo, whatsappGroupId: task.client.whatsappGroupId } : null,
     })
     if (!decisao.entra) return { situacao: 'ignorado', motivo: decisao.motivo }
 
+    const linha = linhaDaEtapa(de!.clientPhrase, {
+      entrega: task.clientText,
+      data: task.scheduledFor ?? null,
+      proxima: para!.kind === 'FINAL' ? null : para!.name,
+      prazo: para!.kind === 'FINAL' ? null : prazoDaEtapa({ dueMode: para!.dueMode ?? 'DIAS_APOS_ENTRADA', dueDays: para!.dueDays ?? 0, kind: para!.kind ?? 'EXECUCAO' }, { dueDate: task.dueDate ?? null, stageEnteredAt: task.stageEnteredAt ?? null }),
+      prazoFinal: task.dueDate ?? null,
+    })
+    if (!linha) return { situacao: 'ignorado', motivo: 'etapa-sem-aviso' }
     const agora = deps.agora()
     const sendAfter = planejarEnvio(agora, await deps.pendentesDoCliente(task.client!.id))
-    const criado = await deps.criarAviso({ taskId: task.id, clientId: task.client!.id, concludedAt: agora, sendAfter })
+    const criado = await deps.criarAviso({ taskId: task.id, stageId: de!.id, clientId: task.client!.id, line: linha, concludedAt: agora, sendAfter })
     if (criado === 'ja-existe') return { situacao: 'ignorado', motivo: 'ja-enviado' }
 
     const quando = quandoSai(sendAfter, agora)
-    await deps.registrarEvento(task.id, `Aviso ao cliente na fila: sai no grupo ${quando}.`).catch(() => {})
-    if (task.assigneeId) await deps.avisarResponsavel(task.assigneeId, mensagemResponsavelNaFila(task.title, task.number, quando)).catch(() => {})
-    return { situacao: 'na-fila', sendAfter }
+    await deps.registrarEvento(task.id, `Aviso ao cliente na fila (etapa "${de!.name}"): sai no grupo ${quando}.`).catch(() => {})
+    if (task.assigneeId) await deps.avisarResponsavel(task.assigneeId, mensagemResponsavelNaFila(task.title, task.number, de!.name, quando, linha)).catch(() => {})
+    return { situacao: 'na-fila', sendAfter, linha }
   } catch (e) {
     return { situacao: 'falhou', erro: msgErro(e) }
   }
@@ -230,7 +337,8 @@ export interface AvisoVencido {
   taskId: string
   clientId: string
   attempts: number
-  task: { number: number; title: string; clientText: string | null; assigneeId: string | null }
+  line: string
+  task: { number: number; title: string; assigneeId: string | null }
   client: { name: string; avisoConclusaoAtivo: boolean; whatsappGroupId: string | null }
 }
 
@@ -288,7 +396,7 @@ export async function processarFila(deps: DepsProcessar): Promise<RelatorioFila>
         const itens = lote.filter((v) => reservados.has(v.id))
         if (itens.length === 0) continue
 
-        const texto = mensagemCliente(itens.map((v) => v.task.clientText))
+        const texto = mensagemCliente(itens.map((v) => v.line))
         let envio: { ok: boolean; erro?: string }
         try { envio = await deps.enviarGrupo(c.whatsappGroupId!.trim(), texto) } catch (e) { envio = { ok: false, erro: msgErro(e) } }
         const ids = itens.map((v) => v.id)
@@ -299,7 +407,7 @@ export async function processarFila(deps: DepsProcessar): Promise<RelatorioFila>
           await deps.marcarEnviados(ids, batchId)
           rel.enviados += itens.length
           rel.mensagens += 1
-          await deps.registrarEnvio({ clientId, ok: true, taskIds, detalhe: `Aviso no grupo de ${c.name}: ${itens.length} entrega(s)` }).catch(() => {})
+          await deps.registrarEnvio({ clientId, ok: true, taskIds, detalhe: `Aviso no grupo de ${c.name}: ${itens.length} item(ns)` }).catch(() => {})
           for (const v of itens) await deps.registrarEvento(v.taskId, 'Cliente avisado no grupo do WhatsApp.').catch(() => {})
           continue
         }

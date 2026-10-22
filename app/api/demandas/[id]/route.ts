@@ -6,7 +6,7 @@ import { logActivity } from '@/lib/activity'
 import { isConfigured, uazSendText } from '@/lib/uazapi'
 import { validateDragTransition, logTaskEvent, TaskStatusValue } from '@/lib/task-flow'
 import { alignStageToStatus } from '@/lib/processos-server'
-import { dispararAvisoConclusao } from '@/lib/aviso-cliente'
+import { dispararAvisoEtapa } from '@/lib/aviso-cliente'
 
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
@@ -51,7 +51,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const previous = await prisma.task.findUnique({
     where: { id },
-    select: { status: true, assigneeId: true, driveLink: true, title: true },
+    select: { status: true, assigneeId: true, driveLink: true, title: true, stageId: true },
   })
   const assigneeChanged = Object.prototype.hasOwnProperty.call(body, 'assigneeId') &&
     (body.assigneeId || null) !== (previous?.assigneeId ?? null)
@@ -137,7 +137,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   // A etapa do processo acompanha o status
   if (has('status')) {
     await alignStageToStatus(id)
-    dispararAvisoConclusao(id, previous.status, task.status)
+    dispararAvisoEtapa(id, previous.stageId)
   }
 
   // Troca de responsável fica registrada na linha do tempo da demanda
