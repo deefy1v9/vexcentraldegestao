@@ -5,6 +5,7 @@ import Header from '@/components/layout/Header'
 import CurrencyInput from '@/components/ui/CurrencyInput'
 import ClientBillingSection, { BillingForm, EMPTY_BILLING } from '@/components/clientes/ClientBillingSection'
 import ClientLinksFields from '@/components/clientes/ClientLinksFields'
+import ClientAvisoSection, { AvisoForm, EMPTY_AVISO } from '@/components/clientes/ClientAvisoSection'
 import { CLIENT_LINK_KINDS, type ClientLinkKind } from '@/lib/client-links'
 import { formatCurrency } from '@/lib/utils'
 import Link from 'next/link'
@@ -77,6 +78,11 @@ export default function EditClientePage() {
   const [asaasInfo, setAsaasInfo] = useState<{ customerId: string | null; syncStatus: string | null; syncError: string | null; syncedAt: string | null }>({
     customerId: null, syncStatus: null, syncError: null, syncedAt: null,
   })
+  // Aviso de demanda concluída no grupo do cliente
+  const [aviso, setAviso] = useState<AvisoForm>({ ...EMPTY_AVISO })
+  function setAvisoField<K extends keyof AvisoForm>(field: K, value: AvisoForm[K]) {
+    setAviso((prev) => ({ ...prev, [field]: value }))
+  }
   function setBillingField<K extends keyof BillingForm>(field: K, value: BillingForm[K]) {
     setBilling((prev) => ({ ...prev, [field]: value }))
   }
@@ -132,6 +138,10 @@ export default function EditClientePage() {
           nfseRule: (d.nfseRule as string) || 'ON_CONFIRMED',
           fiscalDescription: (d.fiscalDescription as string) || '',
         })
+        setAviso({
+          whatsappGroupId: (d.whatsappGroupId as string) || '',
+          avisoConclusaoAtivo: !!d.avisoConclusaoAtivo,
+        })
         setAsaasInfo({
           customerId: (d.asaasCustomerId as string) || null,
           syncStatus: (d.asaasSyncStatus as string) || null,
@@ -173,6 +183,7 @@ export default function EditClientePage() {
         body: JSON.stringify({
           ...form,
           ...billing,
+          ...aviso,
           billingLeadDays: Number(billing.billingLeadDays) || 10,
           contractMonths: form.contractMonths ? Number(form.contractMonths) : null,
           paymentDay: form.paymentDay ? Number(form.paymentDay) : null,
@@ -378,6 +389,9 @@ export default function EditClientePage() {
               cnpj={form.cnpj}
               email={form.email}
             />
+
+            {/* Aviso de demanda concluída no grupo do cliente */}
+            <ClientAvisoSection form={aviso} onChange={setAvisoField} />
 
             {/* Observações */}
             <div className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6 space-y-4">

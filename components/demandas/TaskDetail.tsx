@@ -85,7 +85,7 @@ export default function TaskDetail({
 
   const [editMode, setEditMode] = useState(false)
   const [editForm, setEditForm] = useState({
-    title: task.title, description: task.description || '', status: task.status, priority: task.priority,
+    title: task.title, description: task.description || '', clientText: task.clientText || '', status: task.status, priority: task.priority,
     dueDate: task.dueDate ? new Date(task.dueDate as string).toISOString().split('T')[0] : '',
     clientId: task.client?.id || '', assigneeId: task.assignee?.id || '', platform: task.platform || '',
     producerId: task.producer?.id || '', reviewerId: task.reviewer?.id || '', schedulerId: task.scheduler?.id || '',
@@ -131,7 +131,7 @@ export default function TaskDetail({
     if (!editForm.title.trim()) return
     setSaving(true)
     const payload: Record<string, unknown> = {
-      title: editForm.title, description: editForm.description || null, priority: editForm.priority,
+      title: editForm.title, description: editForm.description || null, clientText: editForm.clientText.trim() || null, priority: editForm.priority,
       dueDate: editForm.dueDate || null, clientId: editForm.clientId || null, assigneeId: editForm.assigneeId || null,
       platform: editForm.platform || null, producerId: editForm.producerId || null,
       reviewerId: editForm.reviewerId || null, schedulerId: editForm.schedulerId || null,
@@ -376,6 +376,14 @@ export default function TaskDetail({
                 </div>
               )}
 
+              {/* O que o cliente vai ler no aviso de conclusão */}
+              {task.clientText && (
+                <div className="rounded-xl border border-green-100 bg-green-50/60 px-3 py-2.5">
+                  <p className="text-[11px] font-semibold text-green-800 uppercase tracking-wide">Texto para o cliente</p>
+                  <p className="text-sm text-gray-800 mt-0.5">{task.clientText}</p>
+                </div>
+              )}
+
               {task.driveLink && (
                 <a href={task.driveLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 bg-[#030A8C]/5 border border-[#030A8C]/20 rounded-xl px-3 py-2.5 text-sm text-[#030A8C] font-medium hover:bg-[#030A8C]/10">
                   <Link2 className="w-4 h-4 shrink-0" /><span className="truncate">Abrir material no Google Drive</span>
@@ -444,6 +452,17 @@ export default function TaskDetail({
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1">Briefing</label>
                 <textarea value={editForm.description} onChange={(e) => setEditForm((p) => ({ ...p, description: e.target.value }))} rows={10} className={`${INPUT} resize-y font-mono text-xs`} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Texto para o cliente <span className="font-normal text-gray-400">(opcional)</span></label>
+                <input
+                  value={editForm.clientText}
+                  maxLength={300}
+                  onChange={(e) => setEditForm((p) => ({ ...p, clientText: e.target.value }))}
+                  placeholder="Ex.: o post de Outubro Rosa já está no ar"
+                  className={INPUT}
+                />
+                <p className="text-[11px] text-gray-400 mt-1">Vai no aviso de conclusão no grupo do cliente. Vazio, sai &quot;Concluímos mais uma entrega para vocês&quot;. O título interno nunca vai para o cliente.</p>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>

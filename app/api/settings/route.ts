@@ -48,6 +48,8 @@ const ALLOWED_KEYS = [
   'ANTHROPIC_API_KEY',
   'AI_PROVIDER',
   'GEMINI_API_KEY',
+  // Aviso no grupo de WhatsApp do cliente quando a demanda é concluída (on/off)
+  'AVISO_CONCLUSAO_CLIENTE',
 ]
 
 const SECRET_KEYS = new Set([
@@ -73,7 +75,8 @@ export async function GET() {
                   'AI_AGENT_MODEL', 'AI_DRAFT_MODEL', 'ANTHROPIC_API_KEY', 'AI_PROVIDER', 'GEMINI_API_KEY',
                   'SMTP_HOST', 'SMTP_PORT', 'SMTP_SECURE', 'SMTP_USER', 'SMTP_PASS',
                   'SMTP_CONTATO_USER', 'SMTP_CONTATO_PASS',
-                  'MAIL_FROM_FINANCEIRO', 'MAIL_FROM_CONTATO', 'MAIL_BCC')
+                  'MAIL_FROM_FINANCEIRO', 'MAIL_FROM_CONTATO', 'MAIL_BCC',
+                  'AVISO_CONCLUSAO_CLIENTE')
   `
 
   const result: Record<string, string> = {}

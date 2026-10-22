@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client'
 import { prisma } from './prisma'
 import { logTaskEvent, notifyWhatsApp, taskShortId } from './task-flow'
+import { dispararAvisoConclusao } from './aviso-cliente'
 import {
   DEFAULT_PROCESSES, DEFAULT_PROCESS_SLUG, inferProcessSlug, missingToAdvance, nextStage, ordered, prevStage,
   responsibleFor, stageForStatus, type ProcessData, type StageInput,
@@ -215,6 +216,8 @@ export async function moveTaskStage(taskId: string, input: StageMoveInput, user:
     teamId: destino.kind === 'FINAL' ? null : (destino.teamId ?? null),
   })
   const atualizada = await prisma.task.update({ where: { id: taskId }, data })
+  // Chegou ao fim do processo: avisa o grupo do cliente depois da resposta
+  dispararAvisoConclusao(taskId, task.status, destino.status)
 
   const verbo = input.action === 'avancar' ? (atual.kind === 'APROVACAO' ? 'aprovou' : 'concluiu') : input.action === 'devolver' ? 'devolveu' : 'moveu'
   const detalhe = input.action === 'mover'

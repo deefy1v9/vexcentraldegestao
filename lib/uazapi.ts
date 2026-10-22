@@ -1,4 +1,5 @@
 import { getSettings } from './settings'
+import { resultadoEnvio } from './aviso-cliente-core'
 
 async function getConfig() {
   // UAZAPI_TOKEN é cifrado em repouso (está em SECRET_SETTING_KEYS). getSettings
@@ -68,6 +69,42 @@ export async function uazSendText(number: string, text: string) {
     body: JSON.stringify({ number, text, delay: 1000 }),
   })
   return r.json()
+}
+
+/**
+ * Envio que confere a resposta. O uazSendText acima devolve o corpo sem olhar
+ * o status — um "Invalid token" passaria como sucesso. Aqui, qualquer coisa
+ * diferente de 2xx (ou um corpo com erro) volta como falha com o motivo.
+ */
+export async function uazSendTextChecked(number: string, text: string): Promise<{ ok: boolean; erro?: string }> {
+  const { base, token } = await getConfig()
+  if (!base || !token) return { ok: false, erro: 'WhatsApp não configurado' }
+  const r = await fetch(`${base}/send/text`, {
+    method: 'POST',
+    headers: h(token),
+    body: JSON.stringify({ number, text, delay: 1000 }),
+    cache: 'no-store',
+  })
+  return resultadoEnvio(r.status, await r.json().catch(() => ({})))
+}
+
+/** Grupos de que o número da Central participa (id …@g.us e nome). */
+export async function uazListGroups(): Promise<Array<{ id: string; nome: string; participantes: number }>> {
+  const { base, token } = await getConfig()
+  if (!base || !token) return []
+  const r = await fetch(`${base}/group/list?force=false&noparticipants=false`, { headers: h(token), cache: 'no-store' })
+  if (!r.ok) throw new Error(`HTTP ${r.status}`)
+  const b = (await r.json()) as unknown
+  type G = { JID?: string; jid?: string; id?: string; Name?: string; name?: string; subject?: string; Participants?: unknown[]; participants?: unknown[] }
+  const lista: G[] = Array.isArray(b) ? b : ((b as { groups?: G[] }).groups ?? [])
+  return lista
+    .map((g) => ({
+      id: String(g.JID ?? g.jid ?? g.id ?? ''),
+      nome: String(g.Name ?? g.name ?? g.subject ?? '').trim(),
+      participantes: (g.Participants ?? g.participants ?? []).length,
+    }))
+    .filter((g) => g.id.endsWith('@g.us'))
+    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
 }
 
 /**

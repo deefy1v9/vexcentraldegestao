@@ -36,6 +36,18 @@ export async function register() {
       console.log(`[scheduler] agendadas: ${disp.enviadas} enviadas, ${disp.falhas} falhas`)
     }
 
+    // Aviso de demanda concluída no grupo do cliente: esvazia a fila no
+    // horário comercial, juntando por cliente. Não lança.
+    try {
+      const { processarFilaAvisos } = await import('./lib/aviso-cliente')
+      const avisos = await processarFilaAvisos()
+      if (avisos.mensagens > 0 || avisos.falhas > 0 || avisos.cancelados > 0) {
+        console.log(`[avisos] ${avisos.mensagens} mensagem(ns) com ${avisos.enviados} entrega(s), ${avisos.falhas} falha(s), ${avisos.cancelados} cancelado(s)`)
+      }
+    } catch (err) {
+      console.error('[avisos] fila falhou:', err)
+    }
+
     try {
       const { date, time } = spNow()
       const sendTime = (await getBillingSetting('BILLING_REMINDER_TIME')) || '09:00'

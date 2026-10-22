@@ -5,6 +5,7 @@ import { logActivity } from '@/lib/activity'
 import { applyAutoTier, clientTicketCents, setManualTier, Tier } from '@/lib/client-tier'
 import { missingNfseFields } from '@/lib/billing-core'
 import { CLIENT_LINK_KINDS, normalizeProfileUrl } from '@/lib/client-links'
+import { ehGrupoWhatsapp } from '@/lib/aviso-cliente-core'
 
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const gate = await requireUser()
@@ -89,6 +90,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: 'Valor de serviço deve ser maior ou igual a zero' }, { status: 400 })
   }
 
+  // Grupo do WhatsApp: só id de grupo (…@g.us); vazio desvincula
+  if (has('whatsappGroupId') && body.whatsappGroupId && !ehGrupoWhatsapp(String(body.whatsappGroupId))) {
+    return NextResponse.json({ error: 'Escolha um grupo de WhatsApp válido.' }, { status: 400 })
+  }
+
   // NFS-e só pode ser ativada com o cadastro fiscal do tomador completo
   if (has('nfseEnabled') && body.nfseEnabled) {
     const current = await prisma.client.findUnique({ where: { id } })
@@ -152,6 +158,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         ...(has('nfseRule') && ['ON_CONFIRMED', 'ON_RECEIVED', 'ON_COMPETENCE', 'MANUAL'].includes(body.nfseRule)
           ? { nfseRule: body.nfseRule } : {}),
         ...(has('fiscalDescription') ? { fiscalDescription: body.fiscalDescription || null } : {}),
+        // Aviso de demanda concluída no grupo do cliente
+        ...(has('whatsappGroupId') ? { whatsappGroupId: body.whatsappGroupId ? String(body.whatsappGroupId).trim() : null } : {}),
+        ...(has('avisoConclusaoAtivo') ? { avisoConclusaoAtivo: !!body.avisoConclusaoAtivo } : {}),
       },
     })
 

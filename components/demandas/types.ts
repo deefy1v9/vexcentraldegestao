@@ -4,6 +4,8 @@ import type { ClientLinkFields } from '@/lib/client-links'
 /** Demanda como chega da API (regras puras usam só o TaskLike). */
 export interface Task extends TaskLike {
   description?: string | null
+  /** "Texto para o cliente": o que vai no aviso de conclusão no grupo dele */
+  clientText?: string | null
   platform?: string | null
   contentType?: string | null
   driveLink?: string | null

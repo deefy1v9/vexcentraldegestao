@@ -9,6 +9,7 @@ import {
 import ContactSidePanel from './ContactSidePanel'
 import DraftBanner from './DraftBanner'
 import AiSettingsSection from './AiSettingsSection'
+import AvisoConclusaoSection from './AvisoConclusaoSection'
 
 interface Message {
   id: string
@@ -593,6 +594,10 @@ export default function CrmPanel({
               <div className="border-t border-gray-100 pt-3" />
 
               <AiSettingsSection />
+
+              <div className="border-t border-gray-100 pt-3" />
+
+              <AvisoConclusaoSection />
 
               <div className="border-t border-gray-100 pt-3" />
 

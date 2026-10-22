@@ -132,6 +132,12 @@ model Client {
   // ON_CONFIRMED (padrão) | ON_RECEIVED | ON_COMPETENCE | MANUAL
   nfseRule          String    @default("ON_CONFIRMED")
   fiscalDescription String? // discriminação padrão do serviço na nota
+
+  // ------- Aviso automático no grupo de WhatsApp do cliente -------
+  // Quando a demanda é concluída, a Central avisa no grupo (UAZAPI).
+  // Nasce desligado; sem grupo escolhido, nada é enviado.
+  whatsappGroupId     String? // id do grupo na UAZAPI (…@g.us)
+  avisoConclusaoAtivo Boolean @default(false)
   asaasCustomerId   String?   @unique // ID do cliente no Asaas (somente leitura)
   asaasSyncStatus   String? // OK | ERRO | null (nunca sincronizado)
   asaasSyncError    String?
@@ -155,6 +161,7 @@ model Client {
   opportunities        Opportunity[]
   gscProperties        GscProperty[]
   gaProperties         GaProperty[]
+  clientNotices        ClientNotice[]
 }
 
 // ---------------------------------------------------------------------------
@@ -634,6 +641,9 @@ model Task {
   checklistDone  String[]  @default([])
   // Campos preenchidos nas etapas: { [stageId]: { link?, nota?, ... } }
   processData    Json?
+  // "Texto para o cliente": o que vai no aviso de conclusão no grupo dele.
+  // Vazio, sai a mensagem genérica; o título interno nunca vai ao cliente.
+  clientText     String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -650,6 +660,33 @@ model Task {
   comments    TaskComment[]
   attachments TaskAttachment[]
   events      TaskEvent[]
+  clientNotice ClientNotice?
+}
+
+// Fila do aviso de demanda concluída no grupo do cliente. Uma linha por
+// demanda (taskId único): concluir de novo nunca gera um segundo aviso.
+// Sai em horário comercial (seg a sex, 8h às 20h de Brasília) e o que for
+// concluído para o mesmo cliente em até 10 minutos vai numa mensagem só.
+model ClientNotice {
+  id          String    @id @default(cuid())
+  taskId      String    @unique
+  clientId    String
+  concludedAt DateTime  @default(now())
+  sendAfter   DateTime // quando pode sair (janela + agrupamento)
+  // PENDENTE | ENVIANDO | ENVIADO | FALHOU | CANCELADO
+  status      String    @default("PENDENTE")
+  attempts    Int       @default(0)
+  batchId     String? // envios que saíram juntos na mesma mensagem
+  sentAt      DateTime?
+  error       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([status, sendAfter])
+  @@index([clientId, status])
 }
 
 // Linha do tempo da demanda: cada ação relevante vira um registro imutável.

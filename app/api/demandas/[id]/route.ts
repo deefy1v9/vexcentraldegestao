@@ -6,6 +6,7 @@ import { logActivity } from '@/lib/activity'
 import { isConfigured, uazSendText } from '@/lib/uazapi'
 import { validateDragTransition, logTaskEvent, TaskStatusValue } from '@/lib/task-flow'
 import { alignStageToStatus } from '@/lib/processos-server'
+import { dispararAvisoConclusao } from '@/lib/aviso-cliente'
 
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
@@ -107,6 +108,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (has('reviewerId')) data.reviewerId = body.reviewerId || null
     if (has('schedulerId')) data.schedulerId = body.schedulerId || null
   }
+  // Texto para o cliente (vai no aviso de conclusão no grupo dele)
+  if (has('clientText') && (isAdmin || previous.assigneeId === session.user.id)) {
+    const t = typeof body.clientText === 'string' ? body.clientText.trim().slice(0, 300) : ''
+    data.clientText = t || null
+  }
   // O produtor pode salvar/atualizar o link do Drive sem mudar o status
   if (has('driveLink') && (isAdmin || previous.assigneeId === session.user.id)) {
     data.driveLink = body.driveLink || null
@@ -129,7 +135,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     },
   })
   // A etapa do processo acompanha o status
-  if (has('status')) await alignStageToStatus(id)
+  if (has('status')) {
+    await alignStageToStatus(id)
+    dispararAvisoConclusao(id, previous.status, task.status)
+  }
 
   // Troca de responsável fica registrada na linha do tempo da demanda
   if (isAdmin && assigneeChanged) {
