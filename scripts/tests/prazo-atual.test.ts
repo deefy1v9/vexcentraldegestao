@@ -32,7 +32,16 @@ test('prazo: com a data final já vencida, continua atrasada', () => {
 test('prazo: etapa no prazo mantém o prazo dela (não puxa para hoje)', () => {
   assert.deepEqual(prazoAtual(etapa({}), { dueDate: d(26, 9) }, AGORA), d(24, 9))
   const rev = etapa({ kind: 'APROVACAO', dueMode: 'DIAS_APOS_ENTRADA', dueDays: 2 })
-  assert.deepEqual(prazoAtual(rev, { stageEnteredAt: d(22, 9), dueDate: d(21, 18) }, AGORA), d(24, 9))
+  assert.deepEqual(prazoAtual(rev, { stageEnteredAt: d(22, 9), dueDate: d(30, 18) }, AGORA), d(24, 9))
+})
+
+test('prazo: a etapa nunca vence depois da data final da demanda', () => {
+  const dev = etapa({ name: 'Desenvolvimento e ajustes', dueMode: 'DIAS_APOS_ENTRADA', dueDays: 7 })
+  // criada hoje para entregar hoje: vence hoje, não daqui a 7 dias
+  assert.deepEqual(prazoAtual(dev, { stageEnteredAt: d(22, 21), dueDate: d(22, 23) }, AGORA), d(22, 23))
+  // data final já vencida: atrasada, mesmo com a etapa "no prazo"
+  const p = prazoAtual(dev, { stageEnteredAt: d(22, 9), dueDate: d(21, 18) }, AGORA)!
+  assert.deepEqual(p, d(21, 18))
 })
 
 test('prazo: sem etapa ou sem prazo de etapa, vale a data final', () => {
