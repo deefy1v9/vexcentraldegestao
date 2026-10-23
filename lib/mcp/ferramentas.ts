@@ -13,7 +13,7 @@ import { ordenarPorRisco, riscoDeChurn, type NivelDeRisco } from './churn'
  * churn. Testado em scripts/tests/mcp-ferramentas.test.ts.
  */
 
-export interface ContextoMcp { userId: string; conexaoId: string; base: string; agora: Date }
+export interface ContextoMcp { userId: string; conexaoId: string; appName: string; base: string; agora: Date }
 
 export class FerramentaErro extends Error {}
 
@@ -22,6 +22,10 @@ export interface Ferramenta {
   titulo: string
   descricao: string
   entrada: z.ZodRawShape
+  /** leitura (padrão) ou acoes: só aparece para conexão autorizada com ações */
+  escopo?: 'leitura' | 'acoes'
+  /** false = altera dados da Central (o assistente pede permissão antes) */
+  somenteLeitura?: boolean
   executar(ctx: ContextoMcp, args: Record<string, unknown>): Promise<string>
 }
 

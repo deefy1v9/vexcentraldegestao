@@ -6,6 +6,7 @@ import { Check, Copy, Loader2, Plug, Unplug } from 'lucide-react'
 interface Conexao {
   id: string
   appName: string
+  scope: string
   createdAt: string
   lastUsedAt: string | null
   queryCount: number
@@ -78,8 +79,9 @@ export default function ConectorMcp() {
       <div>
         <p className="text-sm font-bold text-gray-900 flex items-center gap-2"><Plug className="w-4 h-4 text-[#030A8C]" /> Conector de IA (MCP)</p>
         <p className="text-xs text-gray-500 mt-1 leading-snug">
-          Liga a Central ao Claude Code e ao Codex (os agentes do Habblaud) e ao Claude. Eles leem clientes, demandas, financeiro e risco de churn,
-          <strong> só leitura</strong>. A conexão é um login de administrador, sem chave colada.
+          Liga a Central ao Claude Code e ao Codex (os agentes do Habblaud) e ao Claude. Eles leem clientes, demandas, financeiro e risco de churn. Com <strong>ações</strong>, o agente também lê o grupo do cliente e trabalha nas demandas da
+          <strong> Fila do agente de IA</strong> até entregar para você validar; aprovar e avisar o cliente continua com você. A conexão é um login de administrador, sem chave colada.
+          Para dar ações a uma conexão só de leitura, desconecte e conecte de novo.
         </p>
       </div>
 
@@ -109,7 +111,8 @@ export default function ConectorMcp() {
         {dados.conexoes.map((c) => (
           <div key={c.id} className={`flex items-center gap-3 rounded-lg border px-3 py-2 ${c.revokedAt ? 'border-gray-100 opacity-60' : 'border-gray-200'}`}>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-gray-900 truncate">{c.appName} <span className="text-gray-400 font-normal">· {c.user.name}</span></p>
+              <p className="text-sm font-medium text-gray-900 truncate">{c.appName} <span className="text-gray-400 font-normal">· {c.user.name}</span>
+                <span className={`ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${c.scope.includes('central.acoes') ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-600'}`}>{c.scope.includes('central.acoes') ? 'leitura + ações' : 'só leitura'}</span></p>
               <p className="text-[11px] text-gray-500">
                 Conectado {quando(c.createdAt)} · {c.queryCount} consulta(s) · último uso {quando(c.lastUsedAt)}
                 {c.revokedAt && ` · desconectado ${quando(c.revokedAt)}${c.revokedReason ? ` (${c.revokedReason})` : ''}`}

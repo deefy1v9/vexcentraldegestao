@@ -141,6 +141,7 @@ export default function EditClientePage() {
         setAviso({
           whatsappGroupId: (d.whatsappGroupId as string) || '',
           avisoConclusaoAtivo: !!d.avisoConclusaoAtivo,
+          agenteAcompanha: !!d.agenteAcompanha,
         })
         setAsaasInfo({
           customerId: (d.asaasCustomerId as string) || null,

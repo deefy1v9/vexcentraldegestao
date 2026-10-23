@@ -161,6 +161,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         // Aviso de demanda concluída no grupo do cliente
         ...(has('whatsappGroupId') ? { whatsappGroupId: body.whatsappGroupId ? String(body.whatsappGroupId).trim() : null } : {}),
         ...(has('avisoConclusaoAtivo') ? { avisoConclusaoAtivo: !!body.avisoConclusaoAtivo } : {}),
+        // Agente de IA acompanha o grupo (lê as novidades e trabalha os pedidos)
+        ...(has('agenteAcompanha') ? { agenteAcompanha: !!body.agenteAcompanha } : {}),
       },
     })
 

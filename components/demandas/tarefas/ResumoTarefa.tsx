@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
-  ArrowLeft, CalendarClock, Check, CheckCircle2, ChevronRight, CornerUpLeft, ExternalLink, History, Loader2, MessageSquare, Paperclip, Send, Shuffle, FileText,
+  ArrowLeft, Bot, CalendarClock, Check, CheckCircle2, ChevronRight, CornerUpLeft, ExternalLink, History, Loader2, MessageSquare, Paperclip, Send, Shuffle, FileText,
 } from 'lucide-react'
 import TaskBrief from '../TaskBrief'
 import { Badge } from '@/components/vex/badge'
@@ -14,6 +14,7 @@ import {
   FIELD_LABEL, checklistKey, missingToAdvance, ordered, prazoAtual, prazosDasEtapas, stageActions,
   type StageField, type StageLike,
 } from '@/lib/processos'
+import { TAG_AGENTE } from '@/lib/mcp/regras-agente'
 
 interface UserRef { id: string; name: string }
 interface Stage extends StageLike { defaultUser?: UserRef | null }
@@ -35,6 +36,7 @@ interface FullTask {
   checklistDone: string[]
   processData?: Record<string, { link?: string; note?: string }> | null
   stageDeadlines?: Record<string, string> | null
+  tags?: string[]
   reviewNote?: string | null
   client?: { id: string; name: string } | null
   assignee?: UserRef | null
@@ -226,6 +228,13 @@ export default function ResumoTarefa({
     } finally { setBusy(null) }
   }
 
+  /** Admin: põe ou tira a demanda da fila do agente de IA (tag agente-ia). */
+  function filaDoAgente(ligar: boolean) {
+    if (!t) return
+    const tags = (t.tags ?? []).filter((x) => x !== TAG_AGENTE)
+    salvarDatas({ tags: ligar ? [...tags, TAG_AGENTE] : tags }, ligar ? 'Na fila do agente de IA: ele pode trabalhar nesta demanda pelo conector.' : 'Saiu da fila do agente de IA.')
+  }
+
   function salvarPrazos() {
     if (!t) return
     const editaveis = planoPrazos.filter((p) => p.situacao !== 'feita')
@@ -302,6 +311,14 @@ export default function ResumoTarefa({
             </dd>
           </div>
           {t.platform && <div className="flex gap-1.5 t-rotulo"><dt className="text-muted-foreground">Plataforma</dt><dd className="text-foreground">{t.platform}</dd></div>}
+          {isAdmin && !concluida ? (
+            <label className="flex items-center gap-1.5 t-rotulo text-foreground cursor-pointer">
+              <input type="checkbox" checked={(t.tags ?? []).includes(TAG_AGENTE)} disabled={busy === 'datas'} onChange={(e) => filaDoAgente(e.target.checked)} className="w-3.5 h-3.5 accent-[var(--marca)]" />
+              <Bot className="w-3.5 h-3.5 text-muted-foreground" /> Fila do agente de IA
+            </label>
+          ) : (t.tags ?? []).includes(TAG_AGENTE) && (
+            <div className="flex items-center gap-1.5 t-rotulo text-muted-foreground"><Bot className="w-3.5 h-3.5" /> Fila do agente de IA</div>
+          )}
         </dl>
         {stages.length > 0 && <TrilhaDeEtapas stages={stages} atualId={t.stageId} concluida={concluida} />}
       </div>

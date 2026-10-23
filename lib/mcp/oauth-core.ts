@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import {
-  ESCOPO, FORMATO_CODIGO, FORMATO_RENOVACAO, FORMATO_TOKEN, hashSha256, mesmoRedirect, novoSegredo,
+  ESCOPOS, escoposConcedidos, FORMATO_CODIGO, FORMATO_RENOVACAO, FORMATO_TOKEN, hashSha256, mesmoRedirect, novoSegredo,
   redirectUriPermitido, urlDoConector, verificarPkce,
 } from './formato'
 
@@ -93,7 +93,7 @@ export async function registrarCliente(corpo: unknown, repo: Repo): Promise<Clie
     token_endpoint_auth_method: 'none',
     grant_types: ['authorization_code', 'refresh_token'],
     response_types: ['code'],
-    scope: ESCOPO,
+    scope: ESCOPOS.join(' '),
   }
 }
 
@@ -137,9 +137,9 @@ export async function validarPedido(params: URLSearchParams, base: string, repo:
   if (!/^[A-Za-z0-9_-]{43}$/.test(challenge) || params.get('code_challenge_method') !== 'S256') return voltar('invalid_request', 'PKCE com S256 é obrigatório.')
   const resource = params.get('resource')
   if (resource && resource !== urlDoConector(base)) return voltar('invalid_target', 'Este token só serve para o conector da Central.')
-  const escopos = (params.get('scope') ?? '').split(/\s+/).filter(Boolean)
-  if (escopos.some((s) => s !== ESCOPO && s !== 'offline_access')) return voltar('invalid_scope', `O conector só tem o escopo ${ESCOPO}.`)
-  return { ok: true, pedido: { mcpClientId: cliente.id, clientId, appNome: cliente.name, redirectUri, codeChallenge: challenge, state, escopo: ESCOPO } }
+  const escopos = escoposConcedidos(params.get('scope'))
+  if (!escopos) return voltar('invalid_scope', `O conector só tem os escopos ${ESCOPOS.join(' e ')}.`)
+  return { ok: true, pedido: { mcpClientId: cliente.id, clientId, appNome: cliente.name, redirectUri, codeChallenge: challenge, state, escopo: escopos.join(' ') } }
 }
 
 /** Código de 5 minutos, uso único. Devolve a URL de retorno com `code` e `state`. */
@@ -236,7 +236,7 @@ export async function concederToken(campos: Record<string, string>, repo: Repo):
 
 /* ------------------------------ autenticar um pedido ao /api/mcp ------------------------------ */
 
-export interface ConexaoAutenticada { id: string; userId: string; appName: string }
+export interface ConexaoAutenticada { id: string; userId: string; appName: string; scope: string }
 export type AutenticacaoMcp =
   | { ok: true; usuario: Usuario; conexao: ConexaoAutenticada }
   | { ok: false; motivo: 'ausente' | 'invalido' | 'vencido' | 'revogado' | 'sem_acesso' }
@@ -256,7 +256,7 @@ export async function autenticarToken(authorization: string | null, repo: Repo):
   if (t.expiresAt.getTime() <= repo.agora().getTime()) return { ok: false, motivo: 'vencido' }
   const u = await repo.usuario(t.userId)
   if (!podeUsar(u)) return { ok: false, motivo: 'sem_acesso' }
-  return { ok: true, usuario: u, conexao: { id: t.connectionId, userId: t.userId, appName: t.appName } }
+  return { ok: true, usuario: u, conexao: { id: t.connectionId, userId: t.userId, appName: t.appName, scope: t.scope } }
 }
 
 /** Só os filtros, curtos: a resposta nunca entra no diário. */

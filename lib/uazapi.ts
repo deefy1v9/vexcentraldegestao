@@ -88,6 +88,21 @@ export async function uazSendTextChecked(number: string, text: string): Promise<
   return resultadoEnvio(r.status, await r.json().catch(() => ({})))
 }
 
+/** Mensagens de uma conversa, no formato bruto da UAZAPI (só leitura). */
+export async function uazFindMessages(chatid: string, limit = 50): Promise<unknown[]> {
+  const { base, token } = await getConfig()
+  if (!base || !token) throw new Error('WhatsApp não configurado')
+  const r = await fetch(`${base}/message/find`, {
+    method: 'POST',
+    headers: h(token),
+    body: JSON.stringify({ chatid, limit: Math.max(1, Math.min(200, limit)) }),
+    cache: 'no-store',
+  })
+  if (!r.ok) throw new Error(`WhatsApp respondeu ${r.status}`)
+  const b = (await r.json().catch(() => null)) as { messages?: unknown[] } | null
+  return Array.isArray(b?.messages) ? b.messages : []
+}
+
 /** Grupos de que o número da Central participa (id …@g.us e nome). */
 export async function uazListGroups(): Promise<Array<{ id: string; nome: string; participantes: number }>> {
   const { base, token } = await getConfig()

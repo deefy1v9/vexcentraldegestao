@@ -8,8 +8,25 @@ import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
  * Testado em scripts/tests/mcp-oauth.test.ts.
  */
 
-/** O único escopo: ler a Central como a pessoa que autorizou. */
+/** Ler a Central como a pessoa que autorizou (sempre concedido). */
 export const ESCOPO = 'central.leitura'
+/** Ações do agente: ler o grupo do cliente, criar, comentar e entregar demandas da fila dele. */
+export const ESCOPO_ACOES = 'central.acoes'
+export const ESCOPOS = [ESCOPO, ESCOPO_ACOES]
+
+/**
+ * Escopos concedidos para o que o assistente pediu: leitura sempre; ações só
+ * se pedidas (ou se ele não pedir nada, e aí a tela de consentimento mostra as
+ * duas). null = pediu algo que não existe.
+ */
+export function escoposConcedidos(pedido: string | null): string[] | null {
+  const pedidos = (pedido ?? '').split(/\s+/).filter(Boolean)
+  if (pedidos.some((s) => !ESCOPOS.includes(s) && s !== 'offline_access')) return null
+  const validos = pedidos.filter((s) => ESCOPOS.includes(s))
+  return validos.length === 0 || validos.includes(ESCOPO_ACOES) ? [...ESCOPOS] : [ESCOPO]
+}
+
+export const temAcoes = (escopo: string | null | undefined) => (escopo ?? '').split(/\s+/).includes(ESCOPO_ACOES)
 
 export const CAMINHO_MCP = '/api/mcp'
 export const CAMINHO_AUTORIZAR = '/autorizar'
@@ -89,7 +106,7 @@ export function metadadosDoRecurso(base: string) {
   return {
     resource: urlDoConector(base),
     authorization_servers: [base],
-    scopes_supported: [ESCOPO],
+    scopes_supported: ESCOPOS,
     bearer_methods_supported: ['header'],
     resource_name: 'VEX Central',
     resource_documentation: `${base}/agentes`,
@@ -108,14 +125,14 @@ export function metadadosDoAutorizador(base: string) {
     grant_types_supported: ['authorization_code', 'refresh_token'],
     code_challenge_methods_supported: ['S256'],
     token_endpoint_auth_methods_supported: ['none'],
-    scopes_supported: [ESCOPO],
+    scopes_supported: ESCOPOS,
     service_documentation: `${base}/agentes`,
   }
 }
 
 /** O cabeçalho do 401 que leva o assistente ao login. */
 export function cabecalhoDe401(base: string, comToken: boolean): string {
-  const partes = ['Bearer realm="VEX Central"', `resource_metadata="${base}${CAMINHO_METADADOS_RECURSO}"`, `scope="${ESCOPO}"`]
+  const partes = ['Bearer realm="VEX Central"', `resource_metadata="${base}${CAMINHO_METADADOS_RECURSO}"`, `scope="${ESCOPOS.join(' ')}"`]
   if (comToken) partes.splice(1, 0, 'error="invalid_token"')
   return partes.join(', ')
 }

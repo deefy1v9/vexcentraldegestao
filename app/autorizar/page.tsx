@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { getSessionUser } from '@/lib/api-auth'
 import { validarPedido } from '@/lib/mcp/oauth-core'
 import { baseDaCentral, repoPrisma } from '@/lib/mcp/oauth'
+import { temAcoes } from '@/lib/mcp/formato'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Autorizar assistente · VEX Central', robots: { index: false } }
@@ -53,14 +54,28 @@ export default async function AutorizarPage({ searchParams }: { searchParams: Pr
                 O assistente vai ler a Central como <strong>{viewer.name}</strong>.
               </p>
             </div>
-            <ul className="text-sm text-gray-700 space-y-1.5 bg-gray-50 rounded-xl p-4">
-              <li>• Clientes e serviços contratados</li>
-              <li>• Demandas, prazos e processos</li>
-              <li>• Financeiro do mês, contas a receber e a pagar, caixa</li>
-              <li>• Risco de churn por cliente</li>
-            </ul>
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Ler</p>
+              <ul className="text-sm text-gray-700 space-y-1.5 bg-gray-50 rounded-xl p-4">
+                <li>• Clientes e serviços contratados</li>
+                <li>• Demandas, prazos e processos</li>
+                <li>• Financeiro do mês, contas a receber e a pagar, caixa</li>
+                <li>• Risco de churn por cliente</li>
+              </ul>
+            </div>
+            {temAcoes(v.pedido.escopo) && (
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Agir como agente de IA</p>
+                <ul className="text-sm text-gray-700 space-y-1.5 bg-amber-50 rounded-xl p-4">
+                  <li>• Ler as mensagens dos grupos de WhatsApp dos clientes</li>
+                  <li>• Criar demandas na fila do agente e comentar nelas</li>
+                  <li>• Entregar a etapa em que trabalhou para você validar</li>
+                </ul>
+                <p className="text-xs text-gray-500 mt-1.5">Só nas demandas da fila do agente. Ele nunca aprova, nunca conclui e nunca manda mensagem ao cliente: o aviso no grupo só sai depois que você aprova na Central.</p>
+              </div>
+            )}
             <p className="text-xs text-gray-500">
-              <strong>Só leitura:</strong> ele não envia mensagem nem altera nada. Você pode desconectar quando quiser em Agentes.
+              {temAcoes(v.pedido.escopo) ? 'Fora isso, só leitura.' : <><strong>Só leitura:</strong> ele não envia mensagem nem altera nada.</>} Você pode desconectar quando quiser em Agentes.
               Ao autorizar, você volta para <span className="font-mono">{new URL(v.pedido.redirectUri).host}</span>.
             </p>
             <div className="flex gap-3">

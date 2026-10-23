@@ -139,6 +139,11 @@ model Client {
   // Nasce desligado; sem grupo escolhido, nada é enviado.
   whatsappGroupId     String? // id do grupo na UAZAPI (…@g.us)
   avisoConclusaoAtivo Boolean @default(false)
+  // Agente de IA acompanha o grupo: lê as mensagens novas e já trabalha os
+  // pedidos de ajuste (a aprovação e o aviso ao cliente seguem com a pessoa).
+  agenteAcompanha     Boolean   @default(false)
+  // Até onde o agente já leu o grupo (a próxima leitura começa daqui)
+  agenteLidoAte       DateTime?
   asaasCustomerId   String?   @unique // ID do cliente no Asaas (somente leitura)
   asaasSyncStatus   String? // OK | ERRO | null (nunca sincronizado)
   asaasSyncError    String?

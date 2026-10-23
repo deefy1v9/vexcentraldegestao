@@ -85,7 +85,7 @@ export async function painelDoConector() {
     prisma.mcpConnection.findMany({
       orderBy: [{ revokedAt: { sort: 'asc', nulls: 'first' } }, { createdAt: 'desc' }],
       take: 50,
-      select: { id: true, appName: true, createdAt: true, lastUsedAt: true, queryCount: true, revokedAt: true, revokedReason: true, user: { select: { name: true } } },
+      select: { id: true, appName: true, scope: true, createdAt: true, lastUsedAt: true, queryCount: true, revokedAt: true, revokedReason: true, user: { select: { name: true } } },
     }),
     prisma.mcpQuery.findMany({
       orderBy: { createdAt: 'desc' },

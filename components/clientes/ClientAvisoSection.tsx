@@ -1,14 +1,15 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { MessageCircle } from 'lucide-react'
+import { Bot, MessageCircle } from 'lucide-react'
 import { Switch } from '@/components/vex/switch'
 
 export interface AvisoForm {
   whatsappGroupId: string
   avisoConclusaoAtivo: boolean
+  agenteAcompanha: boolean
 }
 
-export const EMPTY_AVISO: AvisoForm = { whatsappGroupId: '', avisoConclusaoAtivo: false }
+export const EMPTY_AVISO: AvisoForm = { whatsappGroupId: '', avisoConclusaoAtivo: false, agenteAcompanha: false }
 
 type Grupo = { id: string; nome: string; participantes: number }
 
@@ -80,6 +81,19 @@ export default function ClientAvisoSection({
         />
         Avisar o grupo quando uma etapa terminar
       </label>
+
+      <div className={`space-y-1 ${semGrupo ? 'text-gray-400' : 'text-gray-700'}`}>
+        <label className="flex items-center gap-3 text-sm">
+          <Switch
+            checked={form.agenteAcompanha}
+            disabled={semGrupo && !form.agenteAcompanha}
+            onCheckedChange={(v) => onChange('agenteAcompanha', v)}
+            aria-label="Agente de IA acompanha o grupo"
+          />
+          <Bot className="w-4 h-4 text-[#030A8C]" /> Agente de IA acompanha o grupo
+        </label>
+        <p className="text-xs text-gray-400 pl-12">O agente lê as mensagens novas do grupo e já trabalha os pedidos de ajuste, entregando para você validar. Ele nunca responde no grupo: o aviso ao cliente só sai depois da sua aprovação.</p>
+      </div>
 
       <div className="rounded-xl bg-gray-50 border border-gray-100 px-3 py-2 text-xs text-gray-600">
         <span className="font-semibold text-gray-700">Exemplo: </span>

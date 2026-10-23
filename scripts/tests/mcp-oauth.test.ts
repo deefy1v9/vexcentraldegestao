@@ -335,3 +335,21 @@ test('token de renovação nunca abre o conector, mesmo com cara de token de ace
   await f.repo.criarTokens([{ connectionId: conexaoId, kind: 'RENOVACAO', hash: hashSha256(disfarcado), expiresAt: new Date('2027-01-01') }])
   assert.deepEqual(await autenticarToken(`Bearer ${disfarcado}`, f.repo), { ok: false, motivo: 'invalido' })
 })
+
+test('escopo concedido vai até a conexão: só leitura, ou leitura + ações', async () => {
+  for (const [pedido, esperado] of [['central.leitura', 'central.leitura'], ['central.leitura central.acoes', 'central.leitura central.acoes'], ['', 'central.leitura central.acoes']] as const) {
+    const f = repoFalso()
+    const reg = await registrarCliente({ redirect_uris: [CLAUDE] }, f.repo)
+    const p = pkce()
+    const params = pedidoParams(reg.client_id, p.challenge)
+    if (pedido) params.set('scope', pedido); else params.delete('scope')
+    const v = await validarPedido(params, BASE, f.repo)
+    assert.ok(v.ok)
+    assert.equal(v.pedido.escopo, esperado)
+    const code = new URL(await emitirCodigo(v.pedido, f.usuarios.adm, f.repo)).searchParams.get('code')!
+    const t = await concederToken({ grant_type: 'authorization_code', code, client_id: reg.client_id, redirect_uri: CLAUDE, code_verifier: p.verifier }, f.repo)
+    assert.equal(t.scope, esperado)
+    const aut = await autenticarToken(`Bearer ${t.access_token}`, f.repo)
+    assert.ok(aut.ok && aut.conexao.scope === esperado)
+  }
+})
