@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import { destinoDepoisDoLogin } from '@/lib/mcp/destino'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -19,7 +20,8 @@ export default function LoginPage() {
       setError('Email ou senha incorretos')
       setLoading(false)
     } else {
-      router.push('/dashboard')
+      // Volta para onde a pessoa ia (ex.: autorizar um assistente), só dentro da Central
+      router.push(destinoDepoisDoLogin(new URLSearchParams(window.location.search).get('callbackUrl'), window.location.origin))
     }
   }
 

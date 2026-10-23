@@ -77,6 +77,7 @@ model User {
   aiAgents             AiAgent[]          @relation("AiAgentCreator")
   cashMovements        CashMovement[]     @relation("CashPartner")
   cashCreated          CashMovement[]     @relation("CashCreator")
+  mcpConnections       McpConnection[]    @relation("McpConnectionUser")
 }
 
 model Client {
@@ -1683,4 +1684,94 @@ model CashMovement {
   @@index([date])
   @@index([kind, date])
   @@index([partnerId, date])
+}
+
+// ─── Conector de IA (servidor MCP) ──────────────────────────────────────────
+// O Claude Code, o Codex (Habblaud) e o Claude se conectam à Central por um
+// login OAuth (PKCE S256), nunca por chave colada. O assistente vê o que a
+// pessoa que autorizou vê, relido a cada pedido. Segredos (código, access e
+// refresh) ficam só como SHA-256. Regras em lib/mcp/*.
+
+/// Aplicativo registrado (RFC 7591), só com endereços de retorno conhecidos.
+model McpClient {
+  id           String          @id @default(cuid())
+  clientId     String          @unique
+  name         String
+  redirectUris String[]
+  createdAt    DateTime        @default(now())
+  lastUsedAt   DateTime?
+  connections  McpConnection[]
+  authCodes    McpAuthCode[]
+}
+
+/// Quem autorizou qual aplicativo. Desconectar = revokedAt.
+model McpConnection {
+  id            String    @id @default(cuid())
+  userId        String
+  mcpClientId   String
+  appName       String
+  scope         String
+  createdAt     DateTime  @default(now())
+  lastUsedAt    DateTime?
+  queryCount    Int       @default(0)
+  revokedAt     DateTime?
+  revokedById   String?
+  revokedReason String?
+
+  user      User        @relation("McpConnectionUser", fields: [userId], references: [id], onDelete: Cascade)
+  mcpClient McpClient   @relation(fields: [mcpClientId], references: [id], onDelete: Cascade)
+  tokens    McpToken[]
+  queries   McpQuery[]
+
+  @@index([createdAt])
+}
+
+/// Código de autorização: 5 minutos, uso único, preso ao cliente, ao retorno e ao PKCE.
+model McpAuthCode {
+  id            String    @id @default(cuid())
+  codeHash      String    @unique
+  mcpClientId   String
+  userId        String
+  redirectUri   String
+  codeChallenge String
+  scope         String
+  expiresAt     DateTime
+  usedAt        DateTime?
+  /// Conexão criada na troca: código reutilizado derruba ela inteira
+  connectionId  String?
+  createdAt     DateTime  @default(now())
+
+  mcpClient McpClient @relation(fields: [mcpClientId], references: [id], onDelete: Cascade)
+}
+
+/// ACESSO (1 h) ou RENOVACAO (30 dias, rotativo; reuso derruba a conexão).
+model McpToken {
+  id           String    @id @default(cuid())
+  connectionId String
+  kind         String
+  hash         String    @unique
+  expiresAt    DateTime
+  usedAt       DateTime?
+  createdAt    DateTime  @default(now())
+
+  connection McpConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@index([connectionId])
+}
+
+/// Diário: cada consulta de um assistente. Guarda os filtros, nunca a resposta.
+model McpQuery {
+  id           String   @id @default(cuid())
+  connectionId String
+  userId       String?
+  tool         String
+  args         Json     @default("{}")
+  durationMs   Int?
+  error        String?
+  createdAt    DateTime @default(now())
+
+  connection McpConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@index([connectionId, createdAt])
+  @@index([createdAt])
 }

@@ -160,7 +160,7 @@ export function stageDue(stage: StageLike, task: TaskForStage): Date | null {
  * da data final: etapa de 7 dias numa demanda para hoje vence hoje.
  * Data que o admin marcou para a etapa vale acima de tudo isso.
  */
-export function prazoAtual(stage: StageLike | null | undefined, task: TaskForStage, agora: Date = new Date()): Date | null {
+export function prazoAtual(stage: StageLike | null | undefined, task: TaskForStage, agora: Date = new Date(), inicioDeHoje?: Date): Date | null {
   if (stage && stage.kind !== 'FINAL') {
     const definido = prazoDefinido(task, stage.id)
     if (definido) return definido
@@ -168,8 +168,9 @@ export function prazoAtual(stage: StageLike | null | undefined, task: TaskForSta
   const final = task.dueDate ? new Date(task.dueDate) : null
   const etapa = stage ? stageDue(stage, task) : null
   if (!etapa) return final
-  const hoje = new Date(agora)
-  hoje.setHours(0, 0, 0, 0)
+  // No servidor (UTC) quem chama passa o início do dia de Brasília
+  const hoje = inicioDeHoje ? new Date(inicioDeHoje) : new Date(agora)
+  if (!inicioDeHoje) hoje.setHours(0, 0, 0, 0)
   if (etapa < hoje && final && final >= hoje) return hoje
   if (final && final < etapa) return final
   return etapa
