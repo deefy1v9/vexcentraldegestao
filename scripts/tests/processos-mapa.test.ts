@@ -86,7 +86,7 @@ test('mapa: validar o site não pede link (a #245 conclui)', () => {
   const vazia = { driveLink: null, processData: null, checklistDone: [] }
   assert.deepEqual(missingToAdvance(stage as never, vazia as never), [])
   // como estava: pedia link e travava
-  assert.deepEqual(missingToAdvance({ ...stage, fields: ['LINK'] } as never, vazia as never), ['link da entrega (https://…)'])
+  assert.deepEqual(missingToAdvance({ ...stage, fields: ['LINK'] } as never, vazia as never), ['link da entrega'])
 })
 
 test('mapa: link só onde existe entregável; as exigências removidas não voltam no padrão', () => {
@@ -109,4 +109,17 @@ test('mapa: ajuste dos processos antigos só remove a exigência listada e mant�
   assert.deepEqual(semExigenciasRemovidas('design', 'Criação', ['LINK_DRIVE']), ['LINK_DRIVE'])
   assert.deepEqual(semExigenciasRemovidas('site', 'Publicação', ['LINK_PUBLICACAO']), ['LINK_PUBLICACAO'])
   assert.deepEqual(semExigenciasRemovidas('outro', 'Desenvolvimento e ajustes', ['LINK']), ['LINK'])
+})
+
+test('campos de link: obrigatórios, mas aceitam qualquer texto escrito', () => {
+  const st = (fields: string[]) => ({ id: 's', name: 'Produção', kind: 'EXECUCAO', fields, checklist: [], checklistRequired: false }) as never
+  const vazia = { driveLink: null, publicationLink: null, processData: null, checklistDone: [] } as never
+  // vazio ou só espaço trava
+  assert.deepEqual(missingToAdvance(st(['LINK_DRIVE', 'LINK', 'LINK_PUBLICACAO']), vazia, { driveLink: '  ', link: '', publicationLink: undefined }),
+    ['link do Google Drive', 'link da entrega', 'link publicado'])
+  // qualquer texto libera (não precisa ser https nem do Google Drive)
+  assert.deepEqual(missingToAdvance(st(['LINK_DRIVE', 'LINK', 'LINK_PUBLICACAO']), vazia, { driveLink: 'SADA', link: 'pasta do cliente', publicationLink: 'instagram' }), [])
+  // o que já está salvo na demanda vale, mesmo com o campo do painel vazio
+  const salva = { driveLink: 'enviado no grupo', publicationLink: 'feito', processData: { s: { link: 'ok' } }, checklistDone: [] } as never
+  assert.deepEqual(missingToAdvance(st(['LINK_DRIVE', 'LINK', 'LINK_PUBLICACAO']), salva, { driveLink: '', link: '', publicationLink: '' }), [])
 })

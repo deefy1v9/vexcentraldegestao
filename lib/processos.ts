@@ -290,14 +290,9 @@ export function checklistKey(stageId: string, i: number) {
   return `${stageId}:${i}`
 }
 
-function isUrl(v?: string | null) {
-  if (!v) return false
-  try { return new URL(v.trim()).protocol === 'https:' } catch { return false }
-}
-
-export function isDriveLink(v?: string | null) {
-  if (!isUrl(v)) return false
-  return /(^|\.)(drive|docs)\.google\.com$/.test(new URL(v!.trim()).hostname)
+/** Campo de link: obrigatório, mas aceita qualquer texto (link, caminho, "enviado no WhatsApp"…). */
+function preenchido(...valores: Array<string | null | undefined>) {
+  return valores.some((v) => !!v?.trim())
 }
 
 /**
@@ -307,9 +302,9 @@ export function isDriveLink(v?: string | null) {
 export function missingToAdvance(stage: StageLike, task: TaskForStage, input: StageInput = {}): string[] {
   const falta: string[] = []
   for (const f of stage.fields as StageField[]) {
-    if (f === 'LINK_DRIVE' && !isDriveLink(input.driveLink ?? task.driveLink)) falta.push('link do Google Drive (https://drive.google.com/…)')
-    if (f === 'LINK' && !isUrl(input.link ?? linkFromData(task, stage.id))) falta.push('link da entrega (https://…)')
-    if (f === 'LINK_PUBLICACAO' && !isUrl(input.publicationLink ?? task.publicationLink)) falta.push('link publicado (https://…)')
+    if (f === 'LINK_DRIVE' && !preenchido(input.driveLink, task.driveLink)) falta.push('link do Google Drive')
+    if (f === 'LINK' && !preenchido(input.link, linkFromData(task, stage.id))) falta.push('link da entrega')
+    if (f === 'LINK_PUBLICACAO' && !preenchido(input.publicationLink, task.publicationLink)) falta.push('link publicado')
     if (f === 'DATA_PUBLICACAO' && !(input.publicationDate || task.scheduledFor)) falta.push('data de publicação')
     if (f === 'NOTA' && !(input.note?.trim())) falta.push('observação')
   }
