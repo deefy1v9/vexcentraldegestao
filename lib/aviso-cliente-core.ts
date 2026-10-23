@@ -23,6 +23,8 @@
  * - os executores nunca lançam: falha vira registro, e a demanda segue.
  */
 
+import { prazoDefinido } from './processos'
+
 /* ------------------------------ horário ------------------------------ */
 
 /** Brasília sem horário de verão desde 2019: UTC−3 fixo. */
@@ -265,6 +267,8 @@ export interface DemandaParaAviso {
   dueDate?: Date | null
   /** Quando entrou na etapa atual (para o prazo da próxima) */
   stageEnteredAt?: Date | null
+  /** Prazo por etapa marcado pelo admin: { [stageId]: ISO } */
+  stageDeadlines?: unknown
   stages: EtapaParaAviso[]
   client: { id: string; name: string; avisoConclusaoAtivo: boolean; whatsappGroupId: string | null } | null
 }
@@ -312,7 +316,7 @@ export async function enfileirarAviso(
       entrega: task.clientText,
       data: task.scheduledFor ?? null,
       proxima: para!.kind === 'FINAL' ? null : para!.name,
-      prazo: para!.kind === 'FINAL' ? null : prazoDaEtapa({ dueMode: para!.dueMode ?? 'DIAS_APOS_ENTRADA', dueDays: para!.dueDays ?? 0, kind: para!.kind ?? 'EXECUCAO' }, { dueDate: task.dueDate ?? null, stageEnteredAt: task.stageEnteredAt ?? null }),
+      prazo: para!.kind === 'FINAL' ? null : prazoDefinido(task, para!.id) ?? prazoDaEtapa({ dueMode: para!.dueMode ?? 'DIAS_APOS_ENTRADA', dueDays: para!.dueDays ?? 0, kind: para!.kind ?? 'EXECUCAO' }, { dueDate: task.dueDate ?? null, stageEnteredAt: task.stageEnteredAt ?? null }),
       prazoFinal: task.dueDate ?? null,
     })
     if (!linha) return { situacao: 'ignorado', motivo: 'etapa-sem-aviso' }

@@ -30,7 +30,7 @@ const depsEnfileirar: DepsEnfileirar = {
       where: { id: taskId },
       select: {
         id: true, number: true, title: true, assigneeId: true, stageId: true, clientText: true,
-        scheduledFor: true, dueDate: true, stageEnteredAt: true,
+        scheduledFor: true, dueDate: true, stageEnteredAt: true, stageDeadlines: true,
         process: { select: { stages: { select: { id: true, name: true, position: true, notifyClient: true, clientPhrase: true, kind: true, dueMode: true, dueDays: true } } } },
         client: { select: { id: true, name: true, avisoConclusaoAtivo: true, whatsappGroupId: true } },
       },

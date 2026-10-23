@@ -20,6 +20,8 @@ export interface Task extends TaskLike {
   processId?: string | null
   stageId?: string | null
   stageEnteredAt?: Date | string | null
+  /** Prazo por etapa marcado pelo admin: { [stageId]: ISO } */
+  stageDeadlines?: unknown
   process?: { id: string; name: string; color: string } | null
   stage?: { id: string; name: string; kind: string; dueMode: string; dueDays: number; position: number } | null
   team?: { id: string; name: string; color: string } | null

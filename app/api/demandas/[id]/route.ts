@@ -7,6 +7,8 @@ import { isConfigured, uazSendText } from '@/lib/uazapi'
 import { validateDragTransition, logTaskEvent, TaskStatusValue } from '@/lib/task-flow'
 import { alignStageToStatus } from '@/lib/processos-server'
 import { dispararAvisoEtapa } from '@/lib/aviso-cliente'
+import { normalizarPrazos } from '@/lib/processos'
+import { Prisma } from '@prisma/client'
 
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
@@ -51,7 +53,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const previous = await prisma.task.findUnique({
     where: { id },
-    select: { status: true, assigneeId: true, driveLink: true, title: true, stageId: true },
+    select: {
+      status: true, assigneeId: true, driveLink: true, title: true, stageId: true, dueDate: true, stageDeadlines: true,
+      process: { select: { stages: { select: { id: true, name: true, kind: true, position: true } } } },
+    },
   })
   const assigneeChanged = Object.prototype.hasOwnProperty.call(body, 'assigneeId') &&
     (body.assigneeId || null) !== (previous?.assigneeId ?? null)
@@ -102,6 +107,18 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (has('tags')) data.tags = body.tags
     if (has('platform')) data.platform = body.platform || null
     if (has('dueDate')) data.dueDate = body.dueDate ? new Date(body.dueDate) : null
+    // Prazo de cada etapa: só etapas do processo desta demanda, datas válidas
+    if (has('stageDeadlines')) {
+      const etapas = (previous.process?.stages ?? []).filter((s) => s.kind !== 'FINAL').sort((a, b) => a.position - b.position)
+      const r = normalizarPrazos(body.stageDeadlines, etapas.map((s) => s.id), previous.stageDeadlines)
+      if ('erro' in r) return NextResponse.json({ error: r.erro }, { status: 400 })
+      data.stageDeadlines = r.ok ?? Prisma.JsonNull
+      const dia = (iso: string) => new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit' })
+      const lista = etapas.filter((s) => r.ok?.[s.id]).map((s) => `${s.name} até ${dia(r.ok![s.id])}`)
+      await logTaskEvent(id, 'PRAZO', lista.length
+        ? `${session.user.name} definiu os prazos por etapa: ${lista.join(', ')}.`
+        : `${session.user.name} tirou os prazos por etapa (voltam a seguir o processo).`, session.user.id)
+    }
     if (has('clientId')) data.clientId = body.clientId || null
     if (has('assigneeId')) data.assigneeId = body.assigneeId || null
     if (has('producerId')) data.producerId = body.producerId || null
@@ -138,6 +155,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (has('status')) {
     await alignStageToStatus(id)
     dispararAvisoEtapa(id, previous.stageId)
+  }
+
+  // Mudança da data final fica no histórico
+  if (isAdmin && has('dueDate') && (previous.dueDate?.getTime() ?? null) !== (task.dueDate?.getTime() ?? null)) {
+    const dia = (d: Date | null) => (d ? d.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : 'sem data')
+    await logTaskEvent(id, 'PRAZO', `${session.user.name} mudou a data final de ${dia(previous.dueDate)} para ${dia(task.dueDate)}.`, session.user.id)
   }
 
   // Troca de responsável fica registrada na linha do tempo da demanda

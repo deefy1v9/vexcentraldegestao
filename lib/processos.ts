@@ -60,6 +60,8 @@ export interface TaskForStage {
   scheduledFor?: Date | string | null
   checklistDone?: string[]
   processData?: unknown
+  /** Prazo por etapa definido pelo admin: { [stageId]: ISO } */
+  stageDeadlines?: unknown
 }
 
 /** O que a pessoa preencheu no painel ao concluir a etapa. */
@@ -156,8 +158,13 @@ export function stageDue(stage: StageLike, task: TaskForStage): Date | null {
  * não, o prazo é hoje: a demanda foi replanejada e não está atrasada (a
  * produção D-2 de um post que sai hoje não vira "atrasada"). E nunca passa
  * da data final: etapa de 7 dias numa demanda para hoje vence hoje.
+ * Data que o admin marcou para a etapa vale acima de tudo isso.
  */
 export function prazoAtual(stage: StageLike | null | undefined, task: TaskForStage, agora: Date = new Date()): Date | null {
+  if (stage && stage.kind !== 'FINAL') {
+    const definido = prazoDefinido(task, stage.id)
+    if (definido) return definido
+  }
   const final = task.dueDate ? new Date(task.dueDate) : null
   const etapa = stage ? stageDue(stage, task) : null
   if (!etapa) return final
@@ -166,6 +173,76 @@ export function prazoAtual(stage: StageLike | null | undefined, task: TaskForSta
   if (etapa < hoje && final && final >= hoje) return hoje
   if (final && final < etapa) return final
   return etapa
+}
+
+/** Prazo que o admin marcou para a etapa nesta demanda (null se não marcou). */
+export function prazoDefinido(task: TaskForStage, stageId: string): Date | null {
+  const m = task.stageDeadlines
+  if (!m || typeof m !== 'object') return null
+  const v = (m as Record<string, unknown>)[stageId]
+  if (typeof v !== 'string') return null
+  const d = new Date(v)
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
+export interface PrazoDeEtapa {
+  id: string
+  name: string
+  prazo: Date | null
+  /** true = data marcada pelo admin; false = calculada pela regra do processo */
+  definido: boolean
+  situacao: 'feita' | 'atual' | 'proxima'
+}
+
+/**
+ * O plano de prazos da demanda, etapa por etapa (sem a final). A atual usa o
+ * prazo que vale agora; as próximas usam a data marcada ou a previsão pela
+ * regra (dias depois da anterior, ou antes da entrega), sem passar da data final.
+ */
+export function prazosDasEtapas(stages: StageLike[], task: TaskForStage, agora: Date = new Date()): PrazoDeEtapa[] {
+  const todas = ordered(stages)
+  const naFinal = todas.find((s) => s.id === task.stageId)?.kind === 'FINAL'
+  const lista = todas.filter((s) => s.kind !== 'FINAL')
+  const iAtual = naFinal ? lista.length : Math.max(0, lista.findIndex((s) => s.id === task.stageId))
+  const final = task.dueDate ? new Date(task.dueDate) : null
+  let anterior: Date | null = null
+  return lista.map((s, i) => {
+    const definido = prazoDefinido(task, s.id)
+    if (i < iAtual) return { id: s.id, name: s.name, prazo: definido, definido: !!definido, situacao: 'feita' as const }
+    let prazo: Date | null
+    if (i === iAtual) prazo = prazoAtual(s, task.stageId === s.id ? task : { ...task, stageId: s.id, stageEnteredAt: agora }, agora)
+    else if (definido) prazo = definido
+    else {
+      prazo = s.dueMode === 'ANTES_DA_ENTREGA'
+        ? (final ? new Date(final.getTime() - s.dueDays * DAY) : null)
+        : (anterior ? new Date(anterior.getTime() + s.dueDays * DAY) : null)
+      if (prazo && final && prazo > final) prazo = final
+    }
+    anterior = prazo ?? anterior
+    return { id: s.id, name: s.name, prazo, definido: !!definido, situacao: i === iAtual ? 'atual' as const : 'proxima' as const }
+  })
+}
+
+/**
+ * Valida os prazos por etapa que o admin mandou: só etapas do processo da
+ * demanda e datas válidas; vazio tira a data (volta para a regra). Junta com
+ * o que já estava gravado.
+ */
+export function normalizarPrazos(
+  entrada: unknown, etapasValidas: string[], atual: unknown = null,
+): { ok: Record<string, string> | null } | { erro: string } {
+  if (entrada === null) return { ok: null }
+  if (typeof entrada !== 'object' || Array.isArray(entrada)) return { erro: 'Prazos por etapa inválidos.' }
+  const base: Record<string, string> = atual && typeof atual === 'object' && !Array.isArray(atual) ? { ...(atual as Record<string, string>) } : {}
+  for (const [id, v] of Object.entries(entrada as Record<string, unknown>)) {
+    if (!etapasValidas.includes(id)) return { erro: 'Essa etapa não é do processo desta demanda.' }
+    if (v === null || v === '') { delete base[id]; continue }
+    const d = typeof v === 'string' ? new Date(v) : null
+    if (!d || Number.isNaN(d.getTime())) return { erro: 'Data inválida no prazo da etapa.' }
+    base[id] = d.toISOString()
+  }
+  for (const k of Object.keys(base)) if (!etapasValidas.includes(k)) delete base[k]
+  return { ok: Object.keys(base).length ? base : null }
 }
 
 /**

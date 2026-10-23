@@ -3,8 +3,8 @@ import { prisma } from './prisma'
 import { logTaskEvent, notifyWhatsApp, taskShortId } from './task-flow'
 import { dispararAvisoEtapa } from './aviso-cliente'
 import {
-  DEFAULT_PROCESSES, EXIGENCIAS_REMOVIDAS, FRASES_CLIENTE_PADRAO, DEFAULT_PROCESS_SLUG, inferProcessSlug, semExigenciasRemovidas, missingToAdvance, nextStage, ordered, prevStage,
-  responsibleFor, stageForStatus, type ProcessData, type StageInput,
+  DEFAULT_PROCESSES, EXIGENCIAS_REMOVIDAS, FRASES_CLIENTE_PADRAO, DEFAULT_PROCESS_SLUG, inferProcessSlug, semExigenciasRemovidas,
+  missingToAdvance, nextStage, ordered, prazoAtual, prevStage, responsibleFor, stageForStatus, type ProcessData, type StageInput,
 } from './processos'
 
 /** Ids de quem está na equipe (ativos). */
@@ -261,12 +261,16 @@ export async function moveTaskStage(taskId: string, input: StageMoveInput, user:
   // Saiu de uma etapa marcada para adiante: avisa o grupo do cliente (fila)
   if (input.action === 'avancar' || input.action === 'mover') dispararAvisoEtapa(taskId, atual.id)
 
+  // Chegou na etapa: o prazo dela (data marcada pelo admin ou regra do processo)
+  const prazoNovo = destino.kind === 'FINAL' ? null : prazoAtual(destino, { ...task, stageId: destino.id, stageEnteredAt: agora }, agora)
+  const comPrazo = prazoNovo ? ` Prazo: ${prazoNovo.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit' })}.` : ''
+
   const verbo = input.action === 'avancar' ? (atual.kind === 'APROVACAO' ? 'aprovou' : 'concluiu') : input.action === 'devolver' ? 'devolveu' : 'moveu'
   const detalhe = input.action === 'mover'
-    ? `${user.name ?? 'Alguém'} moveu de "${atual.name}" para "${destino.name}". Justificativa: ${input.note!.trim()}`
+    ? `${user.name ?? 'Alguém'} moveu de "${atual.name}" para "${destino.name}". Justificativa: ${input.note!.trim().replace(/\.$/, '')}.${comPrazo}`
     : input.action === 'devolver'
       ? `${user.name ?? 'Alguém'} devolveu "${atual.name}" para "${destino.name}": ${input.note!.trim()}`
-      : `${user.name ?? 'Alguém'} ${verbo} "${atual.name}". Agora: "${destino.name}".`
+      : `${user.name ?? 'Alguém'} ${verbo} "${atual.name}". Agora: "${destino.name}".${comPrazo}`
   await logTaskEvent(taskId, 'ETAPA', detalhe, user.id)
 
   // Foi para a fila de uma equipe: avisa quem é dela
@@ -278,8 +282,8 @@ export async function moveTaskStage(taskId: string, input: StageMoveInput, user:
   }
   if (novoResponsavel && novoResponsavel !== user.id && destino.kind !== 'FINAL') {
     const aviso = input.action === 'devolver'
-      ? `A demanda ${task.title} (${taskShortId(task.number)}) voltou para você em "${destino.name}": ${input.note!.trim()}`
-      : `Nova tarefa: ${task.title} (${taskShortId(task.number)}) está em "${destino.name}" com você.`
+      ? `A demanda ${task.title} (${taskShortId(task.number)}) voltou para você em "${destino.name}": ${input.note!.trim()}${comPrazo}`
+      : `Nova tarefa: ${task.title} (${taskShortId(task.number)}) está em "${destino.name}" com você.${comPrazo}`
     await notifyWhatsApp(novoResponsavel, aviso)
   }
   return atualizada

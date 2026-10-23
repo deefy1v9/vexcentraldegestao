@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
-  ArrowLeft, Check, CheckCircle2, ChevronRight, CornerUpLeft, ExternalLink, History, Loader2, MessageSquare, Paperclip, Send, Shuffle, FileText,
+  ArrowLeft, CalendarClock, Check, CheckCircle2, ChevronRight, CornerUpLeft, ExternalLink, History, Loader2, MessageSquare, Paperclip, Send, Shuffle, FileText,
 } from 'lucide-react'
 import TaskBrief from '../TaskBrief'
 import { Badge } from '@/components/vex/badge'
@@ -11,7 +11,7 @@ import { Button } from '@/components/vex/button'
 import { Card } from '@/components/vex/card'
 import { Avatar } from './ListaTarefas'
 import {
-  FIELD_LABEL, checklistKey, missingToAdvance, ordered, prazoAtual, stageActions,
+  FIELD_LABEL, checklistKey, missingToAdvance, ordered, prazoAtual, prazosDasEtapas, stageActions,
   type StageField, type StageLike,
 } from '@/lib/processos'
 
@@ -34,6 +34,7 @@ interface FullTask {
   stageEnteredAt?: string | null
   checklistDone: string[]
   processData?: Record<string, { link?: string; note?: string }> | null
+  stageDeadlines?: Record<string, string> | null
   reviewNote?: string | null
   client?: { id: string; name: string } | null
   assignee?: UserRef | null
@@ -57,6 +58,20 @@ const fmtData = (d?: string | Date | null, hora = false) => {
   return hora
     ? x.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
     : x.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
+/** Data local no formato do campo de data (aaaa-mm-dd). */
+const diaDoCampo = (d?: string | Date | null) => {
+  if (!d) return ''
+  const x = new Date(d)
+  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`
+}
+
+/** Dia escolhido no campo, mantendo a hora que já existia (ou 18h). */
+const diaComHora = (dia: string, base?: string | null) => {
+  const ref = base ? new Date(base) : null
+  const [a, m, d] = dia.split('-').map(Number)
+  return new Date(a, m - 1, d, ref ? ref.getHours() : 18, ref ? ref.getMinutes() : 0).toISOString()
 }
 
 function comLinks(texto: string) {
@@ -116,6 +131,9 @@ export default function ResumoTarefa({
   const [nota, setNota] = useState('')
   const [moverPara, setMoverPara] = useState('')
   const [comentario, setComentario] = useState('')
+  // prazos por etapa em edição (admin): stageId → aaaa-mm-dd ('' = automático)
+  const [prazosEdit, setPrazosEdit] = useState<Record<string, string>>({})
+  const [avisoDatas, setAvisoDatas] = useState<{ tipo: 'ok' | 'erro'; texto: string } | null>(null)
 
   /** Busca a tarefa; null quando não abre. */
   const buscar = useCallback(async (): Promise<FullTask | null> => {
@@ -133,6 +151,7 @@ export default function ResumoTarefa({
     setLink(b.stageId ? (b.processData?.[b.stageId]?.link ?? '') : '')
     setNota('')
     setMoverPara('')
+    setPrazosEdit(Object.fromEntries(Object.entries(b.stageDeadlines ?? {}).map(([k, v]) => [k, diaDoCampo(v)])))
   }, [])
 
   const carregar = useCallback(async () => { aplicar(await buscar()) }, [buscar, aplicar])
@@ -154,6 +173,8 @@ export default function ResumoTarefa({
   const acoes = atual ? stageActions(atual) : null
   const prazoEtapa = atual && t ? prazoAtual(atual, t) : null
   const atrasada = !!prazoEtapa && !concluida && prazoEtapa.getTime() < new Date().setHours(0, 0, 0, 0)
+  const planoPrazos = useMemo(() => (t && stages.length ? prazosDasEtapas(stages, t) : []), [stages, t])
+  const prazosMudaram = !!t && planoPrazos.some((p) => p.situacao !== 'feita' && (prazosEdit[p.id] ?? '') !== diaDoCampo(t.stageDeadlines?.[p.id]))
 
   const entrada = { driveLink, link, publicationLink, publicationDate: publicationDate || undefined, note: nota }
   const falta = atual && t ? missingToAdvance(atual, t, entrada) : []
@@ -191,6 +212,27 @@ export default function ResumoTarefa({
       if (!r.ok) { const b = await r.json().catch(() => ({})); setAviso({ tipo: 'erro', texto: b.error || 'Não foi possível trocar o responsável.' }); return }
       await carregar(); onChanged()
     } finally { setBusy(null) }
+  }
+
+  /** Admin: grava data final e/ou prazos por etapa. */
+  async function salvarDatas(body: Record<string, unknown>, ok: string) {
+    setBusy('datas'); setAvisoDatas(null)
+    try {
+      const r = await fetch(`/api/demandas/${taskId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      const b = await r.json().catch(() => ({}))
+      if (!r.ok) { setAvisoDatas({ tipo: 'erro', texto: b.error || 'Não foi possível salvar as datas.' }); return }
+      setAvisoDatas({ tipo: 'ok', texto: ok })
+      await carregar(); onChanged()
+    } finally { setBusy(null) }
+  }
+
+  function salvarPrazos() {
+    if (!t) return
+    const editaveis = planoPrazos.filter((p) => p.situacao !== 'feita')
+    const stageDeadlines = Object.fromEntries(editaveis.map((p) => [
+      p.id, prazosEdit[p.id] ? diaComHora(prazosEdit[p.id], t.stageDeadlines?.[p.id] ?? t.dueDate) : null,
+    ]))
+    salvarDatas({ stageDeadlines }, 'Prazos por etapa salvos. Cada etapa assume o prazo dela quando a tarefa chegar nela.')
   }
 
   async function marcar(key: string, checked: boolean) {
@@ -245,7 +287,20 @@ export default function ResumoTarefa({
         <h2 className="t-pagina text-foreground">{t.title}</h2>
         <dl className="flex flex-wrap gap-x-6 gap-y-1">
           <div className="flex gap-1.5 t-rotulo"><dt className="text-muted-foreground">Cliente</dt><dd className="text-foreground">{t.client?.name ?? '—'}</dd></div>
-          <div className="flex gap-1.5 t-rotulo"><dt className="text-muted-foreground">Data final</dt><dd className="text-foreground">{fmtData(t.dueDate)}</dd></div>
+          <div className="flex items-center gap-1.5 t-rotulo"><dt className="text-muted-foreground">Data final</dt>
+            <dd className="text-foreground">
+              {isAdmin && !concluida ? (
+                <input
+                  type="date"
+                  value={diaDoCampo(t.dueDate)}
+                  disabled={busy === 'datas'}
+                  onChange={(e) => e.target.value && salvarDatas({ dueDate: diaComHora(e.target.value, t.dueDate) }, 'Data final alterada.')}
+                  aria-label="Data final da demanda"
+                  className="bg-transparent text-foreground font-medium rounded-md hover:bg-accent px-1 py-0.5 cursor-pointer focus-visible:outline-2 focus-visible:outline-ring"
+                />
+              ) : fmtData(t.dueDate)}
+            </dd>
+          </div>
           {t.platform && <div className="flex gap-1.5 t-rotulo"><dt className="text-muted-foreground">Plataforma</dt><dd className="text-foreground">{t.platform}</dd></div>}
         </dl>
         {stages.length > 0 && <TrilhaDeEtapas stages={stages} atualId={t.stageId} concluida={concluida} />}
@@ -386,6 +441,60 @@ export default function ResumoTarefa({
             </div>
           )}
         </Card>
+
+        {/* prazos por etapa */}
+        {planoPrazos.length > 0 && (
+          <Card>
+            <div className="p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <CalendarClock className="w-4 h-4 text-muted-foreground" />
+                <p className="t-secao text-foreground flex-1">Prazos por etapa</p>
+                {isAdmin && !concluida && <p className="t-rotulo text-muted-foreground">Vazio = segue o processo</p>}
+              </div>
+              <ol className="space-y-1.5">
+                {planoPrazos.map((p) => {
+                  const editavel = isAdmin && !concluida && p.situacao !== 'feita'
+                  return (
+                    <li key={p.id} className="flex flex-wrap items-center gap-2">
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${p.situacao === 'atual' ? 'bg-marca' : p.situacao === 'feita' ? 'bg-success' : 'bg-border'}`} />
+                      <span className={`t-corpo flex-1 min-w-[140px] ${p.situacao === 'feita' ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
+                        {p.name}{p.situacao === 'atual' && <span className="t-rotulo text-muted-foreground"> · etapa atual</span>}
+                      </span>
+                      {editavel ? (
+                        <>
+                          <input
+                            type="date"
+                            value={prazosEdit[p.id] ?? ''}
+                            onChange={(e) => setPrazosEdit({ ...prazosEdit, [p.id]: e.target.value })}
+                            aria-label={`Prazo de ${p.name}`}
+                            className="h-8 px-2 rounded-lg border border-border bg-card t-rotulo text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+                          />
+                          <span className="t-rotulo text-muted-foreground w-[112px]">
+                            {prazosEdit[p.id] ? 'data marcada' : p.prazo ? `automático: ${fmtData(p.prazo).slice(0, 5)}` : 'sem prazo'}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="t-rotulo text-foreground">
+                          {p.prazo ? fmtData(p.prazo) : '—'}{p.definido && <span className="text-muted-foreground"> · marcada</span>}
+                        </span>
+                      )}
+                    </li>
+                  )
+                })}
+              </ol>
+              {avisoDatas && (
+                <p className={`t-rotulo rounded-lg px-3 py-2 ${avisoDatas.tipo === 'ok' ? 'text-success bg-success-suave' : 'text-destructive-texto bg-destructive-suave'}`}>{avisoDatas.texto}</p>
+              )}
+              {isAdmin && !concluida && (
+                <div className="flex justify-end">
+                  <Button type="button" size="sm" onClick={salvarPrazos} disabled={!prazosMudaram || busy === 'datas'}>
+                    {busy === 'datas' ? <Loader2 className="animate-spin" /> : <Check />} Salvar prazos
+                  </Button>
+                </div>
+              )}
+            </div>
+          </Card>
+        )}
 
         {/* abas */}
         <Card>

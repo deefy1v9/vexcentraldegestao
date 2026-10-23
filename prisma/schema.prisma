@@ -641,6 +641,9 @@ model Task {
   checklistDone  String[]  @default([])
   // Campos preenchidos nas etapas: { [stageId]: { link?, nota?, ... } }
   processData    Json?
+  // Prazo de cada etapa definido pelo admin: { [stageId]: ISO }. Etapa sem
+  // data aqui usa a regra do processo (dias após entrar ou antes da entrega).
+  stageDeadlines Json?
   // "Texto para o cliente": o que vai no aviso de conclusão no grupo dele.
   // Vazio, sai a mensagem genérica; o título interno nunca vai ao cliente.
   clientText     String?

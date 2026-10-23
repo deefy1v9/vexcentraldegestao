@@ -242,6 +242,18 @@ test('fila: a linha leva a próxima etapa e o prazo dela, calculados na hora', a
   assert.equal(c.criados[0].line, 'Finalizamos o briefing do seu site. Próxima etapa: Layout, até 27/10')
 })
 
+test('fila: prazo marcado pelo admin para a próxima etapa vale no lugar da regra', async () => {
+  const brief: EtapaParaAviso = { ...BRIEFING, clientPhrase: 'Finalizamos o briefing do seu site[. Próxima etapa: {proxima}, até {prazo}]' }
+  const layout: EtapaParaAviso = { ...LAYOUT, kind: 'EXECUCAO', dueMode: 'DIAS_APOS_ENTRADA', dueDays: 5 }
+  const t = demanda({
+    stages: [brief, layout, REVISAO], stageId: layout.id, stageEnteredAt: sp('2026-10-22T14:00'),
+    stageDeadlines: { [layout.id]: sp('2026-11-14T18:00').toISOString() },
+  })
+  const { deps, c } = fakesFila({}, t)
+  await enfileirarAviso(saiuDoBriefing, deps)
+  assert.equal(c.criados[0].line, 'Finalizamos o briefing do seu site. Próxima etapa: Layout, até 14/11')
+})
+
 test('fila: agendamento leva a data e a hora da publicação', async () => {
   const agendamento: EtapaParaAviso = { id: 's-ag', name: 'Agendamento', position: 2, notifyClient: true, clientPhrase: 'Agendamos {entrega|mais uma publicação}[ para {data}]' }
   const fim: EtapaParaAviso = { id: 's-fim', name: 'Concluído', position: 3, notifyClient: false, clientPhrase: null, kind: 'FINAL' }
