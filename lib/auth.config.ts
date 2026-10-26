@@ -18,6 +18,7 @@ const ADMIN_ONLY = [
   /^\/crm/,
   /^\/financeiro/,
   /^\/logs/,
+  /^\/briefings/,
   /^\/clientes\/novo/,
   /^\/clientes\/[^/]+\/editar/,
 ]
@@ -36,6 +37,9 @@ export const authConfig = {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user
       const isOnLogin = nextUrl.pathname === '/login'
+
+      // Briefing que o cliente responde pelo link: público, o segredo está no link
+      if (nextUrl.pathname.startsWith('/b/')) return true
 
       if (isOnLogin) {
         // Já autenticado tentando ver o login → vai para o dashboard.

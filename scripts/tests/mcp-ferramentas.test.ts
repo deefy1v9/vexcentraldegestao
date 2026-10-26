@@ -9,7 +9,7 @@ const ESCRITA = ['enviar_mensagem', 'agendar_mensagem', 'confirmar_acao', 'cance
 test('conector: só leitura; nenhuma ferramenta de escrita do assistente entra', () => {
   const nomes = FERRAMENTAS_MCP.map((f) => f.nome)
   for (const e of ESCRITA) assert.ok(!nomes.includes(e), `${e} não pode estar no conector`)
-  assert.deepEqual(nomes, [...LEITURA_DO_ASSISTENTE, 'demandas_por_prazo', 'processos_em_andamento', 'contas_a_pagar', 'risco_de_churn'])
+  assert.deepEqual(nomes, [...LEITURA_DO_ASSISTENTE, 'demandas_por_prazo', 'processos_em_andamento', 'contas_a_pagar', 'risco_de_churn', 'briefings', 'ler_briefing'])
   assert.equal(new Set(nomes).size, nomes.length)
 })
 

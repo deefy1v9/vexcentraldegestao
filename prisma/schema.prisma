@@ -168,6 +168,77 @@ model Client {
   gscProperties        GscProperty[]
   gaProperties         GaProperty[]
   clientNotices        ClientNotice[]
+  briefingInvites      BriefingInvite[]
+  briefingResponses    BriefingResponse[]
+}
+
+// ---------------------------------------------------------------------------
+// Briefings: o formulário de onboarding de cada produto (tráfego, site, site
+// com blog). O admin edita as perguntas; o cliente responde por um link
+// público, sem login. Regras puras em lib/briefing-core.ts.
+// ---------------------------------------------------------------------------
+model BriefingTemplate {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  description String?
+  /// Perguntas na ordem da tela (Pergunta[] de lib/briefing-core.ts)
+  questions   Json
+  /// Segredo do link geral do briefing (/b/<token>)
+  publicToken String   @unique
+  active      Boolean  @default(true)
+  position    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  invites   BriefingInvite[]
+  responses BriefingResponse[]
+}
+
+/// Link de um briefing para um cliente específico: a resposta já chega ligada
+/// a ele, e dá para saber quem ainda não respondeu.
+model BriefingInvite {
+  id          String    @id @default(cuid())
+  templateId  String
+  clientId    String
+  token       String    @unique
+  createdById String?
+  openedAt    DateTime?
+  createdAt   DateTime  @default(now())
+
+  template  BriefingTemplate   @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  client    Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  responses BriefingResponse[]
+
+  @@index([templateId])
+  @@index([clientId])
+}
+
+model BriefingResponse {
+  id              String    @id @default(cuid())
+  templateId      String
+  inviteId        String?
+  clientId        String?
+  /// O que a pessoa informou de si (para achar o cliente)
+  respondentName  String?
+  respondentEmail String?
+  companyName     String?
+  /// As perguntas como estavam quando a pessoa respondeu
+  questions       Json
+  /// { idDaPergunta: valor }; campos sensíveis (senhas, CPF) vêm cifrados
+  answers         Json
+  alerts          String[]  @default([])
+  summary         String?
+  summaryAt       DateTime?
+  readAt          DateTime?
+  createdAt       DateTime  @default(now())
+
+  template BriefingTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  invite   BriefingInvite?  @relation(fields: [inviteId], references: [id], onDelete: SetNull)
+  client   Client?          @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  @@index([templateId])
+  @@index([clientId])
 }
 
 // ---------------------------------------------------------------------------

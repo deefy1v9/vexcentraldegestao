@@ -27,7 +27,7 @@ export const INSTRUCOES =
   'Você está lendo a Central de Gestão da VEX Growth como a pessoa que autorizou, só leitura. ' +
   'Valores em reais (BRL) e datas no fuso de Brasília. Para números do mês use resumo_financeiro; ' +
   'para quem deve, listar_recebiveis; para o que falta pagar, contas_a_pagar; para atrasos da equipe, demandas_por_prazo; ' +
-  'para clientes em risco, risco_de_churn. Use buscar_clientes e buscar_equipe para achar ids antes de filtrar. ' +
+  'para clientes em risco, risco_de_churn; para saber se o cliente respondeu o briefing, briefings (e ler_briefing para as respostas). Use buscar_clientes e buscar_equipe para achar ids antes de filtrar. ' +
   'Com ações autorizadas, o agente trabalha só nas demandas da fila_do_agente: leia o pedido (ler_grupo_do_cliente, ler_demanda), ' +
   'faça o trabalho e use entregar_para_validacao; quem aprova é sempre uma pessoa, e o aviso ao cliente só sai depois disso. ' +
   'Nada aqui envia mensagem ao cliente.'

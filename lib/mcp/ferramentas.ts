@@ -4,13 +4,15 @@ import { executeTool, ToolError } from '../ai/tools'
 import { prazoAtual } from '../processos'
 import { taskShortId } from '../task-flow'
 import { ordenarPorRisco, riscoDeChurn, type NivelDeRisco } from './churn'
+import { respostasEmTexto, type Pergunta } from '../briefing-core'
 
 /**
  * As ferramentas do conector de IA, TODAS só de leitura. Oito vêm do
  * assistente do WhatsApp (mesmas contas da Central), chamadas por uma lista
- * fechada: as de escrita do assistente nunca chegam aqui. As outras quatro
- * são do conector: demandas por prazo, processos, contas a pagar e risco de
- * churn. Testado em scripts/tests/mcp-ferramentas.test.ts.
+ * fechada: as de escrita do assistente nunca chegam aqui. As outras seis
+ * são do conector: demandas por prazo, processos, contas a pagar, risco de
+ * churn e os briefings (lista e leitura, com senha e CPF mascarados).
+ * Testado em scripts/tests/mcp-ferramentas.test.ts.
  */
 
 export interface ContextoMcp { userId: string; conexaoId: string; appName: string; base: string; agora: Date }
@@ -262,4 +264,67 @@ const riscoDeChurnFerramenta: Ferramenta = {
   },
 }
 
-export const FERRAMENTAS_MCP: Ferramenta[] = [...reaproveitadas, demandasPorPrazo, processosEmAndamento, contasAPagar, riscoDeChurnFerramenta]
+/* ------------------------------ briefings ------------------------------ */
+
+const briefingsFerramenta: Ferramenta = {
+  nome: 'briefings',
+  titulo: 'Briefings: respondidos e pendentes',
+  descricao: 'Os briefings (onboarding de tráfego, site, site com blog…): quem respondeu, de qual briefing e quando, os avisos, e os links de cliente que ainda não voltaram. Use para saber se um cliente já respondeu.',
+  entrada: {
+    clienteId: texto('Só este cliente (de buscar_clientes).'),
+    situacao: z.enum(['todos', 'respondidos', 'pendentes', 'nao_lidos']).optional().describe('Padrão: todos.'),
+  },
+  async executar(ctx, args) {
+    const clienteId = typeof args.clienteId === 'string' && args.clienteId ? args.clienteId : null
+    const situacao = (args.situacao as string) || 'todos'
+    const porCliente = clienteId ? { clientId: clienteId } : {}
+    const linhas: string[] = []
+    if (situacao !== 'pendentes') {
+      const rs = await prisma.briefingResponse.findMany({
+        where: { ...porCliente, ...(situacao === 'nao_lidos' ? { readAt: null } : {}) },
+        include: { template: { select: { name: true } }, client: { select: { name: true } } },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      })
+      linhas.push(`Respondidos (${rs.length}):`)
+      for (const r of rs) {
+        linhas.push(`- ${r.client?.name ?? r.companyName ?? 'sem cliente ligado'} | ${r.template.name} | ${dataBr(r.createdAt)}${r.readAt ? '' : ' | NÃO LIDO'}${r.alerts.length ? ` | avisos: ${r.alerts.join('; ')}` : ''} | id: ${r.id} | ${ctx.base}/briefings/respostas/${r.id}`)
+      }
+    }
+    if (situacao === 'todos' || situacao === 'pendentes') {
+      const ps = await prisma.briefingInvite.findMany({
+        where: { ...porCliente, responses: { none: {} } },
+        include: { template: { select: { name: true } }, client: { select: { name: true } } },
+        orderBy: { createdAt: 'desc' },
+      })
+      linhas.push(`Aguardando o cliente (${ps.length}):`)
+      for (const c of ps) linhas.push(`- ${c.client.name} | ${c.template.name} | link de ${dataBr(c.createdAt)} | ${c.openedAt ? `abriu em ${dataBr(c.openedAt)}` : 'não abriu'}`)
+    }
+    return linhas.join('\n')
+  },
+}
+
+const lerBriefing: Ferramenta = {
+  nome: 'ler_briefing',
+  titulo: 'Ler briefing',
+  descricao: 'As respostas de um briefing (id de briefings), pergunta por pergunta, com o resumo e os avisos. Senhas e CPF vêm mascarados.',
+  entrada: { respostaId: z.string().describe('id da resposta (de briefings).') },
+  async executar(ctx, args) {
+    const r = await prisma.briefingResponse.findUnique({
+      where: { id: String(args.respostaId ?? '') },
+      include: { template: { select: { name: true } }, client: { select: { name: true } } },
+    })
+    if (!r) throw new FerramentaErro('Resposta de briefing não encontrada.')
+    const perguntas = (Array.isArray(r.questions) ? r.questions : []) as unknown as Pergunta[]
+    return [
+      `${r.template.name} · ${r.client?.name ?? r.companyName ?? 'sem cliente ligado'} · respondido em ${dataBr(r.createdAt)}`,
+      [r.respondentName, r.respondentEmail].filter(Boolean).join(' · '),
+      r.alerts.length ? `Avisos: ${r.alerts.join(' | ')}` : '',
+      r.summary ? `Resumo:\n${r.summary}` : '',
+      `Respostas:\n${respostasEmTexto(perguntas, r.answers as Record<string, unknown>)}`,
+      `${ctx.base}/briefings/respostas/${r.id}`,
+    ].filter(Boolean).join('\n\n')
+  },
+}
+
+export const FERRAMENTAS_MCP: Ferramenta[] = [...reaproveitadas, demandasPorPrazo, processosEmAndamento, contasAPagar, riscoDeChurnFerramenta, briefingsFerramenta, lerBriefing]

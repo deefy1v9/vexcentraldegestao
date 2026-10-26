@@ -1,6 +1,6 @@
 import {
   Painel, Predios, Caixa, Grupo, Tarefa, Calendario, Funil, Quadro,
-  Robo, Globo, Carteira, Documento, Historico, Engrenagem, Interrogacao, Rotas,
+  Robo, Globo, Carteira, Documento, Historico, Engrenagem, Interrogacao, Rotas, Lista,
 } from '@/components/icones/duotone'
 
 /**
@@ -57,6 +57,7 @@ export const navSections: NavSection[] = [
       { href: '/crm', icon: Funil, label: 'CRM', hint: 'as conversas com quem ainda não é cliente', adminOnly: true },
       { href: '/pipeline', icon: Quadro, label: 'Pipeline', hint: 'as propostas em aberto, coluna a coluna', adminOnly: true },
       { href: '/propostas', icon: Documento, label: 'Propostas', hint: 'contratos e aditivos gerados', adminOnly: true },
+      { href: '/briefings', icon: Lista, label: 'Briefings', hint: 'o formulário de cada produto: o link vai para o cliente e a resposta cai aqui', adminOnly: true },
     ],
   },
   {
@@ -92,6 +93,7 @@ export const TITULOS: Record<string, { titulo: string }> = {
   '/crm': { titulo: 'CRM' },
   '/pipeline': { titulo: 'Pipeline' },
   '/propostas': { titulo: 'Propostas' },
+  '/briefings': { titulo: 'Briefings' },
   '/agentes': { titulo: 'Agentes' },
   '/seo': { titulo: 'SEO' },
   '/logs': { titulo: 'Logs' },

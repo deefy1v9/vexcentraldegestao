@@ -8,7 +8,7 @@ import { useMobileNav } from './MobileNav'
 
 interface Notification {
   id: string
-  type: 'overdue_payment' | 'task_completed'
+  type: 'overdue_payment' | 'task_completed' | 'briefing_answered'
   title: string
   description: string
   createdAt: string

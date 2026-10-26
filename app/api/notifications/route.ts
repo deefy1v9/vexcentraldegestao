@@ -13,13 +13,30 @@ export async function GET() {
 
   const notifications: {
     id: string
-    type: 'overdue_payment' | 'task_completed'
+    type: 'overdue_payment' | 'task_completed' | 'briefing_answered'
     title: string
     description: string
     createdAt: string
   }[] = []
 
   if (isAdmin) {
+    // Briefings respondidos que ninguém abriu ainda
+    const briefings = await prisma.briefingResponse.findMany({
+      where: { readAt: null },
+      include: { template: { select: { name: true } }, client: { select: { name: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+    })
+    for (const b of briefings) {
+      notifications.push({
+        id: `briefing-${b.id}`,
+        type: 'briefing_answered',
+        title: `Briefing respondido — ${b.client?.name ?? b.companyName ?? 'sem cliente ligado'}`,
+        description: b.template.name,
+        createdAt: b.createdAt.toISOString(),
+      })
+    }
+
     // Overdue payments
     const overduePayments = await prisma.clientPayment.findMany({
       where: {

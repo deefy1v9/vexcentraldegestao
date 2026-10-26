@@ -26,9 +26,9 @@ test('conexão só de leitura não vê nenhuma ação; com ações vê as oito',
   const leitura = ferramentasDaConexao(ESCOPO).map((f) => f.nome)
   const acoes = ['novidades_dos_grupos', 'marcar_grupo_lido', 'ler_grupo_do_cliente', 'fila_do_agente', 'ler_demanda', 'criar_demanda', 'comentar_demanda', 'entregar_para_validacao']
   for (const a of acoes) assert.ok(!leitura.includes(a), `${a} não pode aparecer só com leitura`)
-  assert.equal(leitura.length, 12)
+  assert.equal(leitura.length, 14)
   const todas = ferramentasDaConexao(`${ESCOPO} ${ESCOPO_ACOES}`)
-  assert.equal(todas.length, 20)
+  assert.equal(todas.length, 22)
   for (const a of acoes) assert.ok(todas.some((f) => f.nome === a), a)
   // só as três que mudam dados são marcadas como não-leitura (o assistente pede permissão)
   assert.deepEqual(todas.filter((f) => f.somenteLeitura === false).map((f) => f.nome).sort(), ['comentar_demanda', 'criar_demanda', 'entregar_para_validacao', 'marcar_grupo_lido'])
