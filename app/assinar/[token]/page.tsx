@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation'
+import { headers } from 'next/headers'
 import { contratoPeloToken, ROTULO_DO_PAPEL } from '@/lib/assinatura'
 import AssinarContrato from '@/components/assinaturas/AssinarContrato'
 import VisualizadorPdf from '@/components/assinaturas/VisualizadorPdf'
@@ -13,7 +14,7 @@ export const metadata = { title: 'Assinar contrato · VEX Growth', robots: { ind
  */
 export default async function AssinarPublico({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params
-  const c = await contratoPeloToken(token)
+  const c = await contratoPeloToken(token, (await headers()).get('user-agent'))
   if (!c) notFound()
 
   const dataHora = (iso: string) => new Date(iso).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })

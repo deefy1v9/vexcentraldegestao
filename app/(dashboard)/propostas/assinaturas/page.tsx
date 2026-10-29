@@ -6,6 +6,7 @@ import ProposalsNav from '@/components/propostas/ProposalsNav'
 import NovoContrato from '@/components/assinaturas/NovoContrato'
 import ListaDeContratos from '@/components/assinaturas/ListaDeContratos'
 import { mascararTelefone } from '@/lib/assinatura-core'
+import { DRIVE_SCOPE } from '@/lib/gsc-core'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,7 +19,7 @@ export default async function AssinaturasPage() {
   const viewer = await getSessionUser()
   if (!viewer || viewer.role !== 'ADMIN') redirect('/dashboard')
 
-  const [contratos, clientes, representantes] = await Promise.all([
+  const [contratos, clientes, representantes, conexoes] = await Promise.all([
     prisma.contractSignature.findMany({
       orderBy: { createdAt: 'desc' },
       take: 100,
@@ -31,13 +32,26 @@ export default async function AssinaturasPage() {
     }),
     prisma.client.findMany({ where: { status: { not: 'ENCERRADO' } }, orderBy: { name: 'asc' }, select: { id: true, name: true, phone: true } }),
     prisma.user.findMany({ where: { role: 'ADMIN', isActive: true }, orderBy: { name: 'asc' }, select: { id: true, name: true, phone: true } }),
+    prisma.gscConnection.findMany({ where: { status: 'ATIVA' }, select: { googleEmail: true, scope: true } }),
   ])
+  // O Google Drive vem na mesma conexão do Search Console, quando liberado
+  const drive = conexoes.find((c) => (c.scope ?? '').split(/\s+/).includes(DRIVE_SCOPE))
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <Header title="Assinaturas" subtitle="Contratos para assinar pelo link, cada um no próprio celular" />
       <div className="flex-1 overflow-y-auto p-4 sm:p-6">
         <ProposalsNav showNew={false} />
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[12px] border border-border bg-card px-4 py-3">
+          <p className="text-sm text-muted-foreground">
+            {drive
+              ? `Google Drive liberado (${drive.googleEmail}): a Central guarda contratos e notas fiscais nas pastas dos clientes.`
+              : 'Google Drive: libere para a Central guardar contratos assinados e notas fiscais nas pastas dos clientes. Use a conta que administra o Drive de clientes.'}
+          </p>
+          <a href="/api/gsc/oauth/start?escopos=analytics,drive" className="h-9 px-3 inline-flex items-center rounded-lg border border-border text-xs font-medium text-foreground hover:bg-secondary shrink-0">
+            {drive ? 'Reconectar o Google' : 'Liberar o Google Drive'}
+          </a>
+        </div>
         <div className="grid gap-4 xl:grid-cols-[minmax(0,8fr)_minmax(0,4fr)] items-start">
           <ListaDeContratos
             contratos={contratos.map((c) => ({

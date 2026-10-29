@@ -156,8 +156,14 @@ export interface ContratoNaPagina {
 
 const tokenValido = (t: string) => /^[A-Za-z0-9_-]{20,64}$/.test(t)
 
+/**
+ * Robôs de prévia de link (o WhatsApp abre o link para montar a prévia no
+ * instante do envio): não contam como "abriu".
+ */
+const ROBO_DE_PREVIA = /WhatsApp|facebookexternalhit|Facebot|TelegramBot|Twitterbot|Slackbot|Discordbot|LinkedInBot|SkypeUriPreview|Googlebot|bingbot|bot\b|crawler|spider|preview/i
+
 /** O que a página pública mostra para quem abriu o link. Nunca o CPF inteiro nem o código. */
-export async function contratoPeloToken(token: string): Promise<ContratoNaPagina | null> {
+export async function contratoPeloToken(token: string, aparelho?: string | null): Promise<ContratoNaPagina | null> {
   if (!tokenValido(token)) return null
   const s = await prisma.contractSigner.findUnique({
     where: { token },
@@ -171,7 +177,8 @@ export async function contratoPeloToken(token: string): Promise<ContratoNaPagina
     },
   })
   if (s) {
-    if (!s.openedAt && s.status === 'AGUARDANDO') await prisma.contractSigner.update({ where: { id: s.id }, data: { openedAt: new Date() } })
+    const pessoa = !!aparelho && !ROBO_DE_PREVIA.test(aparelho)
+    if (pessoa && !s.openedAt && s.status === 'AGUARDANDO') await prisma.contractSigner.update({ where: { id: s.id }, data: { openedAt: new Date() } })
     const c = s.contract
     return {
       titulo: c.title,

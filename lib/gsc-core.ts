@@ -8,6 +8,13 @@
 
 export const GSC_SCOPE = 'https://www.googleapis.com/auth/webmasters.readonly'
 
+/**
+ * Drive completo: a Central organiza o Drive compartilhado de clientes (move
+ * pastas, guarda notas fiscais e contratos assinados). Pedido só quando um
+ * administrador libera, na mesma conexão do Search Console.
+ */
+export const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive'
+
 /** Atraso típico do relatório: o Google só fecha o dia depois desse prazo. */
 export const GSC_LAG_DAYS = 3
 
