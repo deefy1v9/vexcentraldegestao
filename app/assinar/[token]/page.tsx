@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { contratoPeloToken } from '@/lib/assinatura'
 import AssinarContrato from '@/components/assinaturas/AssinarContrato'
+import VisualizadorPdf from '@/components/assinaturas/VisualizadorPdf'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Assinar contrato · VEX Growth', robots: { index: false, follow: false } }
@@ -29,8 +30,9 @@ export default async function AssinarPublico({ params }: { params: Promise<{ tok
           Assinado pela VEX Growth ({c.vex.quem}) em {dataHora(c.vex.em)}.
         </p>
 
-        <div className="mt-6 rounded-[12px] border border-border bg-card overflow-hidden">
-          <iframe src={`/api/assinar/${token}/pdf`} title={c.titulo} className="w-full h-[70vh] bg-secondary" />
+        {/* No celular o contrato vai de ponta a ponta da tela; rolar a página rola o contrato */}
+        <div className="mt-6 -mx-4 sm:mx-0 sm:rounded-[12px] border-y sm:border border-border bg-card overflow-hidden">
+          <VisualizadorPdf url={`/api/assinar/${token}/pdf`} titulo={c.titulo} />
           <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-t border-border">
             <p className="text-xs text-muted-foreground truncate">{c.status === 'ASSINADO' ? 'Contrato assinado, com o relatório na última página' : c.arquivo}</p>
             <a href={`/api/assinar/${token}/pdf?baixar=1`} className="text-xs font-medium text-link hover:underline shrink-0">Baixar PDF</a>

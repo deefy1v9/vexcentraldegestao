@@ -35,7 +35,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             evita flash do tema incorreto no carregamento */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{var t=localStorage.getItem('vex-theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark')}}catch(e){}`,
+            // A página de assinatura do cliente (/assinar/...) é sempre clara: a rubrica é traço preto
+            __html: `try{if(location.pathname.indexOf('/assinar/')!==0){var t=localStorage.getItem('vex-theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark')}}}catch(e){}`,
           }}
         />
       </head>
