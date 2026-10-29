@@ -88,6 +88,23 @@ export async function uazSendTextChecked(number: string, text: string): Promise<
   return resultadoEnvio(r.status, await r.json().catch(() => ({})))
 }
 
+/** Documento (PDF) com legenda, conferindo a resposta como o uazSendTextChecked. */
+export async function uazSendDocumentChecked(
+  number: string,
+  doc: { bytes: Uint8Array; mime: string; fileName: string; caption?: string },
+): Promise<{ ok: boolean; erro?: string }> {
+  const { base, token } = await getConfig()
+  if (!base || !token) return { ok: false, erro: 'WhatsApp não configurado' }
+  const file = `data:${doc.mime};base64,${Buffer.from(doc.bytes).toString('base64')}`
+  const r = await fetch(`${base}/send/media`, {
+    method: 'POST',
+    headers: h(token),
+    body: JSON.stringify({ number, type: 'document', file, docName: doc.fileName, text: doc.caption }),
+    cache: 'no-store',
+  })
+  return resultadoEnvio(r.status, await r.json().catch(() => ({})))
+}
+
 /** Mensagens de uma conversa, no formato bruto da UAZAPI (só leitura). */
 export async function uazFindMessages(chatid: string, limit = 50): Promise<unknown[]> {
   const { base, token } = await getConfig()

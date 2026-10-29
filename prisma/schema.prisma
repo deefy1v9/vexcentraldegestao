@@ -170,6 +170,7 @@ model Client {
   clientNotices        ClientNotice[]
   briefingInvites      BriefingInvite[]
   briefingResponses    BriefingResponse[]
+  contractSignatures   ContractSignature[]
 }
 
 // ---------------------------------------------------------------------------
@@ -197,6 +198,56 @@ model BriefingTemplate {
 
 /// Link de um briefing para um cliente específico: a resposta já chega ligada
 /// a ele, e dá para saber quem ainda não respondeu.
+// Contrato para assinar por link (assinatura eletrônica simples, MP 2.200-2/2001
+// art. 10 § 2º). A VEX assina ao criar; o cliente assina com nome, CPF e o
+// código de 6 dígitos que chega no WhatsApp. O PDF fica congelado (sha256) e o
+// assinado ganha a página do relatório. Ver lib/assinatura.ts.
+model ContractSignature {
+  id          String  @id @default(cuid())
+  token       String  @unique
+  title       String
+  clientId    String?
+  fileName    String
+  pdf         Bytes // o PDF como o cliente recebe: é ele que a assinatura prova
+  sha256      String
+  status      String  @default("AGUARDANDO") // AGUARDANDO | ASSINADO | CANCELADO
+  signerPhone String // WhatsApp que recebe o PDF, o link e o código (só dígitos, com 55)
+
+  // A contratada assina ao gerar, depois de marcar que revisou
+  companySignerId   String
+  companySignerName String
+  companySignedAt   DateTime
+  companySignerIp   String?
+
+  sentAt   DateTime?
+  openedAt DateTime?
+
+  // O código de uso único nunca é guardado: só o HMAC dele
+  signerName      String?
+  signerCpf       String? // cifrado (lib/crypto)
+  signerCpfMasked String?
+  codeHash        String?
+  codeSentAt      DateTime?
+  codeExpiresAt   DateTime?
+  codeAttempts    Int        @default(0)
+  codeRequests    DateTime[] // os pedidos de código da última hora (freio)
+
+  signedAt     DateTime?
+  signerIp     String?
+  signerDevice String?
+  drawing      Bytes? // a rubrica desenhada (PNG), quando houve
+  signedPdf    Bytes?
+  signedSha256 String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  @@index([clientId])
+  @@index([status])
+}
+
 model BriefingInvite {
   id          String    @id @default(cuid())
   templateId  String

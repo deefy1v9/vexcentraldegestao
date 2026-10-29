@@ -40,6 +40,8 @@ export const authConfig = {
 
       // Briefing que o cliente responde pelo link: público, o segredo está no link
       if (nextUrl.pathname.startsWith('/b/')) return true
+      // Contrato que o cliente assina pelo link: idem (lib/assinatura.ts)
+      if (nextUrl.pathname.startsWith('/assinar/')) return true
 
       if (isOnLogin) {
         // Já autenticado tentando ver o login → vai para o dashboard.

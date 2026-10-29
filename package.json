@@ -37,6 +37,7 @@
     "next": "^16.2.6",
     "next-auth": "^5.0.0-beta.25",
     "nodemailer": "^7.0.13",
+    "pdf-lib": "1.17.1",
     "pdfkit": "^0.20.1",
     "prisma": "^5.22.0",
     "react": "^19.0.0",

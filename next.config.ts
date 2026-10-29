@@ -26,7 +26,13 @@ const nextConfig: NextConfig = {
   // instala os dois com a árvore completa (ver Dockerfile, estágio docdeps).
   serverExternalPackages: ["pdfkit", "docx"],
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      // O contrato aparece dentro da própria página de assinatura (/assinar/<token>):
+      // só aqui o PDF pode ser emoldurado, e só pela mesma origem. A última regra vence.
+      { source: "/api/assinar/:token/pdf", headers: [{ key: "X-Frame-Options", value: "SAMEORIGIN" }] },
+      { source: "/api/assinaturas/:id/pdf", headers: [{ key: "X-Frame-Options", value: "SAMEORIGIN" }] },
+    ];
   },
 };
 
