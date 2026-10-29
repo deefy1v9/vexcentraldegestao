@@ -73,13 +73,15 @@ test('relatório: o PDF assinado tem as páginas do original e uma a mais', asyn
   doc.addPage().drawText('Contrato de teste')
   doc.addPage().drawText('Página 2')
   const original = await doc.save()
+  const assinante = (papel: string, nome: string) => ({
+    papel, nome, cpf: '529.982.247-25', destino: '(11) •••••-8523', enviadoEm: new Date(), confirmadoEm: new Date(), ip: '200.4.5.6', aparelho: 'Mozilla/5.0 (iPhone)',
+  })
   const final = await anexarRelatorioDeAssinatura(original, {
     titulo: 'Contrato MOOP · SEO Essencial 3 meses',
     sha256Original: sha256(original),
-    contratada: { empresa: 'VEX GROWTH LTDA', cnpj: '68.652.648/0001-86', quem: 'Antonio Gomes', em: new Date(), ip: '200.1.2.3' },
-    contratante: { nome: 'Ana Paula Siqueira Peu', cpf: '529.982.247-25' },
-    verificacao: { destino: '(11) •••••-8523', enviadoEm: new Date(), confirmadoEm: new Date() },
-    aceite: { em: new Date(), ip: '200.4.5.6', aparelho: 'Mozilla/5.0 (iPhone)' },
+    empresa: { nome: 'VEX GROWTH LTDA', cnpj: '68.652.648/0001-86' },
+    preparadoPor: { quem: 'Antonio Gomes', em: new Date() },
+    assinantes: [assinante('Contratada · VEX Growth', 'Davi Vieira Venturato Fernandes'), assinante('Contratante', 'Ana Paula Siqueira Peu')],
     link: 'https://central.vexgrowth.com.br/assinar/abc',
   })
   const lido = await PDFDocument.load(final)

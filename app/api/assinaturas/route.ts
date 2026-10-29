@@ -5,9 +5,10 @@ import { AssinaturaErro, criarContrato } from '@/lib/assinatura'
 import { ipDe } from '@/lib/mcp/limite'
 
 /**
- * POST (admin, multipart) — sobe o PDF do contrato e a VEX assina do lado
- * dela. Campos: arquivo (PDF), titulo, telefone, clientId (opcional) e
- * revisei ("1"). Nada vai para o cliente aqui: o envio é outro clique.
+ * POST (admin, multipart) — sobe o PDF do contrato com os assinantes. Campos:
+ * arquivo (PDF), titulo, clientId (opcional), revisei ("1") e assinantes
+ * (JSON: [{ papel, nome, telefone }]). Nada vai para ninguém aqui: o envio é
+ * outro clique.
  */
 export async function POST(req: NextRequest) {
   const admin = await requireAdmin()
@@ -17,13 +18,23 @@ export async function POST(req: NextRequest) {
   const arquivo = form?.get('arquivo')
   if (!form || !(arquivo instanceof File)) return NextResponse.json({ error: 'Envie o PDF do contrato.' }, { status: 400 })
 
+  let assinantes: unknown
+  try { assinantes = JSON.parse(String(form.get('assinantes') ?? '[]')) } catch { assinantes = null }
+  if (!Array.isArray(assinantes) || assinantes.length === 0 || assinantes.length > 5) {
+    return NextResponse.json({ error: 'Informe quem assina (de 1 a 5 pessoas).' }, { status: 400 })
+  }
+
   try {
     const criado = await criarContrato({
       user: { id: admin.id, name: admin.name },
       ip: ipDe(req.headers),
       titulo: String(form.get('titulo') ?? ''),
       clientId: String(form.get('clientId') ?? '') || null,
-      telefone: String(form.get('telefone') ?? ''),
+      assinantes: assinantes.map((a: { papel?: unknown; nome?: unknown; telefone?: unknown }) => ({
+        papel: a?.papel === 'CONTRATADA' ? 'CONTRATADA' : 'CONTRATANTE',
+        nome: String(a?.nome ?? ''),
+        telefone: String(a?.telefone ?? ''),
+      })),
       fileName: arquivo.name,
       bytes: new Uint8Array(await arquivo.arrayBuffer()),
       revisei: form.get('revisei') === '1',

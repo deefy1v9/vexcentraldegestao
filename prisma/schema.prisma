@@ -242,10 +242,49 @@ model ContractSignature {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  client Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  client  Client?          @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  signers ContractSigner[]
 
   @@index([clientId])
   @@index([status])
+}
+
+// Quem assina o contrato: cada pessoa com o próprio link e o próprio código no
+// próprio WhatsApp (o representante da VEX e o do cliente). O contrato vira
+// ASSINADO quando todos assinam; os campos de assinante do ContractSignature
+// ficam só para os contratos antigos, de um assinante só.
+model ContractSigner {
+  id         String @id @default(cuid())
+  contractId String
+  role       String // CONTRATADA | CONTRATANTE
+  ordem      Int    @default(0)
+  token      String @unique
+  name       String // quem deve assinar, como aparece para a pessoa
+  phone      String // só dígitos, com 55
+  status     String @default("AGUARDANDO") // AGUARDANDO | ASSINADO
+
+  sentAt   DateTime?
+  openedAt DateTime?
+
+  signerName      String?
+  signerCpf       String? // cifrado (lib/crypto)
+  signerCpfMasked String?
+  codeHash        String?
+  codeSentAt      DateTime?
+  codeExpiresAt   DateTime?
+  codeAttempts    Int        @default(0)
+  codeRequests    DateTime[]
+
+  signedAt     DateTime?
+  signerIp     String?
+  signerDevice String?
+  drawing      Bytes?
+
+  createdAt DateTime @default(now())
+
+  contract ContractSignature @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@index([contractId])
 }
 
 model BriefingInvite {
