@@ -245,7 +245,9 @@ const riscoDeChurnFerramenta: Ferramenta = {
     const abertas = await prisma.task.findMany({ where: { clientId: { in: ids }, status: { not: 'CONCLUIDO' } }, include: { stage: true } })
     const ultimas = await prisma.task.groupBy({ by: ['clientId'], where: { clientId: { in: ids }, status: 'CONCLUIDO' }, _max: { updatedAt: true } })
     const PESO: Record<string, number> = { SCALE: 3, GROWTH: 2, START: 1 }
-    const resultado = clientes.map((c) => riscoDeChurn({
+    // Quem nunca contratou nada (VEX Growth/VEX Sales internos, lead que só
+    // tem demanda) não tem o que cancelar: fica fora da lista de risco.
+    const resultado = clientes.filter((c) => c.services.length > 0).map((c) => riscoDeChurn({
       id: c.id,
       nome: c.name,
       contractEnd: c.contractEnd,

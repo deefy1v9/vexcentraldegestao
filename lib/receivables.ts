@@ -1,7 +1,8 @@
 import { Prisma } from '@prisma/client'
 import { prisma } from './prisma'
 import {
-  competenceKey, competenceRange, dueDateForRule, isRecurringType, serviceCents, serviceInCompetence,
+  competenceKey, competenceRange, currentCompetence, dueDateForRule, isBeforeCompetence, isRecurringType,
+  serviceCents, serviceInCompetence,
 } from './billing-core'
 
 type Db = Prisma.TransactionClient | typeof prisma
@@ -12,6 +13,10 @@ type Db = Prisma.TransactionClient | typeof prisma
  * Uma parcela por (serviço, ano, mês) — o unique do banco é a chave de
  * idempotência: gerar duas vezes não duplica. Parcelas PAGAS nunca são
  * tocadas; pendentes acompanham o valor vigente do serviço.
+ *
+ * A parcela existe com cobrança automática ou manual (Pix direto): o
+ * generateCharge só decide se vira cobrança no Asaas (lib/billing-asaas),
+ * nunca se o valor entra no a receber e na previsão.
  */
 
 function dueDateFor(year: number, month: number, day: number, rule?: string | null): Date {
@@ -36,12 +41,24 @@ type ServiceRow = {
   client: { status: string; contractEnd: Date | null; paymentDay: number | null }
 }
 
+/** Vencimento da parcela pela regra do serviço (sem dia próprio, o do cliente). */
+function serviceDueDate(
+  s: { dueDay: number | null; dueRule: string; client: { paymentDay: number | null } },
+  year: number, month: number,
+): Date {
+  return dueDateFor(year, month, s.dueDay ?? s.client.paymentDay ?? 10, s.dueRule)
+}
+
+/** Vencimento gerado pelo sistema (00:00 UTC). A tela grava o alterado à mão ao meio-dia. */
+function isGeneratedDue(d: Date): boolean {
+  return d.getUTCHours() === 0 && d.getUTCMinutes() === 0
+}
+
 /**
  * Garante a parcela do serviço na competência (se ele entra nela).
  * Devolve true quando criou.
  */
 export async function ensureServicePayment(db: Db, s: ServiceRow, year: number, month: number): Promise<boolean> {
-  if (!s.generateCharge) return false
   if (s.client.status !== 'ATIVO') return false
   const { start } = competenceRange(year, month)
   if (s.client.contractEnd && s.client.contractEnd < start) return false
@@ -49,15 +66,26 @@ export async function ensureServicePayment(db: Db, s: ServiceRow, year: number, 
 
   const cents = serviceCents(s)
   const kind = isRecurringType(s.contractType) ? 'RECORRENTE' : 'AVULSO'
-  const dueDay = s.dueDay ?? s.client.paymentDay ?? 10
+  const dueDate = serviceDueDate(s, year, month)
 
   const existing = await db.clientPayment.findUnique({
     where: { serviceId_year_month: { serviceId: s.id, year, month } },
   })
   if (existing) {
-    // Pendente acompanha o valor vigente; pago é histórico e não muda
-    if (existing.status === 'PENDENTE' && Math.round(existing.amount * 100) !== cents) {
-      await db.clientPayment.update({ where: { id: existing.id }, data: { amount: cents / 100 } })
+    // Pendente acompanha o valor e o vencimento vigentes; pago é histórico e
+    // não muda. Vencimento só da competência corrente em diante, e nunca o
+    // que foi alterado à mão no Financeiro.
+    if (existing.status === 'PENDENTE') {
+      const data: { amount?: number; dueDate?: Date } = {}
+      if (Math.round(existing.amount * 100) !== cents) data.amount = cents / 100
+      if (
+        !isBeforeCompetence(year, month, currentCompetence()) &&
+        isGeneratedDue(existing.dueDate) &&
+        existing.dueDate.toISOString().slice(0, 10) !== dueDate.toISOString().slice(0, 10)
+      ) data.dueDate = dueDate
+      if (data.amount !== undefined || data.dueDate) {
+        await db.clientPayment.update({ where: { id: existing.id }, data })
+      }
     }
     return false
   }
@@ -68,7 +96,7 @@ export async function ensureServicePayment(db: Db, s: ServiceRow, year: number, 
       serviceId: s.id,
       year, month,
       amount: cents / 100,
-      dueDate: dueDateFor(year, month, dueDay, s.dueRule),
+      dueDate,
       status: 'PENDENTE',
       kind,
     },
@@ -82,9 +110,12 @@ export async function ensureServicePayment(db: Db, s: ServiceRow, year: number, 
 
 /**
  * Materializa as parcelas de todos os serviços que entram na competência.
- * Chamada ao abrir o mês no Financeiro/Dashboard e pelo cron — idempotente.
+ * Chamada ao abrir o mês no Financeiro/Dashboard — idempotente. Só da
+ * competência corrente em diante: abrir um mês passado não cria parcela
+ * retroativa (que nasceria atrasada).
  */
 export async function materializeReceivables(year: number, month: number, db: Db = prisma): Promise<number> {
+  if (isBeforeCompetence(year, month, currentCompetence())) return 0
   const services = await db.clientService.findMany({
     where: { status: 'ATIVO', client: { status: 'ATIVO' } },
     select: {
@@ -126,6 +157,30 @@ export async function seedServicePayments(db: Db, serviceId: string, fromDate?: 
   if (!isRecurringType(s.contractType)) {
     if (!s.competence) return 0
     const [y, m] = s.competence.split('-').map(Number)
+    // Avulso tem uma parcela só: competência trocada move a pendente em vez
+    // de criar outra; se já foi paga em outra competência, não gera de novo
+    const outras = await db.clientPayment.findMany({
+      where: { serviceId: s.id, NOT: { year: y, month: m } },
+      select: { id: true, status: true },
+    })
+    if (outras.some((p) => p.status === 'PAGO')) return 0
+    const pendentes = outras.filter((p) => p.status === 'PENDENTE')
+    if (pendentes.length > 0) {
+      const ocupada = await db.clientPayment.findUnique({
+        where: { serviceId_year_month: { serviceId: s.id, year: y, month: m } },
+        select: { id: true },
+      })
+      const sobra = ocupada ? pendentes : pendentes.slice(1)
+      if (!ocupada) {
+        await db.clientPayment.update({
+          where: { id: pendentes[0].id },
+          data: { year: y, month: m, dueDate: serviceDueDate(s, y, m) },
+        })
+      }
+      if (sobra.length > 0) {
+        await db.clientPayment.deleteMany({ where: { id: { in: sobra.map((p) => p.id) }, status: 'PENDENTE' } })
+      }
+    }
     return (await ensureServicePayment(db, s, y, m)) ? 1 : 0
   }
 
@@ -160,6 +215,51 @@ export async function dropPendingPaymentsFrom(db: Db, serviceId: string, fromISO
     },
   })
   return r.count
+}
+
+/**
+ * Início adiado: parcelas PENDENTES de competências anteriores à do novo
+ * início saem; pagas ficam como histórico.
+ */
+export async function dropPendingPaymentsBefore(db: Db, serviceId: string, beforeISO: string): Promise<number> {
+  const [y, m] = beforeISO.slice(0, 7).split('-').map(Number)
+  const r = await db.clientPayment.deleteMany({
+    where: {
+      serviceId,
+      status: 'PENDENTE',
+      OR: [{ year: { lt: y } }, { year: y, month: { lt: m } }],
+    },
+  })
+  return r.count
+}
+
+/**
+ * Dia ou regra de vencimento alterados: parcelas PENDENTES da competência
+ * informada em diante recebem o novo vencimento — inclusive as alteradas à
+ * mão, porque a regra do contrato mudou.
+ */
+export async function redatePendingFrom(db: Db, serviceId: string, year: number, month: number): Promise<number> {
+  const s = await db.clientService.findUnique({
+    where: { id: serviceId },
+    select: { dueDay: true, dueRule: true, client: { select: { paymentDay: true } } },
+  })
+  if (!s) return 0
+  const pendentes = await db.clientPayment.findMany({
+    where: {
+      serviceId,
+      status: 'PENDENTE',
+      OR: [{ year: { gt: year } }, { year, month: { gte: month } }],
+    },
+    select: { id: true, year: true, month: true, dueDate: true },
+  })
+  let count = 0
+  for (const p of pendentes) {
+    const due = serviceDueDate(s, p.year, p.month)
+    if (due.getTime() === p.dueDate.getTime()) continue
+    await db.clientPayment.update({ where: { id: p.id }, data: { dueDate: due } })
+    count++
+  }
+  return count
 }
 
 /**

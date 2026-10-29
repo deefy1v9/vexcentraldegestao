@@ -866,7 +866,7 @@ function HistoryDrawer({ clientId, service, onClose }: { clientId: string; servi
               <div className="divide-y divide-gray-100 border border-gray-100 rounded-lg max-h-64 overflow-y-auto">
                 {(data.payments ?? []).map((p) => (
                   <div key={p.id} className="flex items-center justify-between px-3 py-2">
-                    <span className="text-gray-600">{String(p.month).padStart(2, '0')}/{p.year} · vence {formatDate(p.dueDate)}</span>
+                    <span className="text-gray-600">{String(p.month).padStart(2, '0')}/{p.year} · vence {new Date(p.dueDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</span>
                     <span className="flex items-center gap-2">
                       <span className="font-semibold text-gray-900">{formatCurrency(p.amount)}</span>
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${p.status === 'PAGO' ? 'bg-green-100 text-green-700' : p.status === 'CANCELADO' ? 'bg-gray-100 text-gray-500' : 'bg-orange-100 text-orange-700'}`}>{p.status}</span>

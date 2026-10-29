@@ -1,7 +1,7 @@
 import { prisma } from './prisma'
 import { materializeMonth } from './financeiro'
 import { materializeReceivables } from './receivables'
-import { competenceBreakdown, competenceRange, recurringTicketCents } from './billing-core'
+import { competenceBreakdown, competenceRange, competenceReferenceISO, recurringTicketCents } from './billing-core'
 import { getTierRanges } from './client-tier'
 
 /**
@@ -97,6 +97,9 @@ function forecastBreakdown<C extends { status: string; contractEnd: Date | null;
 async function rawMonth(year: number, month: number) {
   const today = todayISO()
   const startOfToday = new Date(`${today}T00:00:00Z`)
+  // MRR é posição: hoje na competência corrente, o último dia nas demais —
+  // senão o mês anterior repetia o MRR de hoje e a tendência ficava em 0%
+  const referencia = competenceReferenceISO(year, month, today)
 
   const [clients, payments, entries] = await Promise.all([
     prisma.client.findMany({
@@ -119,14 +122,16 @@ async function rawMonth(year: number, month: number) {
   let previstaRecorrente = 0
   let previstaAvulsa = 0
   let mrr = 0
+  let comRecorrencia = 0
   const segMap = new Map<string | null, { count: number; recurringCents: number }>()
   for (const c of clients) {
     const b = forecastBreakdown(c, year, month)
     previstaRecorrente += b.recurringCents
     previstaAvulsa += b.avulsoCents
     if (c.status !== 'ATIVO') continue // encerrado: entra na previsão do mês, não no MRR nem na carteira
-    const ticket = recurringTicketCents(c.services, today)
+    const ticket = recurringTicketCents(c.services, referencia)
     mrr += ticket
+    if (ticket > 0) comRecorrencia += 1
     const key = ticket > 0 ? c.tier : c.tier // grupo já reflete o ticket; mantém o do cadastro
     const seg = segMap.get(key) ?? { count: 0, recurringCents: 0 }
     seg.count += 1
@@ -191,7 +196,9 @@ async function rawMonth(year: number, month: number) {
     salariosPagosCents: salPagos,
     resultadoPrevistoCents: prevista - custosTotais,
     lucroRealizadoCents: recebida - custosTotaisPagos,
-    activeClients: clients.length,
+    // Cliente ativo = com serviço recorrente ativo na referência (não a lista
+    // da consulta, que inclui encerrados com contrato no mês e quem só tem avulso)
+    activeClients: comRecorrencia,
     segMap,
     custosPorCategoria: [...cat.entries()]
       .map(([category, v]) => ({ category, ...v }))
@@ -199,7 +206,11 @@ async function rawMonth(year: number, month: number) {
   }
 }
 
-/** Resumo completo da competência (materializa recorrências antes). */
+/**
+ * Resumo completo da competência (materializa recorrências antes). As
+ * parcelas só são materializadas da competência corrente em diante — a
+ * trava fica em materializeReceivables.
+ */
 export async function getMonthSummary(year: number, month: number): Promise<MonthSummary> {
   await materializeMonth(year, month)
   await materializeReceivables(year, month)

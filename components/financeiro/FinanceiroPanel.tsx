@@ -7,6 +7,7 @@ import AddEntryModal from '@/components/financeiro/AddEntryModal'
 import FinanceKpis, { type MonthSummary, type TileKey } from '@/components/financeiro/FinanceKpis'
 import CaixaPanel from './CaixaPanel'
 import CashBalanceCard from './CashBalanceCard'
+import VexSalesCard, { type VexSalesMes } from './VexSalesCard'
 import { MonthPicker, FinanceTabs, FinanceFilterRow, FinanceChips, Pagination } from '@/components/financeiro/FinanceToolbar'
 import ReceivablesTable from '@/components/financeiro/ReceivablesTable'
 import EntriesTable from '@/components/financeiro/EntriesTable'
@@ -42,6 +43,7 @@ interface MonthData {
   clientPayments: PaymentLike[]
   users: Collaborator[]
   asaasCharges: ChargeLike[]
+  vexSales: VexSalesMes | null
   previstoServicos: number
   upcoming: Entry[]
   recent: Movement[]
@@ -301,11 +303,12 @@ export default function FinanceiroPanel() {
         {flash && <p className="text-xs font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5">{flash}</p>}
         {error && <p className="text-sm font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-3 text-center">{error}</p>}
 
-        {/* Saldo do caixa à esquerda, os quatro números do mês em 2x2 ao lado */}
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] gap-3 items-stretch">
+        {/* Saldo do caixa à esquerda; receitas e custos do mês ao lado */}
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,4fr)_minmax(0,8fr)] gap-3 items-stretch">
           <CashBalanceCard mes={`${period.year}-${String(period.month).padStart(2, '0')}`} href="/financeiro?aba=caixa" />
           <FinanceKpis s={data?.summary ?? null} loading={loading} active={activeTile} onToggle={toggleTile} />
         </div>
+        {!loading && <VexSalesCard d={data?.vexSales ?? null} />}
         <FinanceTabs active={tab} counts={counts} onChange={(t) => push({ tab: t })} />
 
         {tab === 'caixa' && <CaixaPanel />}

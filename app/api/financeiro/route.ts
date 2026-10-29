@@ -2,36 +2,44 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
-import { materializeMonth } from '@/lib/financeiro'
-import { materializeReceivables } from '@/lib/receivables'
 import { getMonthSummary } from '@/lib/finance-summary'
+import { currentCompetence, serviceCents, serviceInCompetence } from '@/lib/billing-core'
+
+/** Serviço da plataforma VEX Sales (plano ou IA de atendimento), sem o repasse de custo de IA. */
+function isVexSales(s: { serviceName: string; customName: string | null; catalog: { name: string } | null }): boolean {
+  const nomes = [s.serviceName, s.customName ?? '', s.catalog?.name ?? ''].join(' ').toLowerCase()
+  return nomes.includes('vex sales') && !nomes.includes('custo de ia')
+}
 
 /**
  * Dados financeiros de um mês (competência).
  *
  * Materializa as recorrências do período antes de consultar, então custos
- * recorrentes e salários "aparecem sozinhos" no mês certo ao navegar.
+ * recorrentes e salários "aparecem sozinhos" no mês certo ao navegar. As
+ * parcelas dos serviços só nascem da competência corrente em diante.
  */
 export async function GET(req: NextRequest) {
   const gate = await requireAdmin()
   if (gate instanceof NextResponse) return gate
 
   const { searchParams } = new URL(req.url)
-  const month = Number(searchParams.get('month') || new Date().getMonth() + 1)
-  const year = Number(searchParams.get('year') || new Date().getFullYear())
+  const atual = currentCompetence()
+  const month = Number(searchParams.get('month') || atual.month)
+  const year = Number(searchParams.get('year') || atual.year)
   if (!Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(year) || year < 2000 || year > 2100) {
     return NextResponse.json({ error: 'Período inválido' }, { status: 400 })
   }
 
-  await materializeMonth(year, month)
-  // Parcelas previstas dos serviços (recorrentes da competência + avulsos do mês)
-  await materializeReceivables(year, month)
+  // Resumo único da competência (mesma fonte do Dashboard). Vem antes das
+  // consultas porque é ele que materializa custos, salários e parcelas —
+  // uma vez só por requisição
+  const summary = await getMonthSummary(year, month)
 
   const now = new Date()
   const start = new Date(year, month - 1, 1)
   const end = new Date(year, month, 0, 23, 59, 59)
 
-  const [entries, clientPayments, users, upcoming, recentEntries, recentReceipts, asaasCharges] =
+  const [entries, clientPayments, users, upcoming, recentEntries, recentReceipts, asaasCharges, servicosVexSales] =
     await Promise.all([
       // Lançamentos do mês (custos, salários e receitas extras); lápides ficam de fora
       prisma.financialEntry.findMany({
@@ -85,10 +93,37 @@ export async function GET(req: NextRequest) {
         where: { year, month },
         include: { nfse: true, items: true, client: { select: { id: true, name: true } } },
       }),
+      // Clientes da plataforma VEX Sales (card separado no Financeiro)
+      prisma.clientService.findMany({
+        where: { status: 'ATIVO', client: { status: 'ATIVO' } },
+        include: { client: { select: { id: true, name: true } }, catalog: { select: { name: true } } },
+      }),
     ])
 
-  // Resumo único da competência (mesma fonte do Dashboard)
-  const summary = await getMonthSummary(year, month)
+  // VEX Sales do mês: quem usa, quanto paga e a situação da parcela
+  const hoje0 = new Date(`${now.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })}T00:00:00Z`)
+  const vexSalesClientes = servicosVexSales
+    .filter((s) => isVexSales(s) && serviceInCompetence(s, year, month))
+    .map((s) => {
+      const parcela = clientPayments.find((p) => p.serviceId === s.id)
+      const situacao = !parcela ? 'sem parcela'
+        : parcela.status === 'PAGO' ? 'pago'
+        : parcela.dueDate < hoje0 ? 'atrasado' : 'pendente'
+      return {
+        clientId: s.client.id,
+        nome: s.client.name,
+        plano: s.customName || s.serviceName,
+        cents: serviceCents(s),
+        situacao,
+        vence: parcela?.dueDate ?? null,
+      }
+    })
+    .sort((a, b) => b.cents - a.cents)
+  const vexSales = {
+    totalCents: vexSalesClientes.reduce((a, c) => a + c.cents, 0),
+    recebidoCents: vexSalesClientes.filter((c) => c.situacao === 'pago').reduce((a, c) => a + c.cents, 0),
+    clientes: vexSalesClientes,
+  }
 
   return NextResponse.json({
     entries,
@@ -96,6 +131,7 @@ export async function GET(req: NextRequest) {
     users,
     asaasCharges,
     summary,
+    vexSales,
     previstoServicos: summary.previstaCents / 100,
     upcoming,
     recent: [

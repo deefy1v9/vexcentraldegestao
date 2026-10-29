@@ -300,7 +300,11 @@ async function settlePayments(
       })
       remaining -= p.amount
     } else {
-      // Divide a parcela: parte paga agora, resto continua pendente
+      // Divide a parcela: a original (presa ao serviço) vira a parte paga e o
+      // resto nasce pendente SEM serviceId — o unique (serviço, ano, mês) não
+      // admite duas linhas do mesmo serviço no mês, e a geração de parcelas
+      // não recria nem reajusta o resto (a do serviço já está paga). O tipo
+      // (recorrente/avulso) vai junto para os relatórios.
       await tx.clientPayment.update({
         where: { id: p.id },
         data: { amount: remaining, status: 'PAGO', paidAt, receivedAccount: account },
@@ -308,12 +312,13 @@ async function settlePayments(
       await tx.clientPayment.create({
         data: {
           clientId: p.clientId,
-          serviceId: p.serviceId,
+          serviceId: null,
           month: p.month,
           year: p.year,
           amount: Math.round((p.amount - remaining) * 100) / 100,
           dueDate: p.dueDate,
           status: 'PENDENTE',
+          kind: p.kind,
         },
       })
       remaining = 0

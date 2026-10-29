@@ -6,6 +6,7 @@ import ProposalsNav from '@/components/propostas/ProposalsNav'
 import TierBadge from '@/components/ui/TierBadge'
 import Link from 'next/link'
 import { formatCurrency, formatDate } from '@/lib/utils'
+import { recurringTicketCents } from '@/lib/billing-core'
 import { Plus, Search, Eye } from 'lucide-react'
 
 const TIER_FILTERS = [
@@ -14,6 +15,19 @@ const TIER_FILTERS = [
   { key: 'GROWTH', label: 'Growth' },
   { key: 'SCALE', label: 'Scale' },
 ]
+
+const STATUS_FILTERS = [
+  { key: '', label: 'Ativos' },
+  { key: 'PAUSADO', label: 'Pausados' },
+  { key: 'ENCERRADO', label: 'Encerrados' },
+  { key: 'todos', label: 'Todos' },
+]
+
+const STATUS_LABEL: Record<string, { label: string; cls: string }> = {
+  ATIVO: { label: 'Ativo', cls: 'bg-green-100 text-green-700' },
+  PAUSADO: { label: 'Pausado', cls: 'bg-amber-100 text-amber-700' },
+  ENCERRADO: { label: 'Encerrado', cls: 'bg-gray-100 text-gray-500' },
+}
 
 const SORTS = [
   { key: '', label: 'Nome (A–Z)' },
@@ -24,9 +38,9 @@ const SORTS = [
 export default async function ClientesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ search?: string; tier?: string; sort?: string }>
+  searchParams: Promise<{ search?: string; tier?: string; sort?: string; status?: string }>
 }) {
-  const { search, tier, sort } = await searchParams
+  const { search, tier, sort, status } = await searchParams
   // Colaborador consulta a carteira, mas não cadastra, edita nem exclui.
   const viewer = await getSessionUser()
   const isAdmin = viewer?.role === 'ADMIN'
@@ -42,16 +56,23 @@ export default async function ClientesPage({
           }
         : {}),
       ...(tier && ['START', 'GROWTH', 'SCALE'].includes(tier) ? { tier } : {}),
+      // Padrão: só ativos. Pausados e encerrados ficam a um clique.
+      ...(status === 'todos' ? {} : { status: status === 'PAUSADO' || status === 'ENCERRADO' ? status : 'ATIVO' }),
     },
     include: { services: true },
-    orderBy:
-      sort === 'ticket_desc' ? { monthlyValue: 'desc' }
-      : sort === 'ticket_asc' ? { monthlyValue: 'asc' }
-      : { name: 'asc' },
+    orderBy: { name: 'asc' },
   })
 
+  // Ticket calculado dos serviços (mesma regra do MRR), não o espelho
+  // Client.monthlyValue, que fica velho quando o serviço muda fora da tela.
+  const hojeISO = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+  const ticket = new Map(clients.map((c) => [c.id, recurringTicketCents(c.services, hojeISO)]))
+  if (sort === 'ticket_desc') clients.sort((a, b) => ticket.get(b.id)! - ticket.get(a.id)!)
+  if (sort === 'ticket_asc') clients.sort((a, b) => ticket.get(a.id)! - ticket.get(b.id)!)
+  const totalTicket = clients.reduce((a, c) => a + ticket.get(c.id)!, 0)
+
   const qs = (params: Record<string, string | undefined>) => {
-    const merged = { search, tier, sort, ...params }
+    const merged = { search, tier, sort, status, ...params }
     const parts = Object.entries(merged)
       .filter(([, v]) => v)
       .map(([k, v]) => `${k}=${encodeURIComponent(v!)}`)
@@ -60,15 +81,30 @@ export default async function ClientesPage({
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <Header title="Clientes" subtitle={`${clients.length} cliente(s) cadastrado(s)`} />
+      <Header
+        title="Clientes"
+        subtitle={`${clients.length} cliente(s)${isAdmin ? ` · ${formatCurrency(totalTicket / 100)}/mês recorrente` : ''}`}
+      />
       <div className="flex-1 overflow-y-auto p-4 sm:p-6">
         {/* Navegação interna da área de Clientes (menu lateral não muda) */}
         {isAdmin && <ProposalsNav />}
 
         {/* Os grupos (Start, Growth, Scale) saem sozinhos do ticket recorrente: sem card de faixas na tela (o dono, 15/10) */}
 
-        {/* Filtro por grupo + ordenação */}
+        {/* Filtro por status, por grupo + ordenação */}
         <div className="flex flex-wrap items-center gap-2 mb-4">
+          {STATUS_FILTERS.map((f) => (
+            <Link
+              key={f.key || 'ativos'}
+              href={`/clientes${qs({ status: f.key || undefined })}`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                (status ?? '') === f.key ? 'bg-gray-900 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-gray-300'
+              }`}
+            >
+              {f.label}
+            </Link>
+          ))}
+          <span className="w-px h-5 bg-gray-200 mx-1" />
           {TIER_FILTERS.map((f) => (
             <Link
               key={f.key}
@@ -181,33 +217,28 @@ export default async function ClientesPage({
                     </td>
                     <td className="px-4 py-3 hidden lg:table-cell">
                       <div className="flex flex-wrap gap-1">
-                        {client.services.slice(0, 3).map((s) => (
+                        {/* Só os serviços ativos: os encerrados confundiam a leitura */}
+                        {client.services.filter((s) => s.status === 'ATIVO').slice(0, 3).map((s) => (
                           <span key={s.id} className="text-xs bg-[#030A8C]/10 text-[#030A8C] px-2 py-0.5 rounded-full">
-                            {s.serviceName}
+                            {s.customName || s.serviceName}
                           </span>
                         ))}
-                        {client.services.length > 3 && (
-                          <span className="text-xs text-gray-500">+{client.services.length - 3}</span>
+                        {client.services.filter((s) => s.status === 'ATIVO').length > 3 && (
+                          <span className="text-xs text-gray-500">+{client.services.filter((s) => s.status === 'ATIVO').length - 3}</span>
                         )}
                       </div>
                     </td>
                     {isAdmin && (
                       <td className="px-4 py-3 hidden lg:table-cell text-sm text-gray-700">
-                        {client.monthlyValue ? formatCurrency(client.monthlyValue) : '—'}
+                        {ticket.get(client.id) ? formatCurrency(ticket.get(client.id)! / 100) : '—'}
                       </td>
                     )}
                     <td className="px-4 py-3 hidden xl:table-cell text-sm text-gray-500">
                       {client.contractEnd ? formatDate(client.contractEnd) : '—'}
                     </td>
                     <td className="px-4 py-3">
-                      <span
-                        className={`text-xs px-2 py-1 rounded-full font-medium ${
-                          client.status === 'ATIVO'
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-gray-100 text-gray-500'
-                        }`}
-                      >
-                        {client.status}
+                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${(STATUS_LABEL[client.status] ?? STATUS_LABEL.ENCERRADO).cls}`}>
+                        {STATUS_LABEL[client.status]?.label ?? client.status}
                       </span>
                     </td>
                     <td className="px-4 py-3">

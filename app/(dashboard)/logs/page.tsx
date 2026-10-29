@@ -32,7 +32,11 @@ export default async function LogsPage({
     }),
   ])
 
-  const modules = ['Clientes', 'Colaboradores', 'Demandas', 'Calendário', 'CRM', 'Financeiro']
+  // Módulos que de fato aparecem no registro (a lista fixa deixava de fora
+  // Propostas, Pipeline, Processos, Briefings, Caixa…)
+  const modules = (await prisma.activityLog.findMany({ distinct: ['module'], select: { module: true }, orderBy: { module: 'asc' } }))
+    .map((m) => m.module)
+    .filter(Boolean)
 
   return (
     <div className="flex flex-col h-full overflow-hidden">

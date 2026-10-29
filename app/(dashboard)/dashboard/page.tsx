@@ -225,8 +225,8 @@ export default async function DashboardPage({
             icone={Inbox}
             href={`${financeiroHref}${mesParam ? '&' : '?'}situacao=pendente`}
             detalhe={summary.atrasadaCents > 0
-              ? <span className="text-destructive-texto font-medium">{brl(summary.atrasadaCents)} em atraso</span>
-              : 'Nada em atraso'}
+              ? <span>{brl(summary.pendenteCents)} no prazo · <span className="text-destructive-texto font-medium">{brl(summary.atrasadaCents)} em atraso</span></span>
+              : 'Tudo dentro do prazo'}
           />
           <Numero
             rotulo="Despesas"
@@ -252,7 +252,7 @@ export default async function DashboardPage({
                   <CircleAlert className="w-4 h-4 text-destructive-texto shrink-0" />
                   <div className="min-w-0 flex-1">
                     <p className="t-corpo text-foreground truncate">{a.nome}</p>
-                    <p className="t-legenda">em atraso desde {diaMes(a.desde)}</p>
+                    <p className="t-legenda">em atraso desde {diaMes(a.desde)} · soma de todos os meses</p>
                   </div>
                   <span className="t-corpo font-semibold text-foreground tabular">{brl(a.cents)}</span>
                 </li>

@@ -51,13 +51,20 @@ function startOfDay(d: Date): number {
   const x = new Date(d); x.setHours(0, 0, 0, 0); return x.getTime()
 }
 
-/** "AAAA-MM-DD" é dia civil (local); com hora, é instante. */
+/**
+ * Vencimento é dia civil. "AAAA-MM-DD" vale como está; com hora (o banco
+ * grava 00:00 ou 12:00 UTC), o dia é lido em UTC — senão o navegador em
+ * São Paulo mostrava 00:00Z como a véspera e tratava o dia do vencimento
+ * como atrasado. Devolve meio-dia local do dia, seguro para comparar e exibir.
+ */
 export function parseDue(value: string | Date): Date {
   if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
     const [y, m, d] = value.split('-').map(Number)
     return new Date(y, m - 1, d, 12)
   }
-  return new Date(value)
+  const instante = new Date(value)
+  if (Number.isNaN(instante.getTime())) return instante
+  return new Date(instante.getUTCFullYear(), instante.getUTCMonth(), instante.getUTCDate(), 12)
 }
 
 /** Dias até o vencimento (negativo = atrasado). */

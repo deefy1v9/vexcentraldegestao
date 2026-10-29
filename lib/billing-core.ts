@@ -79,6 +79,58 @@ export function competenceKey(year: number, month: number): string {
   return `${year}-${String(month).padStart(2, '0')}`
 }
 
+/** Competência corrente no fuso de referência (America/Sao_Paulo). */
+export function currentCompetence(now: Date = new Date()): { year: number; month: number } {
+  const [year, month] = now.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }).split('-').map(Number)
+  return { year, month }
+}
+
+/** A competência (year, month) é anterior à de referência? */
+export function isBeforeCompetence(year: number, month: number, ref: { year: number; month: number }): boolean {
+  return year < ref.year || (year === ref.year && month < ref.month)
+}
+
+/**
+ * Só serviços com cobrança automática entram no Asaas. Cobrança manual
+ * (cliente paga por Pix direto) tem parcela no a receber, mas nunca vira
+ * boleto, e-mail ou NFS-e automática.
+ */
+export function chargeableServices<T extends { generateCharge?: boolean | null }>(services: T[]): T[] {
+  return services.filter((s) => s.generateCharge !== false)
+}
+
+export type RevenueBooking =
+  | { action: 'baixar'; ids: string[] }
+  | { action: 'nada' }
+  | { action: 'criar'; kind: 'RECORRENTE' | 'AVULSO' }
+
+/**
+ * O que fazer com as parcelas da competência quando a cobrança Asaas é paga.
+ * Parcelas da cobrança = as dos serviços dos itens (AsaasChargeItem); sem
+ * itens (cobrança antiga), as que não são de serviço com cobrança manual.
+ * - Há pendentes da cobrança: baixa só essas.
+ * - Já estão todas pagas (baixa manual antes do webhook): nada — criar outra
+ *   linha paga contava a receita duas vezes.
+ * - Nenhuma parcela: cria uma paga, no tipo da composição.
+ */
+export function revenueBooking(
+  parcelas: Array<{ id: string; serviceId: string | null; status: string; manual?: boolean }>,
+  items: Array<{ serviceId: string | null; kind: string }>,
+): RevenueBooking {
+  const ids = new Set(items.map((i) => i.serviceId).filter((id): id is string => !!id))
+  const semServico = items.some((i) => !i.serviceId)
+  const daCobranca = parcelas.filter((p) => {
+    if (p.status === 'CANCELADO') return false
+    if (items.length === 0) return !p.manual
+    return p.serviceId ? ids.has(p.serviceId) : semServico
+  })
+  const pendentes = daCobranca.filter((p) => p.status === 'PENDENTE')
+  if (pendentes.length > 0) return { action: 'baixar', ids: pendentes.map((p) => p.id) }
+  if (daCobranca.some((p) => p.status === 'PAGO')) return { action: 'nada' }
+  const kind = items.length > 0 && items.every((i) => i.kind === 'AVULSO') ? 'AVULSO' : 'RECORRENTE'
+  return { action: 'criar', kind }
+}
+
 /** Serviço ativo para cálculo: só ATIVO conta (pausado/encerrado/legado não). */
 export function isServiceActive(s: { status: string }): boolean {
   return s.status === 'ATIVO'
@@ -186,6 +238,15 @@ export function computeCompetenceCents(
   month: number,
 ): number {
   return competenceBreakdown(client, services, year, month).totalCents
+}
+
+/**
+ * Data de referência dos indicadores de posição (MRR) de uma competência:
+ * hoje, se for a corrente; senão o último dia dela.
+ */
+export function competenceReferenceISO(year: number, month: number, todayISO: string): string {
+  if (todayISO.slice(0, 7) === competenceKey(year, month)) return todayISO.slice(0, 10)
+  return dueDateFor(year, month, 31)
 }
 
 /**

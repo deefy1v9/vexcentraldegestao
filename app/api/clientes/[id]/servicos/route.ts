@@ -4,8 +4,10 @@ import { prisma } from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
 import { recalcClientMonthlyValue } from '@/lib/client-value'
 import { isContractType } from '@/lib/services-catalog'
-import { seedServicePayments, repricePendingFrom, dropPendingPaymentsFrom } from '@/lib/receivables'
-import { isDueRule, serviceCents } from '@/lib/billing-core'
+import {
+  seedServicePayments, repricePendingFrom, dropPendingPaymentsFrom, dropPendingPaymentsBefore, redatePendingFrom,
+} from '@/lib/receivables'
+import { currentCompetence, isDueRule, serviceCents } from '@/lib/billing-core'
 
 /**
  * Serviços contratados por um cliente — sempre a partir do catálogo.
@@ -223,7 +225,18 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       const after = new Date(Date.UTC(updated.endDate.getUTCFullYear(), updated.endDate.getUTCMonth() + 1, 1))
       await dropPendingPaymentsFrom(tx, serviceId, after.toISOString())
     }
-    await seedServicePayments(tx, serviceId)
+    if (has('startDate') && updated.contractType !== 'AVULSO' && updated.startDate) {
+      // Início adiado: parcelas pendentes antes da competência do novo início saem
+      await dropPendingPaymentsBefore(tx, serviceId, updated.startDate.toISOString())
+    }
+    const atual = currentCompetence()
+    if (updated.dueDay !== existing.dueDay || updated.dueRule !== existing.dueRule) {
+      // Vencimento novo vale da competência corrente em diante (as passadas ficam)
+      await redatePendingFrom(tx, serviceId, atual.year, atual.month)
+    }
+    // Editar não cria parcela retroativa: gera da competência corrente em
+    // diante (avulso usa a própria competência e move a pendente se ela mudou)
+    await seedServicePayments(tx, serviceId, new Date(Date.UTC(atual.year, atual.month - 1, 1)))
     await recalcClientMonthlyValue(tx, id)
     return updated
   })

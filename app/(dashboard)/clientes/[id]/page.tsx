@@ -93,14 +93,21 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
 
   /* ------------------------------ seções (server) ------------------------------ */
 
-  const emAbertoCents = client.payments
-    .filter((p) => p.status === 'PENDENTE')
-    .reduce((a, p) => a + Math.round(Number(p.amount) * 100), 0)
-  const proximoPendente = [...client.payments]
-    .filter((p) => p.status === 'PENDENTE')
-    .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime())[0]
+  // Todas as pendentes, não só as 24 últimas: as 24 de vencimento mais
+  // distante escondiam atraso antigo e somavam parcelas de 12 meses à frente.
+  const pendentes = isAdmin
+    ? await prisma.clientPayment.findMany({
+        where: { clientId: id, status: 'PENDENTE' },
+        select: { amount: true, dueDate: true },
+        orderBy: { dueDate: 'asc' },
+      })
+    : []
   const hojeUtc = new Date(new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }) + 'T00:00:00Z')
-  const emAtraso = client.payments.some((p) => p.status === 'PENDENTE' && p.dueDate < hojeUtc)
+  const vencidas = pendentes.filter((p) => p.dueDate < hojeUtc)
+  const emAtrasoCents = vencidas.reduce((a, p) => a + Math.round(Number(p.amount) * 100), 0)
+  const emAtraso = vencidas.length > 0
+  const proximoPendente = pendentes.find((p) => p.dueDate >= hojeUtc)
+  const dataUtc = (d: Date) => d.toLocaleDateString('pt-BR', { timeZone: 'UTC' })
 
   // Só o que está preenchido: os "—" ficam no Editar
   const dados = ([
@@ -124,13 +131,17 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
         <p className="t-legenda mt-1">{activeServices.length} serviço(s) ativo(s){avulsoMes > 0 ? ` · ${formatCurrency(avulsoMes)} avulso no mês` : ''}</p>
       </div>
       <div className={`${card} p-5`}>
-        <p className="t-rotulo text-muted-foreground">Em aberto</p>
-        <p className={`mt-1 text-[22px] leading-7 font-semibold tabular ${emAtraso ? 'text-destructive-texto' : 'text-foreground'}`}>{formatCurrency(emAbertoCents / 100)}</p>
-        <p className="t-legenda mt-1">{emAtraso ? 'Tem cobrança vencida' : emAbertoCents > 0 ? 'Dentro do prazo' : 'Nada em aberto'}</p>
+        <p className="t-rotulo text-muted-foreground">Em atraso</p>
+        <p className={`mt-1 text-[22px] leading-7 font-semibold tabular ${emAtraso ? 'text-destructive-texto' : 'text-foreground'}`}>{formatCurrency(emAtrasoCents / 100)}</p>
+        <p className="t-legenda mt-1">
+          {emAtraso
+            ? `${vencidas.length} parcela(s) vencida(s), a mais antiga em ${dataUtc(vencidas[0].dueDate)}`
+            : 'Nada vencido'}
+        </p>
       </div>
       <div className={`${card} p-5`}>
         <p className="t-rotulo text-muted-foreground">Próximo vencimento</p>
-        <p className="mt-1 text-[22px] leading-7 font-semibold tabular text-foreground">{proximoPendente ? formatDate(proximoPendente.dueDate) : '—'}</p>
+        <p className="mt-1 text-[22px] leading-7 font-semibold tabular text-foreground">{proximoPendente ? dataUtc(proximoPendente.dueDate) : '—'}</p>
         <p className="t-legenda mt-1">{proximoPendente ? formatCurrency(Number(proximoPendente.amount)) : 'Sem cobrança pendente'}</p>
       </div>
     </div>

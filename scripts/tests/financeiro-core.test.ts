@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   buildReceivableRows, daysUntil, filterEntries, filterReceivables, finTabCounts, isOverdue, situationOf,
-  sortReceivables, totalsBySituation, EMPTY_FIN_FILTERS, type PaymentLike, type ChargeLike, type EntryLike,
+  sortReceivables, totalsBySituation, parseDue, shortDate, EMPTY_FIN_FILTERS, type PaymentLike, type ChargeLike, type EntryLike,
 } from '../../lib/financeiro-core'
 
 const NOW = new Date('2026-09-22T12:00:00')
@@ -69,4 +69,13 @@ test('ordenação: atrasados antes, depois pendentes, depois pagos; totais por s
   ], [], NOW)
   assert.deepEqual(sortReceivables(rows, 'vencimento').map((r) => r.client.name), ['Beta', 'Alfa', 'Zeta'])
   assert.deepEqual(totalsBySituation(rows), { pago: 10, atrasado: 30, pendente: 20, cancelado: 0 })
+})
+
+test('vencimento gravado à meia-noite UTC é o próprio dia, não a véspera', () => {
+  const noDia = new Date(2026, 10, 10, 9, 0) // 10/11, 9h no relógio local
+  assert.equal(daysUntil('2026-11-10T00:00:00.000Z', noDia), 0)
+  assert.equal(isOverdue({ status: 'PENDENTE', dueDate: '2026-11-10T00:00:00.000Z' }, noDia), false)
+  assert.equal(isOverdue({ status: 'PENDENTE', dueDate: '2026-11-10T00:00:00.000Z' }, new Date(2026, 10, 11, 9)), true)
+  assert.equal(shortDate('2026-11-10T00:00:00.000Z'), shortDate('2026-11-10'))
+  assert.equal(parseDue(new Date('2026-11-10T12:00:00Z')).getDate(), 10)
 })

@@ -87,21 +87,6 @@ export default function OverviewTab({
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pb-4">
-      {s && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className={`rounded-2xl border p-4 ${s.resultadoPrevistoCents >= 0 ? 'bg-[#030A8C]/[0.04] border-[#030A8C]/30' : 'bg-red-50 border-red-200'}`}>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Resultado previsto</p>
-            <p className={`text-2xl font-bold mt-1 ${s.resultadoPrevistoCents >= 0 ? 'text-[#030A8C]' : 'text-red-700'}`}>{brl(s.resultadoPrevistoCents)}</p>
-            <p className="text-[11px] text-gray-500 mt-0.5">{brl(s.previstaCents)} previsto − {brl(s.custosPrevistosCents)} de custos</p>
-          </div>
-          <div className={`rounded-2xl border p-4 ${s.lucroRealizadoCents >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Lucro realizado</p>
-            <p className={`text-2xl font-bold mt-1 ${s.lucroRealizadoCents >= 0 ? 'text-green-700' : 'text-red-700'}`}>{brl(s.lucroRealizadoCents)}</p>
-            <p className="text-[11px] text-gray-500 mt-0.5">{brl(s.recebidaCents)} recebido − {brl(s.custosPagosCents)} pago</p>
-          </div>
-        </div>
-      )}
-
       <FinanceChart />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -200,7 +185,8 @@ export default function OverviewTab({
                     <p className="text-xs font-medium text-gray-900 truncate">{e.name || e.description}</p>
                     <p className="text-[11px] text-gray-400">
                       {e.type === 'SALARIO' ? (e.user?.name ?? 'Salário') : e.category}
-                      {e.dueDate ? ` · vence ${formatDate(e.dueDate)}` : ''}
+                      {/* Vencimento é dia civil (00:00 UTC): lido em UTC para não virar o dia anterior */}
+                      {e.dueDate ? ` · vence ${new Date(e.dueDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}` : ''}
                     </p>
                   </div>
                   <span className={`text-xs font-bold shrink-0 ml-2 ${isOverdue(e) ? 'text-red-600' : 'text-gray-900'}`}>{formatCurrency(e.amount)}</span>

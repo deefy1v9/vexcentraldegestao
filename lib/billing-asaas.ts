@@ -2,8 +2,8 @@ import { Prisma } from '@prisma/client'
 import { prisma } from './prisma'
 import { spNow } from './billing-whatsapp'
 import {
-  chargeExternalRef, competenceBreakdown, dueDateFor, shouldGenerateNow,
-  centsToDecimalString, missingBillingFields,
+  chargeExternalRef, chargeableServices, competenceBreakdown, dueDateFor, shouldGenerateNow,
+  centsToDecimalString, missingBillingFields, revenueBooking,
 } from './billing-core'
 import * as asaas from './asaas'
 import { maybeEmitForCharge } from './nfse'
@@ -105,17 +105,20 @@ export async function ensureCharge(clientId: string, year: number, month: number
   const existing = await prisma.asaasCharge.findUnique({ where: { externalRef } })
   if (existing && existing.status !== 'ERROR') return { chargeId: existing.id, created: false }
 
-  const breakdown = competenceBreakdown(client, client.services, year, month)
+  // Só serviços com cobrança automática: o de cobrança manual (Pix direto)
+  // tem parcela no a receber, mas nunca entra em boleto/Pix do Asaas
+  const breakdown = competenceBreakdown(client, chargeableServices(client.services), year, month)
   const cents = breakdown.totalCents
-  if (cents <= 0) throw new Error('Nenhum serviço ativo válido nesta competência.')
+  if (cents <= 0) throw new Error('Nenhum serviço com cobrança automática nesta competência.')
 
   if (!client.asaasCustomerId) await syncCustomer(clientId)
   const fresh = await prisma.client.findUniqueOrThrow({ where: { id: clientId } })
 
   // O vencimento sai das parcelas da competência, que já respeitam a regra de
   // cada serviço (dia fixo ou enésimo dia útil). Sem parcela, cai no dia do cliente.
+  const servicosCobrados = breakdown.items.map((i) => i.serviceId).filter((id): id is string => !!id)
   const primeiraParcela = await prisma.clientPayment.findFirst({
-    where: { clientId, year, month, status: { not: 'CANCELADO' } },
+    where: { clientId, year, month, status: { not: 'CANCELADO' }, serviceId: { in: servicosCobrados } },
     orderBy: { dueDate: 'asc' },
     select: { dueDate: true },
   })
@@ -224,9 +227,10 @@ export function mapAsaasStatus(s: string): string {
 
 /**
  * Receita: contabilizada UMA única vez por cobrança (CONFIRMED e RECEIVED
- * nunca somam duas receitas — o guarda é revenueBookedAt). A baixa marca os
- * ClientPayment pendentes da competência como pagos (mesmo caminho do resto
- * do financeiro); sem parcelas pendentes, cria uma paga com o valor bruto.
+ * nunca somam duas receitas — o guarda é revenueBookedAt). A baixa marca
+ * como pagas só as parcelas pendentes DESTA cobrança (serviços dos itens);
+ * se já tinham sido baixadas à mão, nada é criado. Só sem parcela nenhuma
+ * entra uma paga com o valor bruto (regras em revenueBooking).
  */
 export async function bookRevenue(chargeId: string) {
   const now = new Date()
@@ -236,16 +240,24 @@ export async function bookRevenue(chargeId: string) {
   })
   if (locked.count === 0) return // já contabilizada
 
-  const charge = await prisma.asaasCharge.findUniqueOrThrow({ where: { id: chargeId } })
-  const pending = await prisma.clientPayment.findMany({
-    where: { clientId: charge.clientId, year: charge.year, month: charge.month, status: 'PENDENTE' },
+  const charge = await prisma.asaasCharge.findUniqueOrThrow({
+    where: { id: chargeId },
+    include: { items: { select: { serviceId: true, kind: true } } },
   })
-  if (pending.length > 0) {
+  const parcelas = await prisma.clientPayment.findMany({
+    where: { clientId: charge.clientId, year: charge.year, month: charge.month },
+    select: { id: true, serviceId: true, status: true, service: { select: { generateCharge: true } } },
+  })
+  const plano = revenueBooking(
+    parcelas.map((p) => ({ id: p.id, serviceId: p.serviceId, status: p.status, manual: p.service?.generateCharge === false })),
+    charge.items,
+  )
+  if (plano.action === 'baixar') {
     await prisma.clientPayment.updateMany({
-      where: { id: { in: pending.map((p) => p.id) } },
+      where: { id: { in: plano.ids }, status: 'PENDENTE' },
       data: { status: 'PAGO', paidAt: now, receivedAccount: 'Asaas' },
     })
-  } else {
+  } else if (plano.action === 'criar') {
     await prisma.clientPayment.create({
       data: {
         clientId: charge.clientId,
@@ -256,6 +268,7 @@ export async function bookRevenue(chargeId: string) {
         status: 'PAGO',
         paidAt: now,
         receivedAccount: 'Asaas',
+        kind: plano.kind,
       },
     })
   }
@@ -317,7 +330,8 @@ export async function runAsaasBillingJob(): Promise<{ created: number; skipped: 
     try {
       // Competência do mês corrente e do próximo (antecedência pode cruzar o mês)
       for (const [yy, mm] of [[y, m], m === 12 ? [y + 1, 1] : [y, m + 1]] as Array<[number, number]>) {
-        const cents = competenceBreakdown(client, client.services, yy, mm).totalCents
+        // Serviço de cobrança manual nunca gera cobrança automática
+        const cents = competenceBreakdown(client, chargeableServices(client.services), yy, mm).totalCents
         if (cents <= 0) { skipped++; continue }
 
         const due = dueDateFor(yy, mm, client.paymentDay ?? 1)

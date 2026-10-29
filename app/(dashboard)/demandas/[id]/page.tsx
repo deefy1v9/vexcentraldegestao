@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth'
 import Header from '@/components/layout/Header'
 import TaskPage from '@/components/demandas/TaskPage'
 import { canSee } from '@/lib/demandas-core'
+import { myTeamIds } from '@/lib/processos-server'
 
 /** Demanda em página própria (link compartilhável, sem popup). */
 export default async function DemandaPage({ params }: { params: Promise<{ id: string }> }) {
@@ -27,8 +28,13 @@ export default async function DemandaPage({ params }: { params: Promise<{ id: st
     prisma.user.findMany({ where: { isActive: true }, select: { id: true, name: true }, orderBy: { name: 'asc' } }),
   ])
   const isAdmin = session?.user?.role === 'ADMIN'
-  // Demanda de outra pessoa não existe para o colaborador
-  if (!task || !canSee(task, session?.user?.id ?? '', isAdmin)) notFound()
+  const userId = session?.user?.id ?? ''
+  // Demanda de outra pessoa não existe para o colaborador. Mesmo recorte da
+  // lista: fila da equipe conta, e quem tem papel na demanda abre o link
+  // mesmo com ela em revisão (antes aparecia na lista e dava 404 aqui).
+  const teamIds = isAdmin ? [] : await myTeamIds(userId)
+  const temPapel = !!task && [task.assigneeId, task.producerId, task.reviewerId, task.schedulerId].includes(userId)
+  if (!task || !(canSee(task, userId, isAdmin, teamIds) || temPapel)) notFound()
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
