@@ -18,8 +18,8 @@ export const TOOL_GROUPS = [
   {
     key: 'financeiro',
     label: 'Financeiro',
-    hint: 'Resumo do mês, contas a receber, atrasos e baixa de pagamento (com confirmação).',
-    tools: ['resumo_financeiro', 'listar_recebiveis', 'registrar_pagamento'],
+    hint: 'Resumo do mês, contas a receber, contas a pagar, atrasos e baixa de pagamento (com confirmação).',
+    tools: ['resumo_financeiro', 'listar_recebiveis', 'contas_a_pagar', 'registrar_pagamento'],
   },
   {
     key: 'caixa',
@@ -42,6 +42,12 @@ export const TOOL_GROUPS = [
       'listar_agendamentos', 'cancelar_agendamento',
       'criar_atividade', 'listar_atividades', 'concluir_atividade',
     ],
+  },
+  {
+    key: 'grupos',
+    label: 'Grupos dos clientes',
+    hint: 'Ler os grupos de WhatsApp dos clientes e apontar quem está esperando resposta. Só leitura: nunca escreve no grupo.',
+    tools: ['ler_grupos_clientes'],
   },
 ] as const
 
@@ -156,6 +162,6 @@ export function validateAgent(input: {
   const grupos = input.toolGroups ?? []
   if (grupos.length === 0) erros.push('Escolha pelo menos uma área para o agente cuidar.')
   for (const g of grupos) if (!isToolGroup(g)) erros.push(`Área desconhecida: ${g}`)
-  if ((input.instructions ?? '').length > 8000) erros.push('As instruções devem ter até 8000 caracteres.')
+  if ((input.instructions ?? '').length > 16000) erros.push('As instruções devem ter até 16000 caracteres.')
   return erros
 }

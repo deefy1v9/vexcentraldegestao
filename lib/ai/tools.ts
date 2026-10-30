@@ -10,6 +10,8 @@ import { getMonthSummary } from '../finance-summary'
 import { CLIENT_LINK_SELECT, clientLinks } from '../client-links'
 import { cashLabel, cashTotals, isCashKind, parseAmountCents, withdrawalsByPartner } from '../caixa-core'
 import { moveTaskStage, StageError } from '../processos-server'
+import { uazFindMessages } from '../uazapi'
+import { conversaEmTexto, normalizarMensagens, novidadesDoGrupo } from '../mcp/grupo'
 
 export interface ToolContext {
   /** Número do chat de comando que está falando com a IA. */
@@ -219,6 +221,15 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
     },
   },
   {
+    name: 'contas_a_pagar',
+    description:
+      'Custos e salários ainda não pagos do mês (e os parcelados que vencem nele), com vencimento, categoria e valor. Use para "o que falta pagar", "contas da semana".',
+    input_schema: {
+      type: 'object',
+      properties: { competencia: { type: 'string', description: 'AAAA-MM. Vazio usa o mês atual.' } },
+    },
+  },
+  {
     name: 'registrar_pagamento',
     description:
       'Prepara a baixa de um pagamento recebido. NÃO dá baixa na hora: cria uma ação pendente que só é executada após o usuário confirmar. Mostre cliente, competência e valor antes de confirmar.',
@@ -347,6 +358,18 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
     name: 'listar_atividades',
     description: 'Lista as atividades de CRM pendentes, das mais próximas para as mais distantes.',
     input_schema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'ler_grupos_clientes',
+    description:
+      'Lê os grupos de WhatsApp dos clientes. Sem clienteId: panorama de todos os grupos (quem mandou mensagem e quem está esperando resposta da VEX). Com clienteId: a conversa daquele grupo. Só leitura, nunca escreve no grupo.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        clienteId: { type: 'string', description: 'id do cliente (de buscar_clientes). Vazio = todos os grupos.' },
+        horas: { type: 'number', description: 'Quantas horas para trás olhar. Padrão 48, máximo 168.' },
+      },
+    },
   },
   {
     name: 'concluir_atividade',
@@ -805,6 +828,58 @@ export async function executeTool(
       const totalAberto = [...porCliente.values()].reduce((s, c) => s + c.aberto, 0)
       const totalAtraso = [...porCliente.values()].reduce((s, c) => s + c.atrasado, 0)
       return [`${MESES[month - 1]}/${year} · ${porCliente.size} cliente(s)`, ...linhas, '', `Em aberto: ${reais(totalAberto)} · Atrasado: ${reais(totalAtraso)}`].join('\n')
+    }
+
+    case 'contas_a_pagar': {
+      const { year, month } = competenceOf(input.competencia)
+      const inicio = new Date(Date.UTC(year, month - 1, 1, 3))
+      const fim = new Date(Date.UTC(month === 12 ? year + 1 : year, month === 12 ? 0 : month, 1, 3))
+      const es = await prisma.financialEntry.findMany({
+        where: {
+          type: { not: 'RECEITA' }, status: 'PENDENTE',
+          OR: [{ year, month }, { month: null, dueDate: { gte: inicio, lt: fim } }],
+        },
+        orderBy: [{ dueDate: 'asc' }, { date: 'asc' }],
+      })
+      if (es.length === 0) return `Nada a pagar em ${MESES[month - 1]}/${year}.`
+      const total = es.reduce((acc, e) => acc + e.amount, 0)
+      return [
+        `A pagar em ${MESES[month - 1]}/${year}: ${reais(total)}`,
+        ...es.map((e) => `- ${dayBr(e.dueDate ?? e.date)} | ${reais(e.amount)} | ${e.category} | ${e.name ?? e.description}`),
+      ].join('\n')
+    }
+
+    case 'ler_grupos_clientes': {
+      const horas = Math.min(168, Math.max(1, typeof input.horas === 'number' ? input.horas : 48))
+      const agora = new Date()
+      const desde = new Date(agora.getTime() - horas * 3_600_000)
+      const clienteId = typeof input.clienteId === 'string' && input.clienteId ? input.clienteId : null
+      if (clienteId) {
+        const c = await prisma.client.findUnique({ where: { id: clienteId }, select: { name: true, whatsappGroupId: true } })
+        if (!c) throw new ToolError('Cliente não encontrado. Use buscar_clientes.')
+        if (!c.whatsappGroupId) throw new ToolError(`${c.name} não tem grupo de WhatsApp vinculado na Central.`)
+        const msgs = normalizarMensagens(await uazFindMessages(c.whatsappGroupId, 120))
+        return `Grupo de ${c.name} (últimas ${horas} h):\n${conversaEmTexto(msgs, { desde, max: 80 })}`
+      }
+      const clientes = await prisma.client.findMany({
+        where: { whatsappGroupId: { not: null }, status: { not: 'ENCERRADO' } },
+        select: { id: true, name: true, whatsappGroupId: true },
+        orderBy: { name: 'asc' },
+      })
+      if (clientes.length === 0) return 'Nenhum cliente com grupo de WhatsApp vinculado na Central.'
+      const blocos: string[] = []
+      const quietos: string[] = []
+      for (const c of clientes) {
+        try {
+          const n = novidadesDoGrupo(normalizarMensagens(await uazFindMessages(c.whatsappGroupId!, 80)), desde, agora)
+          const esperando = n.esperandoHoras !== null ? ` · cliente esperando resposta há ${n.esperandoHoras} h` : ''
+          if (n.novas.length === 0) { quietos.push(`${c.name}${esperando}`); continue }
+          blocos.push(`== ${c.name} (id ${c.id}) · ${n.novas.length} mensagem(ns), ${n.doCliente} do cliente${esperando}\n${conversaEmTexto(n.novas, { max: 15 })}`)
+        } catch (e) {
+          blocos.push(`== ${c.name}: não consegui ler o grupo agora (${e instanceof Error ? e.message : 'erro'}).`)
+        }
+      }
+      return [`Grupos dos clientes, últimas ${horas} h`, ...blocos, quietos.length ? `Sem mensagens no período: ${quietos.join('; ')}` : null].filter(Boolean).join('\n\n')
     }
 
     case 'registrar_pagamento': {

@@ -1,6 +1,7 @@
 import { prisma } from '../prisma'
 import { getMonthSummary } from '../finance-summary'
-import { uazSendText, isConfigured } from '../uazapi'
+import { uazFindMessages, uazSendText, isConfigured } from '../uazapi'
+import { normalizarMensagens, novidadesDoGrupo } from '../mcp/grupo'
 import { getAiConfig } from './config'
 import { runGeminiLoop } from './gemini'
 import { TOOL_GROUPS } from './agents'
@@ -158,6 +159,38 @@ async function opsAlerts(today: string): Promise<{ alerts: Alert[]; resumo: stri
   return { alerts, resumo: `${abertas.length} demandas abertas · ${atrasadas.length} atrasadas · ${hoje.length} para hoje` }
 }
 
+/** Horas sem resposta da VEX no grupo a partir das quais a vigia avisa (24 h vira crítico). */
+const GRUPO_SEM_RESPOSTA_HORAS = 4
+
+async function groupAlerts(): Promise<{ alerts: Alert[]; resumo: string }> {
+  const alerts: Alert[] = []
+  const agora = new Date()
+  const clientes = await prisma.client.findMany({
+    where: { whatsappGroupId: { not: null }, status: { not: 'ENCERRADO' } },
+    select: { name: true, whatsappGroupId: true },
+  })
+  let movimentados = 0
+  let falhas = 0
+  for (const c of clientes) {
+    try {
+      const msgs = normalizarMensagens(await uazFindMessages(c.whatsappGroupId!, 60))
+      const n = novidadesDoGrupo(msgs, null, agora, 24)
+      if (n.novas.length > 0) movimentados++
+      if (n.esperandoHoras === null || n.esperandoHoras < GRUPO_SEM_RESPOSTA_HORAS) continue
+      const ultima = msgs[msgs.length - 1]
+      alerts.push({
+        severity: n.esperandoHoras >= 24 ? 'critico' : 'atencao',
+        title: `${c.name}: cliente esperando resposta no grupo há ${n.esperandoHoras}h`,
+        detail: `${ultima.autor}: ${ultima.tipo === 'texto' ? '' : `[${ultima.tipo}] `}${ultima.texto.slice(0, 90)}`.trim(),
+      })
+    } catch {
+      falhas++
+    }
+  }
+  const resumo = `${clientes.length} grupos lidos · ${movimentados} com mensagem nas últimas 24h · ${alerts.length} esperando resposta${falhas ? ` · ${falhas} não consegui ler` : ''}`
+  return { alerts, resumo }
+}
+
 /* ------------------------------ redação ------------------------------ */
 
 const REDACAO = `Você é um agente de vigia da VEX Growth, uma agência de marketing. Você NÃO fala com clientes: escreve um aviso curto para os dois sócios lerem no WhatsApp.
@@ -218,6 +251,11 @@ export async function runSingleWatch(
     const c = await clientAlerts(today)
     partes.push(`CLIENTES\n${c.resumo}`)
     alerts.push(...c.alerts)
+  }
+  if (agent.toolGroups.includes('grupos')) {
+    const g = await groupAlerts()
+    partes.push(`GRUPOS DOS CLIENTES\n${g.resumo}`)
+    alerts.push(...g.alerts)
   }
   if (agent.toolGroups.includes('demandas') || agent.toolGroups.includes('crm')) {
     const o = await opsAlerts(today)
