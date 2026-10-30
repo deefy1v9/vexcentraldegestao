@@ -48,6 +48,19 @@ export async function register() {
       console.error('[avisos] fila falhou:', err)
     }
 
+    // Conciliação bancária às 23h, todo dia: cria a demanda "Subir extrato"
+    // do responsável e avisa no WhatsApp quando a conta não está em dia. A
+    // marca do dia (AgentNotice) fica dentro da rotina. Não lança.
+    try {
+      if (spNow().time >= '23:00') {
+        const { rotinaConciliacao } = await import('./lib/conciliacao')
+        const r = await rotinaConciliacao()
+        if (r.demanda) console.log(`[conciliacao] demanda ${r.demanda} criada${r.enviado ? ' e avisada' : ''}`)
+      }
+    } catch (err) {
+      console.error('[conciliacao] rotina das 23h falhou:', err)
+    }
+
     try {
       const { date, time } = spNow()
       const sendTime = (await getBillingSetting('BILLING_REMINDER_TIME')) || '09:00'
@@ -109,16 +122,6 @@ export async function register() {
         if (vex.enviados > 0) console.log(`[agentes] VEX Sales: ${vex.enviados} aviso(s) de contratação`)
       } catch (err) {
         console.error('[agentes] vigia falhou:', err)
-      }
-
-      // Conciliação bancária: lembra o responsável (dia útil) de subir o
-      // extrato quando a conta principal não está em dia. Uma vez por dia.
-      try {
-        const { lembrarConciliacao } = await import('./lib/conciliacao')
-        const r = await lembrarConciliacao()
-        if (r.enviado) console.log('[conciliacao] lembrete enviado ao responsável')
-      } catch (err) {
-        console.error('[conciliacao] lembrete falhou:', err)
       }
 
       // E-mails do dia: lembretes (D-3, D0), atraso (D+1/7/15), contrato a

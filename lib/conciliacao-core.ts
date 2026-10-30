@@ -396,9 +396,10 @@ export function diaUtilAnterior(hoje: string): string {
   return d.toISOString().slice(0, 10)
 }
 
-/** O lembrete diário só sai em dia útil e só se a conta não está em dia. */
+/**
+ * A rotina das 23h (todo dia) cobra o extrato quando a conta ainda não está
+ * conciliada até hoje — às 23h o extrato do dia já está fechado no banco.
+ */
 export function precisaLembrar(hoje: string, ate: string | null): boolean {
-  const dow = new Date(`${hoje}T12:00:00Z`).getUTCDay()
-  if (dow === 0 || dow === 6) return false
-  return !ate || ate < diaUtilAnterior(hoje)
+  return !ate || ate < hoje
 }

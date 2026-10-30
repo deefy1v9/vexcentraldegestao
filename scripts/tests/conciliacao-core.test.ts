@@ -138,10 +138,9 @@ test('conciliado até: para no dia antes da primeira pendência', () => {
   assert.equal(conciliadoAte([], null), null)
 })
 
-test('lembrete: só em dia útil e só quando o dia útil anterior não está conciliado', () => {
+test('rotina das 23h: todo dia, até a conta estar conciliada até hoje', () => {
   assert.equal(diaUtilAnterior('2026-11-02'), '2026-10-30') // segunda olha a sexta
-  assert.equal(precisaLembrar('2026-11-02', '2026-10-30'), false)
-  assert.equal(precisaLembrar('2026-11-02', '2026-10-27'), true)
-  assert.equal(precisaLembrar('2026-10-31', null), false) // sábado
+  assert.equal(precisaLembrar('2026-10-31', '2026-10-31'), false)
+  assert.equal(precisaLembrar('2026-10-31', '2026-10-30'), true) // sábado também
   assert.equal(precisaLembrar('2026-11-03', null), true)
 })

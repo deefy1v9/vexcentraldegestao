@@ -3,6 +3,7 @@ import { requireAdmin, getSessionUser } from '@/lib/api-auth'
 import { prisma } from '@/lib/prisma'
 import { logActivity } from '@/lib/activity'
 import { cashTotals, parseAmountCents, validateMovement, withdrawalsByPartner } from '@/lib/caixa-core'
+import { listarSocios } from '@/lib/conciliacao'
 
 /** Caixa da empresa — leitura e lançamento. Só administradores. */
 
@@ -27,7 +28,7 @@ export async function GET(req: NextRequest) {
     prisma.cashMovement.findMany({ where, select: SELECT, orderBy: [{ date: 'desc' }, { createdAt: 'desc' }], take: 300 }),
     // O saldo é da empresa inteira, não do mês filtrado
     prisma.cashMovement.findMany({ select: { kind: true, amountCents: true } }),
-    prisma.user.findMany({ where: { role: 'ADMIN', isActive: true }, select: { id: true, name: true }, orderBy: { name: 'asc' } }),
+    listarSocios(),
   ])
 
   const doMes = movimentos.map((m) => ({ kind: m.kind, amountCents: m.amountCents, partnerName: m.partner?.name }))

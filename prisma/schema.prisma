@@ -41,6 +41,9 @@ model User {
   specialties String[] @default([])
   salary      Float?
   isActive    Boolean  @default(true)
+  /// Sócio da VEX: OPERACIONAL (Antonio, Davi) | INVESTIDOR (Fabrício). Null = não é sócio.
+  /// Sócio investidor pode existir sem acesso (isActive false): aparece no caixa e no BPO.
+  socio       String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -58,6 +61,7 @@ model User {
   teams            TeamMember[]
   salaryContracts  SalaryContract[]
   financialEntries FinancialEntry[]
+  partnerLedger    PartnerLedger[]  @relation("PartnerLedger")
   aiImports        AiImport[]
 
   assignedActivities CrmActivity[]      @relation("ActivityAssignee")
@@ -128,6 +132,9 @@ model Client {
   state             String?
   ibgeCode          String? // código IBGE do município do tomador
   billingLeadDays   Int       @default(10) // antecedência da geração da cobrança
+  /// De onde veio o cliente: ANUNCIO | INDICACAO | SOCIO | OUTRO. Cliente novo vindo
+  /// de anúncio entra na parte do sócio investidor (ver BPO › Sócios).
+  origem            String?
   billingType       String    @default("UNDEFINED") // BOLETO | PIX | UNDEFINED
   nfseEnabled       Boolean   @default(false) // emissão automática de NFS-e
   // ON_CONFIRMED (padrão) | ON_RECEIVED | ON_COMPETENCE | MANUAL
@@ -1852,6 +1859,26 @@ model CashMovement {
   @@index([date])
   @@index([kind, date])
   @@index([partnerId, date])
+}
+
+// ─── Conta corrente dos sócios ──────────────────────────────────────────────
+// O que cada sócio deve à empresa ou tem a receber dela, fora do caixa: conta
+// paga do bolso, parte de uma despesa dividida, dinheiro de um sócio que
+// ficou com outro. Positivo = a empresa deve ao sócio; negativo = o sócio
+// deve à empresa. Correção é um lançamento novo, nunca edição do antigo.
+model PartnerLedger {
+  id          String   @id @default(cuid())
+  partnerId   String
+  /// Dia do fato (AAAA-MM-DD)
+  dia         String
+  amountCents Int
+  description String
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  partner User @relation("PartnerLedger", fields: [partnerId], references: [id])
+
+  @@index([partnerId, dia])
 }
 
 // ─── Conciliação bancária ───────────────────────────────────────────────────

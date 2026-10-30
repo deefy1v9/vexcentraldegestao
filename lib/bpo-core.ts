@@ -229,3 +229,31 @@ export function checklistFechamento(c: {
       : { rotulo: 'Saldo conferido com o extrato do banco', ok: false, detalhe: `Suba o extrato na aba Conciliação: a Central mostra ${(c.saldoCents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}.` },
   ]
 }
+
+export interface LancamentoSocio {
+  dia: string
+  amountCents: number
+  description: string
+}
+
+export interface ContaSocio {
+  saldoCents: number
+  /** Como mostrar: o sócio deve pagar, tem a receber ou está em dia. */
+  situacao: 'deve' | 'receber' | 'zerado'
+  lancamentos: LancamentoSocio[]
+}
+
+/**
+ * Conta corrente do sócio com a empresa. Positivo = a empresa deve ao sócio
+ * (ele pagou do bolso, pôs dinheiro); negativo = o sócio deve à empresa (parte
+ * dele numa despesa, dinheiro da sociedade que ficou com ele). Diferença de
+ * até R$ 1,00 conta como em dia.
+ */
+export function contaCorrente(lancamentos: LancamentoSocio[]): ContaSocio {
+  const saldoCents = lancamentos.reduce((s, l) => s + l.amountCents, 0)
+  return {
+    saldoCents,
+    situacao: saldoCents < -100 ? 'deve' : saldoCents > 100 ? 'receber' : 'zerado',
+    lancamentos: [...lancamentos].sort((a, b) => b.dia.localeCompare(a.dia)),
+  }
+}

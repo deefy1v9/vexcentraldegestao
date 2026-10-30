@@ -5,9 +5,9 @@ import { getMonthSummary } from '@/lib/finance-summary'
 import { materializeMonth } from '@/lib/financeiro'
 import { materializeReceivables } from '@/lib/receivables'
 import { cashTotals } from '@/lib/caixa-core'
-import { situacaoPrincipal } from '@/lib/conciliacao'
+import { listarSocios, situacaoPrincipal } from '@/lib/conciliacao'
 import {
-  addDays, checklistFechamento, concentracao, dreGerencial, faixasDeAtraso, projetarCaixa, resumoPorSocio, riscoDeCaixa,
+  addDays, checklistFechamento, concentracao, contaCorrente, dreGerencial, faixasDeAtraso, projetarCaixa, resumoPorSocio, riscoDeCaixa,
   type Previsto,
 } from '@/lib/bpo-core'
 
@@ -116,6 +116,37 @@ export async function GET(req: NextRequest) {
       : { ok: false, detalhe: `${sit.conta} conciliado até ${sit.conciliadoAte ? sit.conciliadoAte.split('-').reverse().join('/') : '—'}${sit.pendentes ? ` · ${sit.pendentes} linha(s) pendente(s)` : ''}: falta subir ou conferir o extrato.` }
     : null
 
+  // Sócios: todos os do cadastro, mesmo sem movimento no mês. O investidor
+  // recebe dos clientes novos (desde a entrada dele) que vieram de anúncio.
+  const cadastro = await listarSocios()
+  const movSocios = resumoPorSocio(movsMes.map((m) => ({
+    kind: m.kind, cents: m.amountCents, socio: m.partner?.name ?? null, descricao: m.description, dia: dia(m.date),
+  })))
+  const desde = (await prisma.systemSettings.findUnique({ where: { key: 'SOCIO_INVESTIDOR_DESDE' } }).catch(() => null))?.value || '2026-10-15'
+  const temInvestidor = cadastro.some((s) => s.socio === 'INVESTIDOR')
+  const novos = temInvestidor
+    ? await prisma.client.findMany({
+        where: { createdAt: { gte: new Date(`${desde}T00:00:00-03:00`) }, status: { not: 'ENCERRADO' } },
+        select: { id: true, name: true, origem: true, createdAt: true, payments: { where: { year, month, status: { not: 'CANCELADO' } }, select: { amount: true, status: true } } },
+        orderBy: { createdAt: 'asc' },
+      })
+    : []
+  const ledger = await prisma.partnerLedger.findMany({ where: { partnerId: { in: cadastro.map((s) => s.id) } }, select: { partnerId: true, dia: true, amountCents: true, description: true } })
+  const socios = cadastro.map((s) => {
+    const mov = movSocios.find((m) => m.socio === s.name)
+    return { id: s.id, socio: s.name, tipo: s.socio ?? 'OPERACIONAL', retiradasCents: mov?.retiradasCents ?? 0, aportesCents: mov?.aportesCents ?? 0, liquidoCents: mov?.liquidoCents ?? 0, movimentos: mov?.movimentos ?? [], conta: contaCorrente(ledger.filter((l) => l.partnerId === s.id)) }
+  })
+  const investidor = temInvestidor
+    ? {
+        desde,
+        clientes: novos.map((c) => ({
+          id: c.id, nome: c.name, origem: c.origem, desde: dia(c.createdAt),
+          previstoCents: c.payments.reduce((s, p) => s + cents(p.amount), 0),
+          recebidoCents: c.payments.filter((p) => p.status === 'PAGO').reduce((s, p) => s + cents(p.amount), 0),
+        })),
+      }
+    : null
+
   const semCategoria = movsMes.filter((m) => !m.category?.trim())
   const semConta = parcelasMes.filter((p) => p.status === 'PAGO' && !p.receivedAccount?.trim())
 
@@ -137,9 +168,8 @@ export async function GET(req: NextRequest) {
       faixas: faixasDeAtraso(atrasados, hoje),
       atrasadosPorCliente: [...porClienteAtraso].map(([nome, v]) => ({ nome, ...v })).sort((a, b) => b.cents - a.cents),
     },
-    socios: resumoPorSocio(movsMes.map((m) => ({
-      kind: m.kind, cents: m.amountCents, socio: m.partner?.name ?? null, descricao: m.description, dia: dia(m.date),
-    }))),
+    socios,
+    investidor,
     dre: dreGerencial(
       { previstaCents: summary.previstaCents, recebidaCents: summary.recebidaCents, custosPagosCents: summary.custosPagosCents, salariosPagosCents: summary.salariosPagosCents, retiradasCents: retiradasMes },
       summary.previous
@@ -164,4 +194,19 @@ export async function GET(req: NextRequest) {
       banco,
     }),
   })
+}
+
+const ORIGENS = ['ANUNCIO', 'INDICACAO', 'SOCIO', 'OUTRO']
+
+/** Marca de onde veio um cliente (anúncio entra na parte do sócio investidor). */
+export async function PATCH(req: NextRequest) {
+  const gate = await requireAdmin()
+  if (gate instanceof NextResponse) return gate
+  const b = await req.json().catch(() => ({}))
+  const origem = b.origem === null || b.origem === '' ? null : String(b.origem)
+  if (typeof b.clientId !== 'string' || (origem !== null && !ORIGENS.includes(origem))) {
+    return NextResponse.json({ error: 'Informe o cliente e a origem.' }, { status: 400 })
+  }
+  await prisma.client.update({ where: { id: b.clientId }, data: { origem } })
+  return NextResponse.json({ ok: true })
 }

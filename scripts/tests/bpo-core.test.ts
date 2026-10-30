@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  addDays, checklistFechamento, concentracao, diasEntre, dreGerencial, faixasDeAtraso, projetarCaixa,
+  addDays, checklistFechamento, concentracao, contaCorrente, diasEntre, dreGerencial, faixasDeAtraso, projetarCaixa,
   resumoPorSocio, riscoDeCaixa,
 } from '../../lib/bpo-core'
 
@@ -104,4 +104,17 @@ test('checklist do fechamento: aponta o que falta e nunca dá o banco por confer
   assert.ok(c[2].detalhe.includes('1 movimento sem categoria'))
   const comBanco = checklistFechamento({ receberAbertos: 0, pagarAbertos: 0, semCategoria: 0, semConta: 0, saldoCents: 60, banco: { ok: true, detalhe: 'Conciliado até 30/10.' } })
   assert.ok(comBanco.every((i) => i.ok))
+})
+
+test('conta corrente do sócio: soma com sinal, ordena do mais novo e tolera R$ 1,00', () => {
+  const c = contaCorrente([
+    { dia: '2026-10-28', amountCents: -463, description: 'resíduo do fechamento' },
+    { dia: '2026-10-30', amountCents: -9900, description: 'parte na contabilidade' },
+    { dia: '2026-10-30', amountCents: 5000, description: 'acerto da contabilidade de 20/10' },
+  ])
+  assert.equal(c.saldoCents, -5363)
+  assert.equal(c.situacao, 'deve')
+  assert.equal(c.lancamentos[0].dia, '2026-10-30')
+  assert.equal(contaCorrente([{ dia: '2026-10-30', amountCents: 50, description: 'centavos' }]).situacao, 'zerado')
+  assert.equal(contaCorrente([{ dia: '2026-10-30', amountCents: 33514, description: 'crédito' }]).situacao, 'receber')
 })

@@ -17,7 +17,8 @@ interface Conta {
 interface Painel {
   hoje: string
   responsavel: { id: string; name: string; phone: string | null } | null
-  socios: Array<{ id: string; name: string }>
+  socios: Array<{ id: string; name: string; socio?: string | null }>
+  admins: Array<{ id: string; name: string }>
   contas: Conta[]
   saldoCentralCents: number
   saldoBancosCents: number | null
@@ -84,7 +85,7 @@ export default function ConciliacaoTab() {
       const r = await fetch('/api/financeiro/conciliacao', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) })
       const b = await r.json().catch(() => ({}))
       if (!r.ok) setAviso(b.error || 'Não consegui ler o extrato.')
-      else setAviso(`${b.conta}: ${b.lidas} lançamento(s) no arquivo, ${b.novas} novo(s)${b.repetidas ? `, ${b.repetidas} já estava(m) na Central` : ''}. A Central conciliou ${b.casadas} sozinha${b.ignoradas ? ` e ignorou ${b.ignoradas} pelo que aprendeu` : ''}.`)
+      else setAviso(`${b.conta}: ${b.lidas} lançamento(s) no arquivo, ${b.novas} novo(s)${b.repetidas ? `, ${b.repetidas} já estava(m) na Central` : ''}. A Central conciliou ${b.casadas} sozinha${b.lancadas ? `, lançou ${b.lancadas} pelo que já sabia` : ''}${b.ignoradas ? ` e ignorou ${b.ignoradas}` : ''}${b.demandasConcluidas ? `. ${b.demandasConcluidas} demanda(s) de extrato concluída(s)` : ''}. O resumo foi para o WhatsApp do responsável.`)
       await carregar()
     } catch {
       setAviso('Não consegui abrir este arquivo. Use o PDF do extrato do Santander ou do Nubank, ou um OFX.')
@@ -132,9 +133,9 @@ export default function ConciliacaoTab() {
           <div>
             <p className="text-[11px] uppercase tracking-wide text-gray-400 font-medium">Responsável</p>
             <select value={d.responsavel?.id ?? ''} onChange={(e) => trocarResponsavel(e.target.value)} className="mt-1 h-9 w-full rounded-lg border border-gray-200 bg-white px-2 text-sm">
-              {d.socios.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              {d.admins.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
-            <p className="text-[11px] text-gray-500 mt-1">Recebe no WhatsApp, em dia útil, o lembrete de subir o extrato de ontem quando a conta não está em dia.</p>
+            <p className="text-[11px] text-gray-500 mt-1">Todo dia às 23h, se a conta não está conciliada até o dia, recebe a demanda “Subir extrato” e o aviso no WhatsApp. A demanda se fecha sozinha quando o extrato chega.</p>
           </div>
           <div className="border-t border-gray-100 pt-3">
             <p className="text-[11px] uppercase tracking-wide text-gray-400 font-medium">Saldo</p>
