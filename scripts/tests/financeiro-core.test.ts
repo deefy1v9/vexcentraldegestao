@@ -54,7 +54,7 @@ test('contadores das abas e filtros', () => {
   const costs = [entry({ dueDate: '2026-09-05' }), entry({ status: 'PAGO' })]
   const salaries = [entry({ type: 'SALARIO', dueDate: '2026-09-30', user: { id: 'u', name: 'Giovana' } })]
   // visão e caixa são telas de leitura: nunca mostram contador de pendência
-  assert.deepEqual(finTabCounts(rows, costs, salaries, NOW), { bpo: 0, conciliacao: 0, visao: 0, recebiveis: 2, atrasados: 2, custos: 1, salarios: 1, caixa: 0 })
+  assert.deepEqual(finTabCounts(rows, costs, salaries, NOW), { bpo: 0, conciliacao: 0, recebiveis: 2, atrasados: 2, custos: 1, salarios: 1, caixa: 0 })
   assert.equal(filterReceivables(rows, { ...EMPTY_FIN_FILTERS, situation: 'atrasado' }).length, 1)
   assert.equal(filterReceivables(rows, { ...EMPTY_FIN_FILTERS, q: 'b' }).length, 1)
   assert.equal(filterEntries(salaries, { ...EMPTY_FIN_FILTERS, q: 'giov' }).length, 1)

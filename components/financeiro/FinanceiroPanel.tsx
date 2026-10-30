@@ -6,12 +6,10 @@ import { parseCompetence } from '@/lib/billing-core'
 import AddEntryModal from '@/components/financeiro/AddEntryModal'
 import FinanceKpis, { type MonthSummary, type TileKey } from '@/components/financeiro/FinanceKpis'
 import CaixaPanel from './CaixaPanel'
-import CashBalanceCard from './CashBalanceCard'
-import VexSalesCard, { type VexSalesMes } from './VexSalesCard'
+import type { VexSalesMes } from './VexSalesCard'
 import { MonthPicker, FinanceTabs, FinanceFilterRow, FinanceChips, Pagination } from '@/components/financeiro/FinanceToolbar'
 import ReceivablesTable from '@/components/financeiro/ReceivablesTable'
 import EntriesTable from '@/components/financeiro/EntriesTable'
-import OverviewTab from '@/components/financeiro/OverviewTab'
 import BpoTab from '@/components/financeiro/BpoTab'
 import ConciliacaoTab from '@/components/financeiro/ConciliacaoTab'
 import {
@@ -52,7 +50,7 @@ interface MonthData {
 }
 
 const PAGE = 15
-const TABS: FinTab[] = ['bpo', 'conciliacao', 'visao', 'recebiveis', 'atrasados', 'custos', 'salarios', 'caixa']
+const TABS: FinTab[] = ['bpo', 'conciliacao', 'recebiveis', 'atrasados', 'custos', 'salarios', 'caixa']
 const SORTS: FinSort[] = ['vencimento', 'valor', 'nome']
 
 function currentPeriod() {
@@ -307,23 +305,17 @@ export default function FinanceiroPanel() {
         {flash && <p className="text-xs font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5">{flash}</p>}
         {error && <p className="text-sm font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-3 text-center">{error}</p>}
 
-        {/* Saldo do caixa à esquerda; receitas e custos do mês ao lado. O BPO e
-            a Conciliação têm os próprios números no topo: lá estes saem, para
-            a tela não repetir a mesma coisa duas vezes. */}
-        {tab !== 'bpo' && tab !== 'conciliacao' && (
-          <>
-            <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,4fr)_minmax(0,8fr)] gap-3 items-stretch">
-              <CashBalanceCard mes={`${period.year}-${String(period.month).padStart(2, '0')}`} href="/financeiro?aba=caixa" />
-              <FinanceKpis s={data?.summary ?? null} loading={loading} active={activeTile} onToggle={toggleTile} />
-            </div>
-            {!loading && <VexSalesCard d={data?.vexSales ?? null} />}
-          </>
-        )}
         <FinanceTabs active={tab} counts={counts} onChange={(t) => push({ tab: t })} />
+        {/* Nas listas, os números do mês funcionam como filtro; o BPO, a
+            Conciliação e o Caixa têm o próprio topo. Saldo e sócios ficam no BPO. */}
+        {['recebiveis', 'atrasados', 'custos', 'salarios'].includes(tab) && (
+          // O grid dos indicadores usa h-full: o bloco em volta dá a ele a altura do próprio conteúdo
+          <div><FinanceKpis s={data?.summary ?? null} loading={loading} active={activeTile} onToggle={toggleTile} /></div>
+        )}
 
         {tab === 'caixa' && <CaixaPanel />}
 
-        {tab !== 'visao' && tab !== 'caixa' && tab !== 'bpo' && tab !== 'conciliacao' && (
+        {tab !== 'caixa' && tab !== 'bpo' && tab !== 'conciliacao' && (
           <>
             <FinanceFilterRow
               filters={filters}
@@ -354,9 +346,7 @@ export default function FinanceiroPanel() {
           <ConciliacaoTab />
         ) : tab === 'bpo' ? (
           <BpoTab competencia={`${period.year}-${String(period.month).padStart(2, '0')}`} />
-        ) : tab === 'visao' ? (
-          <OverviewTab summary={data?.summary ?? null} upcoming={data?.upcoming ?? []} recent={data?.recent ?? []} />
-        ) : (
+        ) : tab === 'caixa' ? null : (
           <>
             {tab === 'custos' ? (
               <EntriesTable

@@ -263,6 +263,9 @@ export interface PontoSaldo {
   saldoCents: number
   /** O mesmo saldo se os recebimentos atrasados entrarem. */
   comAtrasadosCents: number
+  /** O que entra e o que sai naquele dia (para as linhas de tendência). */
+  entraCents: number
+  saiCents: number
 }
 
 /**
@@ -277,9 +280,10 @@ export function serieSaldoDiaria(params: { saldoCents: number; hoje: string; rec
   const pontos: PontoSaldo[] = []
   for (let i = 0; i <= (params.dias ?? 90); i++) {
     const dia = addDays(hoje, i)
-    saldo += receber.filter((r) => r.vence === dia).reduce((s, r) => s + r.cents, 0)
-    saldo -= pagar.filter((p) => p.vence === dia).reduce((s, p) => s + p.cents, 0)
-    pontos.push({ dia, saldoCents: saldo, comAtrasadosCents: saldo + atrasados })
+    const entraCents = receber.filter((r) => r.vence === dia).reduce((s, r) => s + r.cents, 0)
+    const saiCents = pagar.filter((p) => p.vence === dia).reduce((s, p) => s + p.cents, 0)
+    saldo += entraCents - saiCents
+    pontos.push({ dia, saldoCents: saldo, comAtrasadosCents: saldo + atrasados, entraCents, saiCents })
   }
   return pontos
 }

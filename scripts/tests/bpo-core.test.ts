@@ -128,4 +128,5 @@ test('saldo dia a dia: vencido a pagar sai no primeiro dia, cada vencimento no s
   assert.deepEqual(s.map((p) => p.saldoCents), [700, 1200, 1100, 1100])
   assert.equal(s[0].comAtrasadosCents, 900)
   assert.equal(s.length, 4)
+  assert.deepEqual(s.map((p) => [p.entraCents, p.saiCents]), [[0, 0], [500, 0], [0, 100], [0, 0]])
 })
