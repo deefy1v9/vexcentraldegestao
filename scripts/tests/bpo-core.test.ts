@@ -17,15 +17,15 @@ test('projeção: atrasado a receber fica fora do saldo, conta atrasada entra', 
     saldoCents: 100_000,
     hoje: '2026-10-30',
     receber: [
-      { vence: '2026-10-25', cents: 223_200, nome: 'Promo' }, // atrasado
+      { vence: '2026-10-25', cents: 223_200, nome: 'Cliente E' }, // atrasado
       { vence: '2026-10-30', cents: 50_000, nome: 'Hoje' },
-      { vence: '2026-11-25', cents: 90_000, nome: 'Bruna' },
+      { vence: '2026-11-25', cents: 90_000, nome: 'Cliente F' },
       { vence: '2027-03-01', cents: 999_999, nome: 'Longe' },
     ],
     pagar: [
-      { vence: '2026-10-20', cents: 30_000, nome: 'Contabilidade atrasada' },
-      { vence: '2026-11-01', cents: 110_000, nome: 'Claude' },
-      { vence: '2026-11-20', cents: 60_000, nome: 'Contabilidade' },
+      { vence: '2026-10-20', cents: 30_000, nome: 'Conta atrasada' },
+      { vence: '2026-11-01', cents: 110_000, nome: 'Ferramenta' },
+      { vence: '2026-11-20', cents: 60_000, nome: 'Conta do mês' },
     ],
   })
   assert.equal(atrasadosReceberCents, 223_200)
@@ -61,13 +61,13 @@ test('inadimplência por faixa: só o vencido, cada item numa faixa', () => {
 
 test('concentração: soma por cliente, ordena e alerta acima do limite', () => {
   const c = concentracao([
-    { nome: 'DPG', cents: 600_000 }, { nome: 'MIDS', cents: 450_000 }, { nome: 'Nobre', cents: 250_000 },
-    { nome: 'Nobre', cents: 25_684 }, { nome: 'Yamas', cents: 78_500 },
+    { nome: 'Cliente A', cents: 600_000 }, { nome: 'Cliente B', cents: 450_000 }, { nome: 'Cliente C', cents: 250_000 },
+    { nome: 'Cliente C', cents: 25_684 }, { nome: 'Cliente D', cents: 78_500 },
   ])
-  assert.equal(c.clientes[0].nome, 'DPG')
-  assert.equal(c.clientes.find((x) => x.nome === 'Nobre')?.cents, 275_684)
+  assert.equal(c.clientes[0].nome, 'Cliente A')
+  assert.equal(c.clientes.find((x) => x.nome === 'Cliente C')?.cents, 275_684)
   assert.equal(c.totalCents, 1_404_184)
-  assert.ok(c.alerta?.includes('DPG'))
+  assert.ok(c.alerta?.includes('Cliente A'))
   const sem = concentracao(Array.from({ length: 10 }, (_, i) => ({ nome: `C${i}`, cents: 100 })))
   assert.equal(sem.alerta, null)
   assert.equal(concentracao([]).top1, 0)
@@ -75,13 +75,13 @@ test('concentração: soma por cliente, ordena e alerta acima do limite', () => 
 
 test('pró-labore por sócio: retiradas menos aportes, ignora entrada e saída', () => {
   const r = resumoPorSocio([
-    { kind: 'RETIRADA', cents: 180_000, socio: 'Davi', descricao: 'acerto', dia: '2026-10-28' },
-    { kind: 'APORTE', cents: 39_190, socio: 'Davi', descricao: 'contabilidade do bolso', dia: '2026-10-29' },
-    { kind: 'RETIRADA', cents: 76_500, socio: 'Antonio', descricao: 'acerto', dia: '2026-10-28' },
+    { kind: 'RETIRADA', cents: 180_000, socio: 'Sócio 1', descricao: 'acerto', dia: '2026-10-28' },
+    { kind: 'APORTE', cents: 39_190, socio: 'Sócio 1', descricao: 'conta paga do bolso', dia: '2026-10-29' },
+    { kind: 'RETIRADA', cents: 76_500, socio: 'Sócio 2', descricao: 'acerto', dia: '2026-10-28' },
     { kind: 'SAIDA', cents: 29_700, socio: null, descricao: 'contabilidade', dia: '2026-10-29' },
   ])
   assert.equal(r.length, 2)
-  assert.equal(r[0].socio, 'Davi')
+  assert.equal(r[0].socio, 'Sócio 1')
   assert.equal(r[0].liquidoCents, 180_000 - 39_190)
   assert.equal(r[0].movimentos.length, 2)
   assert.equal(r[1].aportesCents, 0)
@@ -102,4 +102,6 @@ test('checklist do fechamento: aponta o que falta e nunca dá o banco por confer
   assert.deepEqual(c.map((i) => i.ok), [false, true, false, true, false])
   assert.ok(c[0].detalhe.includes('2 parcelas'))
   assert.ok(c[2].detalhe.includes('1 movimento sem categoria'))
+  const comBanco = checklistFechamento({ receberAbertos: 0, pagarAbertos: 0, semCategoria: 0, semConta: 0, saldoCents: 60, banco: { ok: true, detalhe: 'Conciliado até 30/10.' } })
+  assert.ok(comBanco.every((i) => i.ok))
 })

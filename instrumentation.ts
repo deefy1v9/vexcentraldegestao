@@ -111,6 +111,16 @@ export async function register() {
         console.error('[agentes] vigia falhou:', err)
       }
 
+      // Conciliação bancária: lembra o responsável (dia útil) de subir o
+      // extrato quando a conta principal não está em dia. Uma vez por dia.
+      try {
+        const { lembrarConciliacao } = await import('./lib/conciliacao')
+        const r = await lembrarConciliacao()
+        if (r.enviado) console.log('[conciliacao] lembrete enviado ao responsável')
+      } catch (err) {
+        console.error('[conciliacao] lembrete falhou:', err)
+      }
+
       // E-mails do dia: lembretes (D-3, D0), atraso (D+1/7/15), contrato a
       // vencer e resumo aos administradores — cada um uma vez só (refId)
       try {

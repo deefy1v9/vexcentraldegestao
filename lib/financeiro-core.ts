@@ -147,10 +147,10 @@ export function buildReceivableRows(payments: PaymentLike[], charges: ChargeLike
   return rows
 }
 
-export type FinTab = 'bpo' | 'visao' | 'recebiveis' | 'atrasados' | 'custos' | 'salarios' | 'caixa'
+export type FinTab = 'bpo' | 'conciliacao' | 'visao' | 'recebiveis' | 'atrasados' | 'custos' | 'salarios' | 'caixa'
 
 export const FIN_TAB_LABEL: Record<FinTab, string> = {
-  bpo: 'BPO', visao: 'Visão geral', recebiveis: 'Recebíveis', atrasados: 'Atrasados', custos: 'Custos', salarios: 'Salários', caixa: 'Caixa',
+  bpo: 'BPO', conciliacao: 'Conciliação', visao: 'Visão geral', recebiveis: 'Recebíveis', atrasados: 'Atrasados', custos: 'Custos', salarios: 'Salários', caixa: 'Caixa',
 }
 
 export function finTabCounts(rows: ReceivableRow[], costs: EntryLike[], salaries: EntryLike[], now: Date = new Date()): Record<FinTab, number> {
@@ -161,6 +161,7 @@ export function finTabCounts(rows: ReceivableRow[], costs: EntryLike[], salaries
   return {
     // O BPO é um painel, não uma fila: nunca tem contador
     bpo: 0,
+    conciliacao: 0,
     visao: 0,
     recebiveis: abertas.length,
     atrasados,

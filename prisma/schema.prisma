@@ -1846,10 +1846,84 @@ model CashMovement {
 
   partner   User? @relation("CashPartner", fields: [partnerId], references: [id])
   createdBy User? @relation("CashCreator", fields: [createdById], references: [id])
+  /// Linhas do extrato que este movimento explica (conciliação bancária)
+  bankLines BankStatementLine[] @relation("ConciliacaoMovimentos")
 
   @@index([date])
   @@index([kind, date])
   @@index([partnerId, date])
+}
+
+// ─── Conciliação bancária ───────────────────────────────────────────────────
+// O extrato que alguém subiu (PDF do Santander/Nubank ou OFX). As regras de
+// leitura e de casamento ficam em lib/conciliacao-core.ts.
+model BankStatementImport {
+  id              String   @id @default(cuid())
+  /// Rótulo da conta ("Santander 130083231")
+  conta           String
+  banco           String
+  arquivo         String
+  /// Primeiro e último dia com lançamento no arquivo (AAAA-MM-DD)
+  inicio          String?
+  fim             String?
+  /// Saldo final que o banco informou no arquivo
+  saldoFinalCents Int?
+  linhasNovas     Int      @default(0)
+  createdById     String?
+  createdAt       DateTime @default(now())
+
+  linhas BankStatementLine[]
+
+  @@index([conta, createdAt])
+}
+
+// Uma linha do extrato. Reimportar o mesmo período não duplica (impressao).
+model BankStatementLine {
+  id             String    @id @default(cuid())
+  importId       String
+  conta          String
+  /// Dia do lançamento no banco (AAAA-MM-DD)
+  data           String
+  descricao      String
+  documento      String?
+  /// Com sinal: entrada positiva, saída negativa
+  valorCents     Int
+  saldoCents     Int?
+  /// CPF/CNPJ ou nome normalizado de quem está do outro lado
+  contraparte    String?
+  impressao      String    @unique
+  /// PENDENTE | CONCILIADO | IGNORADO
+  status         String    @default("PENDENTE")
+  /// Por que foi ignorada: INTERNA (entre contas da VEX) | PESSOAL (do Davi) | OUTRO
+  motivo         String?
+  /// Banco − Central quando casou com diferença de centavos
+  diferencaCents Int       @default(0)
+  /// Casada pela Central sozinha (true) ou por uma pessoa
+  auto           Boolean   @default(false)
+  conciliadoEm   DateTime?
+  conciliadoPor  String?
+  createdAt      DateTime  @default(now())
+
+  import     BankStatementImport @relation(fields: [importId], references: [id], onDelete: Cascade)
+  movimentos CashMovement[]      @relation("ConciliacaoMovimentos")
+
+  @@index([conta, data])
+  @@index([status])
+}
+
+// O que fazer com cada contraparte da próxima vez (a Central aprende ao
+// lançar ou ignorar com "lembrar").
+model BankCounterparty {
+  id        String   @id @default(cuid())
+  chave     String   @unique
+  /// LANCAR | PESSOAL | INTERNA
+  acao      String
+  /// Para LANCAR: tipo do caixa, descrição, categoria e sócio sugeridos
+  kind      String?
+  descricao String?
+  categoria String?
+  partnerId String?
+  updatedAt DateTime @updatedAt
 }
 
 // ─── Conector de IA (servidor MCP) ──────────────────────────────────────────

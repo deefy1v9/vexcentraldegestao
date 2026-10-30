@@ -13,6 +13,7 @@ import ReceivablesTable from '@/components/financeiro/ReceivablesTable'
 import EntriesTable from '@/components/financeiro/EntriesTable'
 import OverviewTab from '@/components/financeiro/OverviewTab'
 import BpoTab from '@/components/financeiro/BpoTab'
+import ConciliacaoTab from '@/components/financeiro/ConciliacaoTab'
 import {
   COST_CATEGORIES, CostEditForm, DueDateDialog, NewCostModal, NewSalaryModal, SalaryEditForm, ScopeDialog,
 } from '@/components/financeiro/EntryForms'
@@ -51,7 +52,7 @@ interface MonthData {
 }
 
 const PAGE = 15
-const TABS: FinTab[] = ['bpo', 'visao', 'recebiveis', 'atrasados', 'custos', 'salarios', 'caixa']
+const TABS: FinTab[] = ['bpo', 'conciliacao', 'visao', 'recebiveis', 'atrasados', 'custos', 'salarios', 'caixa']
 const SORTS: FinSort[] = ['vencimento', 'valor', 'nome']
 
 function currentPeriod() {
@@ -316,7 +317,7 @@ export default function FinanceiroPanel() {
 
         {tab === 'caixa' && <CaixaPanel />}
 
-        {tab !== 'visao' && tab !== 'caixa' && tab !== 'bpo' && (
+        {tab !== 'visao' && tab !== 'caixa' && tab !== 'bpo' && tab !== 'conciliacao' && (
           <>
             <FinanceFilterRow
               filters={filters}
@@ -343,6 +344,8 @@ export default function FinanceiroPanel() {
           <div className="space-y-3 animate-pulse py-2">
             {[...Array(5)].map((_, i) => <div key={i} className="h-14 bg-white border border-gray-200 rounded-xl" />)}
           </div>
+        ) : tab === 'conciliacao' ? (
+          <ConciliacaoTab />
         ) : tab === 'bpo' ? (
           <BpoTab competencia={`${period.year}-${String(period.month).padStart(2, '0')}`} />
         ) : tab === 'visao' ? (

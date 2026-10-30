@@ -215,6 +215,8 @@ export function checklistFechamento(c: {
   semCategoria: number
   semConta: number
   saldoCents: number
+  /** Resultado da conciliação bancária, quando já existe extrato na Central. */
+  banco?: { ok: boolean; detalhe: string } | null
 }): ItemChecklist[] {
   const n = (q: number, um: string, varios: string) => `${q} ${q === 1 ? um : varios}`
   return [
@@ -222,6 +224,8 @@ export function checklistFechamento(c: {
     { rotulo: 'Contas do mês pagas', ok: c.pagarAbertos === 0, detalhe: c.pagarAbertos === 0 ? 'Tudo pago.' : `${n(c.pagarAbertos, 'conta', 'contas')} em aberto.` },
     { rotulo: 'Movimentos do caixa classificados', ok: c.semCategoria === 0, detalhe: c.semCategoria === 0 ? 'Todos com categoria.' : `${n(c.semCategoria, 'movimento', 'movimentos')} sem categoria (pendente de classificação).` },
     { rotulo: 'Recebimentos com conta de entrada', ok: c.semConta === 0, detalhe: c.semConta === 0 ? 'Todos com a conta informada.' : `${n(c.semConta, 'recebimento', 'recebimentos')} pagos sem a conta onde o dinheiro entrou.` },
-    { rotulo: 'Saldo conferido com o extrato do banco', ok: false, detalhe: `Conferir à mão: a Central mostra ${(c.saldoCents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}.` },
+    c.banco
+      ? { rotulo: 'Saldo conferido com o extrato do banco', ...c.banco }
+      : { rotulo: 'Saldo conferido com o extrato do banco', ok: false, detalhe: `Suba o extrato na aba Conciliação: a Central mostra ${(c.saldoCents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}.` },
   ]
 }

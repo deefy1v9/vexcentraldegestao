@@ -5,6 +5,7 @@ import { getMonthSummary } from '@/lib/finance-summary'
 import { materializeMonth } from '@/lib/financeiro'
 import { materializeReceivables } from '@/lib/receivables'
 import { cashTotals } from '@/lib/caixa-core'
+import { situacaoPrincipal } from '@/lib/conciliacao'
 import {
   addDays, checklistFechamento, concentracao, dreGerencial, faixasDeAtraso, projetarCaixa, resumoPorSocio, riscoDeCaixa,
   type Previsto,
@@ -105,6 +106,16 @@ export async function GET(req: NextRequest) {
     porClienteAtraso.set(k, cur)
   }
 
+  // Conferência com o banco: a conta principal conciliada até o fim da
+  // competência (ou até o dia útil anterior, no mês corrente)
+  const sit = await situacaoPrincipal()
+  const fimRef = ref === hoje.slice(0, 7) ? addDays(hoje, -1) : new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10)
+  const banco = sit
+    ? sit.conciliadoAte && sit.conciliadoAte >= fimRef
+      ? { ok: true, detalhe: `${sit.conta} conciliado até ${sit.conciliadoAte.split('-').reverse().join('/')}.` }
+      : { ok: false, detalhe: `${sit.conta} conciliado até ${sit.conciliadoAte ? sit.conciliadoAte.split('-').reverse().join('/') : '—'}${sit.pendentes ? ` · ${sit.pendentes} linha(s) pendente(s)` : ''}: falta subir ou conferir o extrato.` }
+    : null
+
   const semCategoria = movsMes.filter((m) => !m.category?.trim())
   const semConta = parcelasMes.filter((p) => p.status === 'PAGO' && !p.receivedAccount?.trim())
 
@@ -150,6 +161,7 @@ export async function GET(req: NextRequest) {
       semCategoria: semCategoria.length,
       semConta: semConta.length,
       saldoCents,
+      banco,
     }),
   })
 }
