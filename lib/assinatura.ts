@@ -12,7 +12,8 @@
  *      hora; só o HMAC dele é guardado).
  *   5. Com o código (e, se quiser, a rubrica), assina. Quando o último assina,
  *      sai o PDF final: o original intacto mais o relatório com todos
- *      (lib/assinatura-pdf), que vai para o WhatsApp de cada assinante.
+ *      (lib/assinatura-pdf), que vai para o WhatsApp de cada assinante e para
+ *      o e-mail do contratante (o do cadastro do cliente).
  *
  * Os contratos antigos, de um assinante só (os campos signer* do
  * ContractSignature), continuam abrindo pelo link deles. Regras puras em
@@ -23,6 +24,7 @@ import { decryptSecret, encryptSecret } from './crypto'
 import { uazSendDocumentChecked, uazSendTextChecked } from './uazapi'
 import { VEX } from './proposal-template'
 import { anexarRelatorioDeAssinatura } from './assinatura-pdf'
+import { notifyContractSigned } from './email-notify'
 import {
   PDF_MAX_BYTES, TENTATIVAS_MAX, VALIDADE_DO_CODIGO_MIN,
   codigoConfere, cpfValido, formatarCpf, freioDosCodigos, gerarCodigo, gerarToken, hmacDoCodigo,
@@ -350,6 +352,18 @@ async function fecharSeTodosAssinaram(contractId: string, base: string): Promise
     }).catch((e) => ({ ok: false, erro: e instanceof Error ? e.message : String(e) }))
     if (!envio.ok) console.warn(`[assinatura] o PDF assinado de ${c.id} não saiu para ${s.id}: ${envio.erro}`)
   }
+
+  // E no e-mail do contratante (o do cadastro do cliente). Falha aqui também não desfaz nada.
+  await notifyContractSigned({
+    clientId: c.clientId,
+    titulo: c.title,
+    assinantes: c.signers.map((s) => ({ nome: s.signerName ?? s.name, papel: ROTULO_DO_PAPEL[s.role as Papel] ?? s.role, em: s.signedAt! })),
+    sha256: c.sha256,
+    link: linkDoContrato(base, c.signers.find((s) => s.role === 'CONTRATANTE')?.token ?? c.token),
+    fileName: nomeDoAssinado(c.fileName),
+    pdf: bytes,
+    refId: `contrato:${c.id}`,
+  }).catch((e) => console.warn(`[assinatura] o e-mail do contrato ${c.id} não saiu: ${e instanceof Error ? e.message : e}`))
   return true
 }
 

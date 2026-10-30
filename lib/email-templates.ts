@@ -477,6 +477,38 @@ export function announcement(d: AnnouncementData): RenderedMail {
   }
 }
 
+export interface ContractSignedData {
+  clientName: string
+  titulo: string
+  assinantes: Array<{ nome: string; papel: string; em: string | Date }>
+  sha256: string
+  link: string
+  fileName: string
+}
+
+/** Contrato assinado por todos: vai para o contratante com o PDF final anexado. */
+export function contractSigned(d: ContractSignedData): RenderedMail {
+  const quando = (v: string | Date) => new Date(v).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  return {
+    kind: 'contract-signed',
+    profile: 'contato',
+    subject: `Contrato assinado: ${d.titulo}`,
+    html: renderLayout({
+      title: 'Contrato assinado por todos',
+      intro: `Olá, ${d.clientName}. O contrato "${d.titulo}" foi assinado por todas as partes. O PDF em anexo traz o contrato original e, no final, o relatório de assinatura. Guarde este arquivo.`,
+      badge: { text: 'ASSINADO', color: C.green },
+      details: [
+        ...d.assinantes.map((a): [string, string] => [a.papel, `${escapeHtml(a.nome)}<br><span style="font-weight:400;color:${C.muted};font-size:12px;">${escapeHtml(quando(a.em))}</span>`]),
+        ['Arquivo', escapeHtml(d.fileName)],
+      ],
+      ctas: [{ label: 'Ver o contrato', url: d.link }],
+      extraHtml: `<p style="margin:0;color:${C.muted};font-size:12px;text-align:center;">Assinatura eletrônica (MP 2.200-2/2001, art. 10, § 2º, e Lei 14.063/2020). Resumo SHA-256 do contrato original:<br><span style="font-family:'SFMono-Regular',Menlo,Consolas,monospace;word-break:break-all;">${escapeHtml(d.sha256)}</span></p>`,
+      help: helpContato,
+      footerEmail: CONTATO,
+    }),
+  }
+}
+
 /* --------------------------------- internos --------------------------------- */
 
 export function adminDigest(d: DigestData): RenderedMail {
@@ -580,6 +612,17 @@ export function sampleMails(): RenderedMail[] {
       clientName: 'Cliente Exemplo Ltda',
       title: 'Recesso de fim de ano',
       message: 'A equipe da VEX estará em recesso de 24/12 a 02/01.\n\nAs demandas urgentes seguem atendidas pelo plantão via WhatsApp. Conteúdos programados continuam publicando normalmente.',
+    }),
+    contractSigned({
+      clientName: 'Cliente Exemplo Ltda',
+      titulo: 'Contrato de prestação de serviços · SEO',
+      assinantes: [
+        { nome: 'Davi Exemplo', papel: 'Contratada · VEX Growth', em: '2026-09-14T13:05:00Z' },
+        { nome: 'Ana Exemplo', papel: 'Contratante', em: '2026-09-14T15:40:00Z' },
+      ],
+      sha256: '3f5a9c0e7b2d4e1f8a6c5b3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f',
+      link: `${APP_URL}/assinar/exemplo`,
+      fileName: 'CONTRATO EXEMPLO (assinado).pdf',
     }),
     adminDigest({
       date: '29/08/2026',

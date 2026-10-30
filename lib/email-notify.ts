@@ -52,6 +52,12 @@ async function blindCopy(): Promise<string | undefined> {
 const PARA_EQUIPE = new Set(['admin-digest', 'integration-alert'])
 
 /**
+ * Para cliente, mas sai mesmo com o automático desligado: o dono pediu
+ * (29/10) que o contrato assinado chegue no e-mail do contratante.
+ */
+const SEMPRE_PARA_CLIENTE = new Set(['contract-signed'])
+
+/**
  * E-mail automático para CLIENTE fica desligado (o dono, 17/10: "não é para
  * enviar mais para nenhum cliente"). Volta só com EMAIL_AUTOMATICO_CLIENTE =
  * "on" nas configurações. Resumo diário e alertas da equipe seguem saindo.
@@ -61,15 +67,20 @@ async function clienteLiberado(): Promise<boolean> {
   return ((await getSetting('EMAIL_AUTOMATICO_CLIENTE').catch(() => '')) || '').trim() === 'on'
 }
 
-async function deliver(mail: T.RenderedMail, to: string, refId?: string): Promise<boolean> {
+async function deliver(
+  mail: T.RenderedMail,
+  to: string,
+  refId?: string,
+  attachments?: Array<{ filename: string; content: Buffer; contentType?: string }>,
+): Promise<boolean> {
   try {
-    if (!PARA_EQUIPE.has(mail.kind) && !(await clienteLiberado())) {
+    if (!PARA_EQUIPE.has(mail.kind) && !SEMPRE_PARA_CLIENTE.has(mail.kind) && !(await clienteLiberado())) {
       console.log(`[email] ${mail.kind} para cliente não enviado: e-mail automático a cliente está desligado`)
       return false
     }
     if (!(await smtpConfigured(mail.profile))) return false
     const bcc = await blindCopy()
-    const r = await sendMail({ to, bcc, subject: mail.subject, html: mail.html, profile: mail.profile, kind: mail.kind, refId })
+    const r = await sendMail({ to, bcc, subject: mail.subject, html: mail.html, profile: mail.profile, kind: mail.kind, refId, attachments })
     return r.sent
   } catch (err) {
     console.error(`[email] ${mail.kind} falhou:`, err instanceof Error ? err.message : err)
@@ -152,6 +163,28 @@ export async function notifyNfseCancelled(invoiceId: string, reason: string): Pr
   const n = await nfseData(invoiceId)
   if (!n) return false
   return deliver(T.nfseCancelled({ ...n.data, reason }), n.to, `nfse:${invoiceId}`)
+}
+
+/* -------------------------------- contratos -------------------------------- */
+
+/**
+ * Contrato assinado por todos: o PDF final (com o relatório) vai para o e-mail
+ * do contratante, o mesmo do cadastro do cliente. Uma vez por contrato.
+ */
+export async function notifyContractSigned(d: Omit<T.ContractSignedData, 'clientName'> & { clientId: string | null; pdf: Buffer; refId: string }): Promise<boolean> {
+  if (!d.clientId) return false
+  const client = await prisma.client.findUnique({ where: { id: d.clientId }, select: { name: true, legalName: true, email: true, billingEmail: true, extraEmails: true } })
+  if (!client) return false
+  const to = clientRecipients(client)
+  if (!to) {
+    console.log(`[email] contrato ${d.refId} assinado, mas o cliente não tem e-mail cadastrado`)
+    return false
+  }
+  const mail = T.contractSigned({
+    clientName: client.legalName || client.name,
+    titulo: d.titulo, assinantes: d.assinantes, sha256: d.sha256, link: d.link, fileName: d.fileName,
+  })
+  return deliver(mail, to, d.refId, [{ filename: d.fileName, content: d.pdf, contentType: 'application/pdf' }])
 }
 
 /* ------------------------------ por cliente ------------------------------ */
