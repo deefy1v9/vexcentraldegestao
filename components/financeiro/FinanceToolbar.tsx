@@ -59,7 +59,7 @@ export function MonthPicker({
 /* ----------------------------------- abas ----------------------------------- */
 
 export function FinanceTabs({ active, counts, onChange }: { active: FinTab; counts: Record<FinTab, number>; onChange: (t: FinTab) => void }) {
-  const tabs: FinTab[] = ['visao', 'recebiveis', 'atrasados', 'custos', 'salarios']
+  const tabs: FinTab[] = ['bpo', 'visao', 'recebiveis', 'atrasados', 'custos', 'salarios']
   return (
     <div className="flex items-center gap-1 border-b border-gray-200 -mx-1 overflow-x-auto" role="tablist">
       {tabs.map((t) => {
@@ -75,7 +75,7 @@ export function FinanceTabs({ active, counts, onChange }: { active: FinTab; coun
             className={`relative h-10 px-3 text-sm whitespace-nowrap inline-flex items-center gap-2 transition-colors ${on ? 'text-gray-900 font-bold' : 'text-gray-500 font-medium hover:text-gray-900'}`}
           >
             {FIN_TAB_LABEL[t]}
-            {t !== 'visao' && (
+            {t !== 'visao' && t !== 'bpo' && (
               <span className={`min-w-[22px] h-5 px-1.5 inline-flex items-center justify-center rounded-md text-[11px] font-bold ${
                 on ? 'bg-[#030A8C] text-white' : t === 'atrasados' && n > 0 ? 'bg-red-50 text-red-700' : 'bg-gray-100 text-gray-600'
               }`}>{n}</span>

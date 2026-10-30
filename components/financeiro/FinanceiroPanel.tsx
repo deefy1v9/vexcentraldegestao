@@ -12,6 +12,7 @@ import { MonthPicker, FinanceTabs, FinanceFilterRow, FinanceChips, Pagination } 
 import ReceivablesTable from '@/components/financeiro/ReceivablesTable'
 import EntriesTable from '@/components/financeiro/EntriesTable'
 import OverviewTab from '@/components/financeiro/OverviewTab'
+import BpoTab from '@/components/financeiro/BpoTab'
 import {
   COST_CATEGORIES, CostEditForm, DueDateDialog, NewCostModal, NewSalaryModal, SalaryEditForm, ScopeDialog,
 } from '@/components/financeiro/EntryForms'
@@ -50,7 +51,7 @@ interface MonthData {
 }
 
 const PAGE = 15
-const TABS: FinTab[] = ['visao', 'recebiveis', 'atrasados', 'custos', 'salarios', 'caixa']
+const TABS: FinTab[] = ['bpo', 'visao', 'recebiveis', 'atrasados', 'custos', 'salarios', 'caixa']
 const SORTS: FinSort[] = ['vencimento', 'valor', 'nome']
 
 function currentPeriod() {
@@ -88,7 +89,9 @@ export default function FinanceiroPanel() {
   const [fiscal, setFiscal] = useState<{ ready: boolean; missing: string[] } | null>(null)
 
   /* ------------------------- estado que vive na URL ------------------------- */
-  const tab: FinTab = TABS.includes(params.get('aba') as FinTab) ? (params.get('aba') as FinTab) : 'recebiveis'
+  // Sem aba na URL abre o BPO; link antigo com filtro (?situacao=...) continua caindo em Recebíveis
+  const temFiltro = ['q', 'situacao', 'tipo', 'categoria'].some((k) => params.get(k))
+  const tab: FinTab = TABS.includes(params.get('aba') as FinTab) ? (params.get('aba') as FinTab) : temFiltro ? 'recebiveis' : 'bpo'
   const sort: FinSort = SORTS.includes(params.get('ordem') as FinSort) ? (params.get('ordem') as FinSort) : 'vencimento'
   const filters: FinFilters = useMemo(() => ({
     q: params.get('q') ?? '',
@@ -103,7 +106,7 @@ export default function FinanceiroPanel() {
     const q = new URLSearchParams()
     q.set('mes', `${p.year}-${String(p.month).padStart(2, '0')}`)
     const t = next.tab ?? tab
-    if (t !== 'recebiveis') q.set('aba', t)
+    if (t !== 'bpo') q.set('aba', t)
     const s = next.sort ?? sort
     if (s !== 'vencimento') q.set('ordem', s)
     if (m.q) q.set('q', m.q)
@@ -313,7 +316,7 @@ export default function FinanceiroPanel() {
 
         {tab === 'caixa' && <CaixaPanel />}
 
-        {tab !== 'visao' && tab !== 'caixa' && (
+        {tab !== 'visao' && tab !== 'caixa' && tab !== 'bpo' && (
           <>
             <FinanceFilterRow
               filters={filters}
@@ -340,6 +343,8 @@ export default function FinanceiroPanel() {
           <div className="space-y-3 animate-pulse py-2">
             {[...Array(5)].map((_, i) => <div key={i} className="h-14 bg-white border border-gray-200 rounded-xl" />)}
           </div>
+        ) : tab === 'bpo' ? (
+          <BpoTab competencia={`${period.year}-${String(period.month).padStart(2, '0')}`} />
         ) : tab === 'visao' ? (
           <OverviewTab summary={data?.summary ?? null} upcoming={data?.upcoming ?? []} recent={data?.recent ?? []} />
         ) : (

@@ -48,6 +48,7 @@ export interface MonthSummary {
     atrasadaCents: number
     custosPrevistosCents: number
     custosPagosCents: number
+    salariosPagosCents: number
     resultadoPrevistoCents: number
     lucroRealizadoCents: number
     mrrCents: number
@@ -251,6 +252,7 @@ export async function getMonthSummary(year: number, month: number): Promise<Mont
           atrasadaCents: prev.atrasadaCents,
           custosPrevistosCents: prev.custosPrevistosCents,
           custosPagosCents: prev.custosPagosCents,
+          salariosPagosCents: prev.salariosPagosCents,
           resultadoPrevistoCents: prev.resultadoPrevistoCents,
           lucroRealizadoCents: prev.lucroRealizadoCents,
           mrrCents: prev.mrrCents,
