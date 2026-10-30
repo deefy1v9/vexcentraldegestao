@@ -257,3 +257,29 @@ export function contaCorrente(lancamentos: LancamentoSocio[]): ContaSocio {
     lancamentos: [...lancamentos].sort((a, b) => b.dia.localeCompare(a.dia)),
   }
 }
+
+export interface PontoSaldo {
+  dia: string
+  saldoCents: number
+  /** O mesmo saldo se os recebimentos atrasados entrarem. */
+  comAtrasadosCents: number
+}
+
+/**
+ * Saldo dia a dia de hoje até `dias` à frente, para o gráfico do fluxo: o
+ * saldo de hoje já desconta o que está vencido a pagar; cada dia soma o que
+ * entra e tira o que sai naquele dia.
+ */
+export function serieSaldoDiaria(params: { saldoCents: number; hoje: string; receber: Previsto[]; pagar: Previsto[]; dias?: number }): PontoSaldo[] {
+  const { saldoCents, hoje, receber, pagar } = params
+  const atrasados = receber.filter((r) => r.vence < hoje).reduce((s, r) => s + r.cents, 0)
+  let saldo = saldoCents - pagar.filter((p) => p.vence < hoje).reduce((s, p) => s + p.cents, 0)
+  const pontos: PontoSaldo[] = []
+  for (let i = 0; i <= (params.dias ?? 90); i++) {
+    const dia = addDays(hoje, i)
+    saldo += receber.filter((r) => r.vence === dia).reduce((s, r) => s + r.cents, 0)
+    saldo -= pagar.filter((p) => p.vence === dia).reduce((s, p) => s + p.cents, 0)
+    pontos.push({ dia, saldoCents: saldo, comAtrasadosCents: saldo + atrasados })
+  }
+  return pontos
+}

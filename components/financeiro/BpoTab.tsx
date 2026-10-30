@@ -1,8 +1,13 @@
 'use client'
 
 import { useEffect, useState, type ReactNode } from 'react'
-import { AlertTriangle, ArrowDownCircle, ArrowUpCircle, CheckCircle2, ChevronDown, Circle, Plus, Printer, ShieldCheck, Wallet } from 'lucide-react'
-import type { ContaSocio, FaixaAtraso, ItemChecklist, LinhaDre, MovSocio, Previsto, Projecao, ReceitaCliente, Risco } from '@/lib/bpo-core'
+import {
+  Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
+} from 'recharts'
+import { AlertTriangle, ArrowDownLeft, ArrowUpRight, CheckCircle2, Circle, Plus, Printer, ShieldCheck, Wallet } from 'lucide-react'
+import type {
+  ContaSocio, FaixaAtraso, ItemChecklist, LinhaDre, MovSocio, PontoSaldo, Previsto, Projecao, ReceitaCliente, Risco,
+} from '@/lib/bpo-core'
 
 interface Socio {
   id: string; socio: string; tipo: string
@@ -12,7 +17,7 @@ interface ClienteNovo { id: string; nome: string; origem: string | null; desde: 
 
 interface BpoData {
   referencia: { hoje: string; competencia: string }
-  caixa: { saldoCents: number; risco: Risco; projecoes: Projecao[]; atrasadosReceberCents: number }
+  caixa: { saldoCents: number; risco: Risco; projecoes: Projecao[]; atrasadosReceberCents: number; serie: PontoSaldo[] }
   pagar: { vencidas: Previsto[]; proximos7: Previsto[]; ate30: Previsto[] }
   receber: {
     proximos7: Previsto[]
@@ -28,36 +33,84 @@ interface BpoData {
   checklist: ItemChecklist[]
 }
 
+/* Paleta dos gráficos: as mesmas cores dos tokens da Central (marca, sucesso, perigo e séries) */
+const COR = { marca: '#030A8C', verde: '#15803d', vermelho: '#d92d20', laranja: '#e8500f', cinza: '#98a2b3', grafite: '#1d2939', areia: '#f2994a' }
+const PIZZA = [COR.marca, COR.laranja, COR.grafite, COR.areia, '#5b63c7', COR.cinza, '#c4c9d4']
+
 const brl = (c: number) => (c / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const brlCurto = (c: number) => (c / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact', maximumFractionDigits: 1 })
 const br = (d: string) => d.split('-').reverse().join('/')
 const soma = (l: Previsto[]) => l.reduce((s, p) => s + p.cents, 0)
+const ORIGEM: Record<string, string> = { ANUNCIO: 'Anúncio', INDICACAO: 'Indicação', SOCIO: 'Dos sócios', OUTRO: 'Outro' }
 
-const COR_RISCO: Record<Risco, { tile: string; texto: string; frase: string }> = {
-  falta: { tile: 'bg-red-50 border-red-200', texto: 'text-red-700', frase: 'Vai faltar dinheiro' },
-  apertado: { tile: 'bg-amber-50 border-amber-200', texto: 'text-amber-700', frase: 'Caixa apertado' },
-  ok: { tile: 'bg-green-50 border-green-200', texto: 'text-green-700', frase: 'Caixa cobre as contas' },
+function Cartao({ titulo, subtitulo, acao, children, className = '' }: { titulo: string; subtitulo?: string; acao?: ReactNode; children: ReactNode; className?: string }) {
+  return (
+    <section className={`min-w-0 rounded-xl border border-border bg-card p-5 break-inside-avoid ${className}`}>
+      <div className="flex items-start gap-3 mb-4">
+        <div className="min-w-0">
+          <h3 className="t-secao text-foreground">{titulo}</h3>
+          {subtitulo && <p className="t-legenda mt-0.5">{subtitulo}</p>}
+        </div>
+        {acao && <div className="ml-auto shrink-0">{acao}</div>}
+      </div>
+      {children}
+    </section>
+  )
 }
 
-function Numero({ rotulo, valor, detalhe, icone, cls = 'bg-white border-gray-200', valorCls = 'text-gray-900', rotuloCls = 'text-gray-500' }: { rotulo: string; valor: string; detalhe?: string; icone?: ReactNode; cls?: string; valorCls?: string; rotuloCls?: string }) {
+function Metrica({ rotulo, valor, detalhe, icone, tom = 'neutro' }: { rotulo: string; valor: string; detalhe: string; icone: ReactNode; tom?: 'neutro' | 'marca' | 'ok' | 'alerta' | 'perigo' }) {
+  const fundo = tom === 'marca' ? 'bg-marca text-white border-transparent' : 'bg-card border-border'
+  const corValor = tom === 'ok' ? 'text-success' : tom === 'perigo' ? 'text-destructive' : tom === 'alerta' ? 'text-warning' : tom === 'marca' ? 'text-white' : 'text-foreground'
   return (
-    <div className={`rounded-2xl border px-4 py-3 shadow-sm ${cls}`}>
-      <div className="flex items-center gap-1.5">
-        {icone}
-        <p className={`text-[11px] uppercase tracking-wide font-semibold ${rotuloCls}`}>{rotulo}</p>
+    <div className={`rounded-xl border p-5 flex flex-col gap-3 ${fundo}`}>
+      <div className="flex items-center gap-2">
+        <span className={`w-8 h-8 rounded-lg flex items-center justify-center ${tom === 'marca' ? 'bg-white/15' : 'bg-secondary'}`}>{icone}</span>
+        <p className={`t-rotulo ${tom === 'marca' ? 'text-white/80' : 'text-muted-foreground'}`}>{rotulo}</p>
       </div>
-      <p className={`text-2xl font-bold tabular-nums mt-1 ${valorCls}`}>{valor}</p>
-      {detalhe && <p className={`text-[11px] mt-0.5 ${rotuloCls} opacity-90`}>{detalhe}</p>}
+      <p className={`text-[26px] leading-none font-semibold tabular-nums ${corValor}`}>{valor}</p>
+      <p className={`t-legenda ${tom === 'marca' ? '!text-white/70' : ''}`}>{detalhe}</p>
     </div>
   )
 }
 
+function Dica({ active, payload, label }: { active?: boolean; payload?: Array<{ name: string; value: number; color: string }>; label?: string }) {
+  if (!active || !payload?.length) return null
+  return (
+    <div className="rounded-lg border border-border bg-card px-3 py-2 shadow-sm text-[12px]">
+      {label && <p className="t-meta mb-1">{/^\d{4}-\d{2}-\d{2}$/.test(label) ? br(label) : label}</p>}
+      {payload.map((p) => (
+        <p key={p.name} className="flex items-center gap-2 tabular-nums">
+          <span className="w-2 h-2 rounded-full" style={{ background: p.color }} />
+          <span className="text-muted-foreground">{p.name}</span>
+          <span className="ml-auto font-semibold text-foreground">{brl(p.value)}</span>
+        </p>
+      ))}
+    </div>
+  )
+}
+
+function Linhas({ itens, vazio, cor }: { itens: Previsto[]; vazio: string; cor?: string }) {
+  if (itens.length === 0) return <p className="t-legenda py-2">{vazio}</p>
+  return (
+    <ul className="divide-y divide-border">
+      {itens.map((p, i) => (
+        <li key={`${p.nome}-${p.vence}-${i}`} className="flex items-center gap-3 py-2 t-corpo">
+          <span className="t-meta tabular-nums w-10 shrink-0">{br(p.vence).slice(0, 5)}</span>
+          <span className="text-foreground truncate flex-1">{p.nome}</span>
+          <span className={`font-medium tabular-nums shrink-0 ${cor ?? 'text-foreground'}`}>{brl(p.cents)}</span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 const SITUACAO = {
-  deve: { rotulo: 'Deve à empresa', cls: 'bg-red-50 text-red-700 border-red-100' },
-  receber: { rotulo: 'A receber da empresa', cls: 'bg-green-50 text-green-700 border-green-100' },
-  zerado: { rotulo: 'Em dia com a empresa', cls: 'bg-gray-50 text-gray-600 border-gray-100' },
+  deve: { rotulo: 'Deve à empresa', cls: 'bg-destructive/10 text-destructive', frase: 'Precisa pagar este valor à empresa.' },
+  receber: { rotulo: 'A receber da empresa', cls: 'bg-success/10 text-success', frase: 'A empresa precisa devolver este valor.' },
+  zerado: { rotulo: 'Em dia com a empresa', cls: 'bg-secondary text-muted-foreground', frase: 'Nada a pagar nem a receber.' },
 } as const
 
-/** Um sócio: saldo com a empresa em destaque; ao abrir, os lançamentos, as retiradas do mês e o acerto. */
+/** Um sócio: saldo com a empresa, o mês dele e o histórico, tudo à vista. */
 function CartaoSocio({ s, mesAno, investidor, anuncio, onOrigem, onSalvo }: {
   s: Socio
   mesAno: string
@@ -81,150 +134,106 @@ function CartaoSocio({ s, mesAno, investidor, anuncio, onOrigem, onSalvo }: {
     setForm(false); setValor(''); setDescricao(''); onSalvo()
   }
 
+  const investidorSocio = s.tipo === 'INVESTIDOR'
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
-      <div className="px-4 pt-3 pb-3">
-        <div className="flex items-center gap-2">
-          <span className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white ${s.tipo === 'INVESTIDOR' ? 'bg-purple-600' : 'bg-[#030A8C]'}`}>{s.socio.slice(0, 1)}</span>
-          <div className="min-w-0">
-            <p className="font-semibold text-gray-900 text-sm leading-tight truncate">{s.socio}</p>
-            <p className={`text-[10px] font-semibold uppercase tracking-wide ${s.tipo === 'INVESTIDOR' ? 'text-purple-600' : 'text-[#030A8C]'}`}>{s.tipo === 'INVESTIDOR' ? 'Sócio investidor' : 'Sócio operacional'}</p>
-          </div>
+    <div className="min-w-0 rounded-xl border border-border bg-card p-5 flex flex-col gap-4">
+      <div className="flex items-center gap-3">
+        <span className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold text-white ${investidorSocio ? 'bg-[#6d28d9]' : 'bg-marca'}`}>{s.socio.slice(0, 1)}</span>
+        <div className="min-w-0">
+          <p className="t-secao text-foreground truncate">{s.socio}</p>
+          <p className="t-legenda">{investidorSocio ? 'Sócio investidor' : 'Sócio operacional'}</p>
         </div>
-        <div className={`mt-3 rounded-xl border px-3 py-2 ${sit.cls}`}>
-          <p className="text-[10px] uppercase tracking-wide font-semibold opacity-80">{sit.rotulo}</p>
-          <p className="text-xl font-bold tabular-nums">{s.conta.situacao === 'zerado' ? 'R$ 0,00' : brl(Math.abs(s.conta.saldoCents))}</p>
-          {s.conta.situacao === 'deve' && <p className="text-[11px]">Precisa pagar este valor à empresa.</p>}
-          {s.conta.situacao === 'receber' && <p className="text-[11px]">A empresa precisa devolver este valor.</p>}
+        <span className={`ml-auto t-meta rounded-full px-2.5 py-1 ${sit.cls}`}>{sit.rotulo}</span>
+      </div>
+
+      <div>
+        <p className={`text-[28px] leading-none font-semibold tabular-nums ${s.conta.situacao === 'deve' ? 'text-destructive' : s.conta.situacao === 'receber' ? 'text-success' : 'text-foreground'}`}>
+          {s.conta.situacao === 'zerado' ? 'R$ 0,00' : brl(Math.abs(s.conta.saldoCents))}
+        </p>
+        <p className="t-legenda mt-1">{sit.frase}</p>
+      </div>
+
+      {investidorSocio ? (
+        <div className="rounded-lg bg-secondary px-3 py-2.5 t-corpo text-muted-foreground">
+          Recebe dos clientes novos que vierem de anúncio. Em {mesAno}: <strong className="text-foreground">{anuncio.length} cliente(s)</strong>, {brl(anuncio.reduce((t, c) => t + c.previstoCents, 0))} de receita · percentual a definir.
         </div>
-        {investidor ? (
-          <p className="text-[11px] text-gray-500 mt-2">Recebe dos clientes novos vindos de anúncio. Em {mesAno}: {anuncio.length} cliente(s), {brl(anuncio.reduce((t, c) => t + c.previstoCents, 0))} de receita · percentual a definir.</p>
-        ) : (
-          <div className="grid grid-cols-3 gap-2 mt-2 text-[11px]">
-            <div><p className="text-gray-400">Retirou no mês</p><p className="font-semibold text-gray-900 tabular-nums">{brl(s.retiradasCents)}</p></div>
-            <div><p className="text-gray-400">Pôs no caixa</p><p className="font-semibold text-gray-900 tabular-nums">{brl(s.aportesCents)}</p></div>
-            <div><p className="text-gray-400">Líquido</p><p className="font-semibold text-[#030A8C] tabular-nums">{brl(s.liquidoCents)}</p></div>
-          </div>
+      ) : (
+        <div className="grid grid-cols-3 gap-2 rounded-lg bg-secondary px-3 py-2.5">
+          <div><p className="t-meta">Retirou no mês</p><p className="t-rotulo text-foreground tabular-nums mt-0.5">{brl(s.retiradasCents)}</p></div>
+          <div><p className="t-meta">Pôs no caixa</p><p className="t-rotulo text-foreground tabular-nums mt-0.5">{brl(s.aportesCents)}</p></div>
+          <div><p className="t-meta">Líquido</p><p className="t-rotulo text-marca-texto tabular-nums mt-0.5">{brl(s.liquidoCents)}</p></div>
+        </div>
+      )}
+
+      <div className="min-h-0">
+        <p className="t-rotulo text-foreground mb-1.5">Conta com a empresa</p>
+        {s.conta.lancamentos.length === 0 ? <p className="t-legenda">Nenhum lançamento.</p> : (
+          <ul className="max-h-36 overflow-y-auto pr-1 space-y-1.5">
+            {s.conta.lancamentos.map((l, i) => (
+              <li key={i} className="flex items-start gap-2 text-[12px] leading-snug">
+                <span className="t-meta tabular-nums w-9 shrink-0">{br(l.dia).slice(0, 5)}</span>
+                <span className="text-muted-foreground flex-1">{l.description}</span>
+                <span className={`tabular-nums shrink-0 font-medium ${l.amountCents < 0 ? 'text-destructive' : 'text-success'}`}>{l.amountCents < 0 ? '−' : '+'}{brl(Math.abs(l.amountCents))}</span>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
-      <details className="group border-t border-gray-100">
-        <summary className="list-none cursor-pointer select-none px-4 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50 flex items-center">
-          Ver lançamentos {investidor ? 'e clientes novos' : 'e retiradas'}
-          <ChevronDown className="w-4 h-4 text-gray-400 ml-auto transition-transform group-open:rotate-180" />
-        </summary>
-        <div className="px-4 pb-3 space-y-3">
-          <div>
-            <p className="text-[11px] font-semibold text-gray-700 mb-1">Conta com a empresa</p>
-            {s.conta.lancamentos.length === 0 && <p className="text-[11px] text-gray-400">Nenhum lançamento.</p>}
-            <ul className="space-y-1 text-[11px] text-gray-600">
-              {s.conta.lancamentos.map((l, i) => (
-                <li key={i} className="flex justify-between gap-2">
-                  <span className="truncate"><span className="text-gray-400 tabular-nums mr-1">{br(l.dia).slice(0, 5)}</span>{l.description}</span>
-                  <span className={`tabular-nums shrink-0 ${l.amountCents < 0 ? 'text-red-600' : 'text-green-700'}`}>{l.amountCents < 0 ? '−' : '+'}{brl(Math.abs(l.amountCents))}</span>
+
+      {investidor && (
+        <div>
+          <p className="t-rotulo text-foreground mb-1.5">Clientes novos desde {br(investidor.desde)}</p>
+          {investidor.clientes.length === 0 ? <p className="t-legenda">Nenhum.</p> : (
+            <ul className="max-h-32 overflow-y-auto pr-1 space-y-1.5">
+              {investidor.clientes.map((c) => (
+                <li key={c.id} className="flex items-center gap-2 text-[12px]">
+                  <span className="truncate flex-1 text-foreground">{c.nome} <span className="text-muted-foreground">· {brl(c.previstoCents)}</span></span>
+                  <select value={c.origem ?? ''} onChange={(e) => onOrigem(c.id, e.target.value)} className="h-7 rounded-md border border-border bg-card px-1.5 text-[12px]">
+                    <option value="">Origem?</option>
+                    {Object.entries(ORIGEM).map(([v, r]) => <option key={v} value={v}>{r}</option>)}
+                  </select>
                 </li>
               ))}
             </ul>
-          </div>
-          {investidor ? (
-            <div>
-              <p className="text-[11px] font-semibold text-gray-700 mb-1">Clientes novos desde {br(investidor.desde)}</p>
-              <ul className="space-y-1.5 text-[11px]">
-                {investidor.clientes.length === 0 && <li className="text-gray-400">Nenhum.</li>}
-                {investidor.clientes.map((c) => (
-                  <li key={c.id} className="flex items-center gap-2">
-                    <span className="truncate flex-1 text-gray-700">{c.nome} <span className="text-gray-400">· {brl(c.previstoCents)}</span></span>
-                    <select value={c.origem ?? ''} onChange={(e) => onOrigem(c.id, e.target.value)} className="h-7 rounded-md border border-gray-200 bg-white px-1.5 text-[11px]">
-                      <option value="">Origem?</option>
-                      {Object.entries(ORIGEM).map(([v, r]) => <option key={v} value={v}>{r}</option>)}
-                    </select>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : (
-            <div>
-              <p className="text-[11px] font-semibold text-gray-700 mb-1">Retiradas e aportes no caixa ({mesAno})</p>
-              <ul className="space-y-1 text-[11px] text-gray-600">
-                {s.movimentos.length === 0 && <li className="text-gray-400">Nenhum no mês.</li>}
-                {s.movimentos.map((m, i) => (
-                  <li key={i} className="flex justify-between gap-2">
-                    <span className="truncate"><span className="text-gray-400 tabular-nums mr-1">{br(m.dia).slice(0, 5)}</span>{m.kind === 'APORTE' ? '+ ' : ''}{m.descricao}</span>
-                    <span className={`tabular-nums shrink-0 ${m.kind === 'APORTE' ? 'text-green-700' : 'text-gray-900'}`}>{brl(Math.abs(m.cents))}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {form ? (
-            <div className="rounded-lg bg-gray-50 border border-gray-100 p-2 space-y-1.5">
-              <select value={tipo} onChange={(e) => setTipo(e.target.value as 'CREDITO' | 'DEBITO')} className="h-8 w-full rounded-md border border-gray-200 bg-white px-2 text-xs">
-                <option value="CREDITO">Pagou à empresa / pagou conta do bolso (+)</option>
-                <option value="DEBITO">Ficou devendo à empresa (−)</option>
-              </select>
-              <div className="flex gap-1.5">
-                <input value={valor} onChange={(e) => setValor(e.target.value)} placeholder="Valor (ex.: 160,00)" className="h-8 w-28 rounded-md border border-gray-200 bg-white px-2 text-xs" />
-                <input value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Do que se trata" className="h-8 flex-1 min-w-0 rounded-md border border-gray-200 bg-white px-2 text-xs" />
-              </div>
-              {erro && <p className="text-[11px] text-red-600">{erro}</p>}
-              <div className="flex justify-end gap-1.5">
-                <button type="button" onClick={() => setForm(false)} className="h-7 px-2.5 rounded-md text-[11px] text-gray-600 hover:bg-gray-100">Cancelar</button>
-                <button type="button" onClick={salvar} className="h-7 px-3 rounded-md bg-[#030A8C] text-white text-[11px] font-semibold">Salvar</button>
-              </div>
-            </div>
-          ) : (
-            <button type="button" onClick={() => setForm(true)} className="h-7 px-2.5 inline-flex items-center gap-1 rounded-md border border-gray-200 text-[11px] font-semibold text-gray-700 hover:border-[#030A8C] hover:text-[#030A8C]">
-              <Plus className="w-3 h-3" /> Registrar acerto
-            </button>
           )}
         </div>
-      </details>
+      )}
+
+      <div className="mt-auto">
+        {form ? (
+          <div className="rounded-lg border border-border p-3 space-y-2">
+            <div className="grid grid-cols-2 gap-1.5">
+              {(['CREDITO', 'DEBITO'] as const).map((t) => (
+                <button key={t} type="button" onClick={() => setTipo(t)} className={`h-8 rounded-md text-[12px] font-medium border ${tipo === t ? 'border-marca bg-marca-suave text-marca-texto' : 'border-border text-muted-foreground'}`}>
+                  {t === 'CREDITO' ? 'Pagou / pôs (+)' : 'Ficou devendo (−)'}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-1.5">
+              <input value={valor} onChange={(e) => setValor(e.target.value)} placeholder="Valor" className="h-8 w-24 rounded-md border border-border bg-card px-2 text-[12px]" />
+              <input value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Do que se trata" className="h-8 flex-1 min-w-0 rounded-md border border-border bg-card px-2 text-[12px]" />
+            </div>
+            {erro && <p className="text-[12px] text-destructive">{erro}</p>}
+            <div className="flex justify-end gap-1.5">
+              <button type="button" onClick={() => setForm(false)} className="h-8 px-3 rounded-md text-[12px] text-muted-foreground hover:bg-secondary">Cancelar</button>
+              <button type="button" onClick={salvar} className="h-8 px-3 rounded-md bg-marca text-white text-[12px] font-medium">Salvar acerto</button>
+            </div>
+          </div>
+        ) : (
+          <button type="button" onClick={() => setForm(true)} className="w-full h-9 inline-flex items-center justify-center gap-1.5 rounded-lg border border-border text-[12.5px] font-medium text-foreground hover:border-marca hover:text-marca-texto">
+            <Plus className="w-3.5 h-3.5" /> Registrar acerto
+          </button>
+        )}
+      </div>
     </div>
   )
 }
 
-/** Seção que abre e fecha; o resumo fica sempre visível na linha do título. */
-function Secao({ id, titulo, resumo, alerta, children, aberta = false }: { id: string; titulo: string; resumo: ReactNode; alerta?: boolean; children: ReactNode; aberta?: boolean }) {
-  return (
-    <details id={`bpo-${id}`} open={aberta} className="group bg-white border border-gray-200 rounded-2xl overflow-hidden break-inside-avoid">
-      <summary className="flex items-center gap-3 px-4 py-3 cursor-pointer list-none select-none hover:bg-gray-50">
-        <span className="font-semibold text-gray-900 text-sm">{titulo}</span>
-        <span className={`text-xs ml-auto text-right ${alerta ? 'text-red-600 font-medium' : 'text-gray-500'}`}>{resumo}</span>
-        <ChevronDown className="w-4 h-4 text-gray-400 shrink-0 transition-transform group-open:rotate-180" />
-      </summary>
-      <div className="px-4 pb-4 pt-1 border-t border-gray-100">{children}</div>
-    </details>
-  )
-}
-
-function Lista({ itens, vazio, max = 8 }: { itens: Previsto[]; vazio: string; max?: number }) {
-  if (itens.length === 0) return <p className="text-xs text-gray-400">{vazio}</p>
-  return (
-    <ul className="divide-y divide-gray-100 text-sm">
-      {itens.slice(0, max).map((p, i) => (
-        <li key={`${p.nome}-${p.vence}-${i}`} className="flex items-center justify-between gap-3 py-1.5">
-          <span className="text-gray-700 min-w-0 truncate"><span className="text-gray-400 tabular-nums mr-2">{br(p.vence).slice(0, 5)}</span>{p.nome}</span>
-          <span className="font-medium text-gray-900 tabular-nums shrink-0">{brl(p.cents)}</span>
-        </li>
-      ))}
-      {itens.length > max && <li className="py-1.5 text-xs text-gray-400">+ {itens.length - max} item(ns)</li>}
-    </ul>
-  )
-}
-
-function Variacao({ l }: { l: LinhaDre }) {
-  if (l.anteriorCents === null || l.anteriorCents === 0) return <span className="text-gray-300">—</span>
-  const pct = Math.round(((l.atualCents - l.anteriorCents) / Math.abs(l.anteriorCents)) * 100)
-  const ruim = l.despesa ? pct > 0 : pct < 0
-  return <span className={pct === 0 ? 'text-gray-400' : ruim ? 'text-red-600' : 'text-green-600'}>{pct > 0 ? '+' : ''}{pct}%</span>
-}
-
-const ORIGEM: Record<string, string> = { ANUNCIO: 'Anúncio', INDICACAO: 'Indicação', SOCIO: 'Dos sócios', OUTRO: 'Outro' }
-
 /**
- * BPO financeiro: no topo os quatro números que respondem "tem dinheiro?",
- * ao lado o fechamento do mês em uma barra, os sócios em cartões e o resto em
- * seções que abrem com um clique (o resumo de cada uma fica na linha do
- * título). Só leitura, fora a origem dos clientes novos do investidor.
+ * BPO financeiro: os números que respondem "tem dinheiro?", o saldo dia a
+ * dia em gráfico, o fechamento do mês, os sócios com o saldo de cada um com a
+ * empresa e, embaixo, para onde vai e de onde vem o dinheiro. Tudo à vista,
+ * sem nada para abrir.
  */
 export default function BpoTab({ competencia }: { competencia: string }) {
   // A resposta guarda a competência: trocar de mês mostra o carregando até chegar a nova
@@ -249,209 +258,228 @@ export default function BpoTab({ competencia }: { competencia: string }) {
     setVersao((v) => v + 1)
   }
 
-  if (erro) return <p className="text-sm font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-3 text-center">{erro}</p>
+  if (erro) return <p className="t-corpo font-medium text-destructive bg-destructive/10 rounded-lg px-4 py-3 text-center">{erro}</p>
   if (!d) {
     return (
-      <div className="space-y-3 animate-pulse py-2">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">{[...Array(4)].map((_, i) => <div key={i} className="h-20 bg-white border border-gray-200 rounded-2xl" />)}</div>
-        {[...Array(3)].map((_, i) => <div key={i} className="h-12 bg-white border border-gray-200 rounded-2xl" />)}
+      <div className="space-y-4 animate-pulse py-2">
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">{[...Array(4)].map((_, i) => <div key={i} className="h-32 rounded-xl border border-border bg-card" />)}</div>
+        <div className="h-72 rounded-xl border border-border bg-card" />
       </div>
     )
   }
 
   const [ano, mes] = d.referencia.competencia.split('-')
   const d30 = d.caixa.projecoes.find((p) => p.dias === 30)
-  const risco = COR_RISCO[d.caixa.risco]
   const okFechamento = d.checklist.filter((i) => i.ok).length
-  const pagar30 = soma(d.pagar.vencidas) + soma(d.pagar.proximos7) + soma(d.pagar.ate30)
-  const atrasado = d.receber.faixas.reduce((s, f) => s + f.cents, 0)
-  const resultado = d.dre.find((l) => l.rotulo.includes('operacional'))
   const anuncio = d.investidor?.clientes.filter((c) => c.origem === 'ANUNCIO') ?? []
+  const pagarTodas = [...d.pagar.vencidas, ...d.pagar.proximos7, ...d.pagar.ate30]
+  const atrasado = d.receber.faixas.reduce((s, f) => s + f.cents, 0)
+
+  const serie = d.caixa.serie.map((p) => ({ dia: p.dia, Saldo: p.saldoCents, 'Se os atrasados entrarem': p.comAtrasadosCents }))
+  // Rosca legível: as seis maiores fatias e o resto junto em "Outros"
+  const custosTodos = d.custosPorCategoria.filter((c) => c.previstoCents > 0).sort((a, b) => b.previstoCents - a.previstoCents)
+  const custosOutros = custosTodos.slice(6).reduce((s, c) => s + c.previstoCents, 0)
+  const custos = [...custosTodos.slice(0, 6).map((c) => ({ nome: c.category, valor: c.previstoCents })), ...(custosOutros > 0 ? [{ nome: 'Outros', valor: custosOutros }] : [])]
+  const topClientes = d.concentracao.clientes.slice(0, 6)
+  const outros = d.concentracao.clientes.slice(6).reduce((s, c) => s + c.cents, 0)
+  const receitas = [...topClientes.map((c) => ({ nome: c.nome, valor: c.cents })), ...(outros > 0 ? [{ nome: 'Outros', valor: outros }] : [])]
+  const linha = (rotulo: string) => d.dre.find((l) => l.rotulo.includes(rotulo))
+  const comparativo = [
+    { mes: 'Mês anterior', Recebido: linha('recebida')?.anteriorCents ?? 0, Custos: (linha('Custos')?.anteriorCents ?? 0) + (linha('Salários')?.anteriorCents ?? 0), Retiradas: linha('Retiradas')?.anteriorCents ?? 0 },
+    { mes: `${mes}/${ano}`, Recebido: linha('recebida')?.atualCents ?? 0, Custos: (linha('Custos')?.atualCents ?? 0) + (linha('Salários')?.atualCents ?? 0), Retiradas: linha('Retiradas')?.atualCents ?? 0 },
+  ]
+  const resultado = linha('operacional')
 
   return (
-    <div className="space-y-3 py-2">
-      <div className="flex items-center gap-2 text-[11px] text-gray-500">
-        <span>Dados da Central em {br(d.referencia.hoje)} · competência {mes}/{ano} · gerencial, não substitui a contabilidade</span>
-        <button type="button" onClick={() => window.print()} className="ml-auto h-7 px-2.5 inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white font-semibold text-gray-700 hover:border-[#030A8C] hover:text-[#030A8C] print:hidden">
+    <div className="space-y-4 py-2">
+      <div className="flex items-center gap-2">
+        <p className="t-legenda">Dados da Central em {br(d.referencia.hoje)} · competência {mes}/{ano} · visão gerencial, não substitui a contabilidade</p>
+        <button type="button" onClick={() => window.print()} className="ml-auto h-8 px-3 inline-flex items-center gap-1.5 rounded-lg border border-border bg-card t-rotulo text-foreground hover:border-marca print:hidden">
           <Printer className="w-3.5 h-3.5" /> Relatório
         </button>
       </div>
 
-      {/* Tem dinheiro? Os quatro números, e o fechamento do mês ao lado */}
-      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,3fr)_minmax(0,1.2fr)] gap-3">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <Numero rotulo="Caixa hoje" valor={brl(d.caixa.saldoCents)} detalhe="saldo lançado na Central" icone={<Wallet className="w-3.5 h-3.5 text-white/80" />} cls="bg-gradient-to-br from-[#030A8C] to-[#2a35c9] border-transparent" valorCls="text-white" rotuloCls="text-white/80" />
-          <Numero rotulo="Entra em 30 dias" valor={brl(d30?.entradasCents ?? 0)} valorCls="text-green-700" detalhe={d.caixa.atrasadosReceberCents ? `+ ${brl(d.caixa.atrasadosReceberCents)} atrasado` : 'parcelas no prazo'} icone={<ArrowDownCircle className="w-3.5 h-3.5 text-green-600" />} />
-          <Numero rotulo="Sai em 30 dias" valor={brl(d30?.saidasCents ?? 0)} valorCls="text-red-600" detalhe="custos e salários em aberto" icone={<ArrowUpCircle className="w-3.5 h-3.5 text-red-500" />} />
-          <Numero rotulo={risco.frase} valor={brl(d30?.saldoCents ?? 0)} cls={risco.tile} valorCls={risco.texto} detalhe={`sobra até ${d30 ? br(d30.ate).slice(0, 5) : '—'}`} icone={d.caixa.risco === 'ok' ? <ShieldCheck className="w-3.5 h-3.5 text-green-600" /> : <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />} />
-        </div>
-        <details className="group bg-white border border-gray-200 rounded-2xl px-4 py-3">
-          <summary className="list-none cursor-pointer select-none">
-            <div className="flex items-center justify-between">
-              <p className="text-[11px] uppercase tracking-wide text-gray-500 font-medium">Fechamento de {mes}/{ano}</p>
-              <ChevronDown className="w-4 h-4 text-gray-400 transition-transform group-open:rotate-180" />
-            </div>
-            <p className="text-xl font-bold text-gray-900 mt-0.5">{okFechamento} de {d.checklist.length} <span className="text-xs font-medium text-gray-500">itens ok</span></p>
-            <div className="flex gap-1 mt-2">
-              {d.checklist.map((i) => <span key={i.rotulo} title={i.rotulo} className={`h-1.5 flex-1 rounded-full ${i.ok ? 'bg-green-500' : 'bg-amber-400'}`} />)}
-            </div>
-          </summary>
-          <ul className="space-y-1.5 mt-3">
+      {/* Tem dinheiro? */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+        <Metrica rotulo="Caixa hoje" valor={brl(d.caixa.saldoCents)} detalhe="saldo lançado na Central" icone={<Wallet className="w-4 h-4 text-white" />} tom="marca" />
+        <Metrica rotulo="Entra em 30 dias" valor={brl(d30?.entradasCents ?? 0)} detalhe={d.caixa.atrasadosReceberCents ? `+ ${brl(d.caixa.atrasadosReceberCents)} atrasado` : 'parcelas no prazo'} icone={<ArrowDownLeft className="w-4 h-4 text-success" />} tom="ok" />
+        <Metrica rotulo="Sai em 30 dias" valor={brl(d30?.saidasCents ?? 0)} detalhe="custos e salários em aberto" icone={<ArrowUpRight className="w-4 h-4 text-destructive" />} tom="perigo" />
+        <Metrica
+          rotulo={d.caixa.risco === 'ok' ? 'Sobra em 30 dias' : d.caixa.risco === 'falta' ? 'Falta em 30 dias' : 'Sobra apertada'}
+          valor={brl(d30?.saldoCents ?? 0)}
+          detalhe={d.caixa.risco === 'ok' ? 'o caixa cobre as contas' : d.caixa.risco === 'falta' ? 'o saldo projetado fica negativo' : 'sobra menos de 10% do que sai'}
+          icone={d.caixa.risco === 'ok' ? <ShieldCheck className="w-4 h-4 text-success" /> : <AlertTriangle className="w-4 h-4 text-warning" />}
+          tom={d.caixa.risco === 'ok' ? 'ok' : d.caixa.risco === 'falta' ? 'perigo' : 'alerta'}
+        />
+      </div>
+
+      {/* Saldo dia a dia + fechamento */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        <Cartao titulo="Fluxo de caixa · próximos 90 dias" subtitulo="Saldo de hoje + o que entra − o que sai, dia a dia" className="xl:col-span-2"
+          acao={<div className="flex gap-4 t-meta">{d.caixa.projecoes.map((p) => <span key={p.dias}>{p.dias}d <strong className={p.saldoCents < 0 ? 'text-destructive' : 'text-foreground'}>{brlCurto(p.saldoCents)}</strong></span>)}</div>}>
+          <div className="h-60">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={serie} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="bpoSaldo" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={COR.marca} stopOpacity={0.25} />
+                    <stop offset="100%" stopColor={COR.marca} stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid vertical={false} stroke="#eaecf0" />
+                <XAxis dataKey="dia" tickFormatter={(v: string) => br(v).slice(0, 5)} tick={{ fontSize: 11, fill: '#667085' }} axisLine={false} tickLine={false} minTickGap={28} />
+                <YAxis tickFormatter={(v: number) => brlCurto(v)} tick={{ fontSize: 11, fill: '#667085' }} axisLine={false} tickLine={false} width={72} />
+                <Tooltip content={<Dica />} />
+                <ReferenceLine y={0} stroke={COR.vermelho} strokeDasharray="4 4" />
+                <Area type="monotone" dataKey="Se os atrasados entrarem" stroke={COR.cinza} strokeDasharray="4 4" fill="none" strokeWidth={1.5} dot={false} />
+                <Area type="monotone" dataKey="Saldo" stroke={COR.marca} fill="url(#bpoSaldo)" strokeWidth={2} dot={false} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </Cartao>
+
+        <Cartao titulo={`Fechamento de ${mes}/${ano}`} subtitulo={`${okFechamento} de ${d.checklist.length} itens ok`}>
+          <div className="h-2 rounded-full bg-secondary overflow-hidden mb-4">
+            <div className="h-full bg-marca rounded-full" style={{ width: `${(okFechamento / d.checklist.length) * 100}%` }} />
+          </div>
+          <ul className="space-y-3">
             {d.checklist.map((i) => (
-              <li key={i.rotulo} className="flex items-start gap-2 text-xs">
-                {i.ok ? <CheckCircle2 className="w-3.5 h-3.5 text-green-600 shrink-0 mt-0.5" /> : <Circle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />}
-                <span><span className="font-medium text-gray-900">{i.rotulo}</span> <span className="text-gray-500">· {i.detalhe}</span></span>
+              <li key={i.rotulo} className="flex items-start gap-2.5">
+                {i.ok ? <CheckCircle2 className="w-4 h-4 text-success shrink-0 mt-0.5" /> : <Circle className="w-4 h-4 text-warning shrink-0 mt-0.5" />}
+                <div className="min-w-0">
+                  <p className="t-rotulo text-foreground">{i.rotulo}</p>
+                  <p className="t-legenda">{i.detalhe}</p>
+                </div>
               </li>
             ))}
           </ul>
-        </details>
+        </Cartao>
       </div>
 
-      {d.caixa.risco !== 'ok' && (
-        <p className={`flex items-center gap-2 text-sm rounded-xl border px-4 py-2.5 ${risco.tile} ${risco.texto}`}>
-          <AlertTriangle className="w-4 h-4 shrink-0" />
-          {d.caixa.risco === 'falta' ? 'O saldo projetado para os próximos 30 dias fica negativo.' : 'Sobra menos de 10% do que sai nos próximos 30 dias.'}
-        </p>
-      )}
-
-      {/* Sócios: saldo de cada um com a empresa, retiradas do mês e, no investidor, os clientes novos */}
-      <div id="bpo-socios" className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        {d.socios.map((s) => (
-          <CartaoSocio
-            key={s.id}
-            s={s}
-            mesAno={`${mes}/${ano}`}
-            investidor={s.tipo === 'INVESTIDOR' ? d.investidor : null}
-            anuncio={anuncio}
-            onOrigem={marcarOrigem}
-            onSalvo={() => setVersao((v) => v + 1)}
-          />
-        ))}
-      </div>
-
-      <Secao id="caixa" titulo="Fluxo de caixa" resumo={d.caixa.projecoes.map((p) => `${p.dias}d ${brl(p.saldoCents)}`).join(' · ')} alerta={d.caixa.projecoes.some((p) => p.saldoCents < 0)}>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[480px]">
-            <thead>
-              <tr className="text-[11px] uppercase tracking-wide text-gray-400 text-left">
-                <th className="font-medium py-2">Até</th>
-                <th className="font-medium py-2 text-right">Entra</th>
-                <th className="font-medium py-2 text-right">Sai</th>
-                <th className="font-medium py-2 text-right">Sobra</th>
-                <th className="font-medium py-2 text-right">Se os atrasados entrarem</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {d.caixa.projecoes.map((p) => (
-                <tr key={p.dias}>
-                  <td className="py-1.5 text-gray-700">{br(p.ate)} <span className="text-gray-400 text-xs">({p.dias} dias)</span></td>
-                  <td className="py-1.5 text-right tabular-nums text-green-700">{brl(p.entradasCents)}</td>
-                  <td className="py-1.5 text-right tabular-nums text-red-600">{brl(p.saidasCents)}</td>
-                  <td className={`py-1.5 text-right tabular-nums font-semibold ${p.saldoCents < 0 ? 'text-red-600' : 'text-gray-900'}`}>{brl(p.saldoCents)}</td>
-                  <td className="py-1.5 text-right tabular-nums text-gray-500">{brl(p.saldoComAtrasadosCents)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <p className="text-[11px] text-gray-400 mt-2">Caixa lançado na Central + parcelas que vencem no período − custos e salários em aberto (os vencidos entram). Atrasado a receber só na última coluna, porque é incerto.</p>
-      </Secao>
-
-      <Secao id="pagar" titulo="Contas a pagar" resumo={<>{brl(pagar30)} em 30 dias{d.pagar.vencidas.length ? ` · ${d.pagar.vencidas.length} vencida(s)` : ''}</>} alerta={d.pagar.vencidas.length > 0}>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div><p className="text-xs font-semibold text-red-600 mb-1">Vencidas · {brl(soma(d.pagar.vencidas))}</p><Lista itens={d.pagar.vencidas} vazio="Nenhuma." /></div>
-          <div><p className="text-xs font-semibold text-gray-700 mb-1">Próximos 7 dias · {brl(soma(d.pagar.proximos7))}</p><Lista itens={d.pagar.proximos7} vazio="Nada vence." /></div>
-          <div><p className="text-xs font-semibold text-gray-700 mb-1">Do 8º ao 30º dia · {brl(soma(d.pagar.ate30))}</p><Lista itens={d.pagar.ate30} vazio="Nada vence." /></div>
-        </div>
-      </Secao>
-
-      <Secao id="receber" titulo="A receber e inadimplência" resumo={<>{brl(soma(d.receber.proximos7))} em 7 dias · {brl(atrasado)} atrasado</>} alerta={atrasado > 0}>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
-          {d.receber.faixas.map((f) => (
-            <div key={f.faixa} className={`rounded-lg border px-2 py-2 ${f.cents > 0 ? 'border-red-100 bg-red-50/50' : 'border-gray-100'}`}>
-              <p className="text-[10px] text-gray-500">{f.faixa}</p>
-              <p className={`text-sm font-semibold tabular-nums ${f.cents > 0 ? 'text-red-700' : 'text-gray-400'}`}>{brl(f.cents)}</p>
-            </div>
+      {/* Sócios */}
+      <div>
+        <h3 className="t-secao text-foreground mb-3">Sócios</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {d.socios.map((s) => (
+            <CartaoSocio key={s.id} s={s} mesAno={`${mes}/${ano}`} investidor={s.tipo === 'INVESTIDOR' ? d.investidor : null} anuncio={anuncio} onOrigem={marcarOrigem} onSalvo={() => setVersao((v) => v + 1)} />
           ))}
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div>
-            <p className="text-xs font-semibold text-gray-700 mb-1">Atrasados por cliente</p>
-            {d.receber.atrasadosPorCliente.length === 0 ? <p className="text-xs text-gray-400">Ninguém atrasado.</p> : (
-              <ul className="divide-y divide-gray-100 text-sm">
+      </div>
+
+      {/* De onde vem e para onde vai */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        <Cartao titulo="Resultado do mês" subtitulo={resultado ? `Operacional ${brl(resultado.atualCents)} (recebido − custos − salários)` : undefined}>
+          <div className="h-52">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={comparativo} margin={{ top: 4, right: 4, left: 0, bottom: 0 }} barGap={4}>
+                <CartesianGrid vertical={false} stroke="#eaecf0" />
+                <XAxis dataKey="mes" tick={{ fontSize: 11, fill: '#667085' }} axisLine={false} tickLine={false} />
+                <YAxis tickFormatter={(v: number) => brlCurto(v)} tick={{ fontSize: 11, fill: '#667085' }} axisLine={false} tickLine={false} width={64} />
+                <Tooltip content={<Dica />} cursor={{ fill: '#f2f4f7' }} />
+                <Bar dataKey="Recebido" fill={COR.marca} radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Custos" fill={COR.laranja} radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Retiradas" fill={COR.cinza} radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="flex gap-4 mt-2 t-meta">
+            {[['Recebido', COR.marca], ['Custos e salários', COR.laranja], ['Retiradas', COR.cinza]].map(([n, c]) => <span key={n} className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: c }} />{n}</span>)}
+          </div>
+        </Cartao>
+
+        <Cartao titulo="Para onde vai o dinheiro" subtitulo="Custos previstos do mês por categoria">
+          <Rosca dados={custos} vazio="Nenhum custo no mês." />
+        </Cartao>
+
+        <Cartao titulo="De onde vem o dinheiro" subtitulo={d.concentracao.alerta ?? `${d.concentracao.clientes.length} clientes · ${brl(d.concentracao.totalCents)}`}>
+          <Rosca dados={receitas} vazio="Nenhuma receita no mês." />
+        </Cartao>
+      </div>
+
+      {/* Contas a pagar e a receber */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <Cartao titulo="Contas a pagar · 30 dias" subtitulo={`${brl(soma(pagarTodas))}${d.pagar.vencidas.length ? ` · ${d.pagar.vencidas.length} vencida(s)` : ''}`}>
+          <div className="max-h-72 overflow-y-auto pr-1">
+            {d.pagar.vencidas.length > 0 && <><p className="t-meta !text-destructive mt-1">Vencidas</p><Linhas itens={d.pagar.vencidas} vazio="" cor="text-destructive" /></>}
+            <p className="t-meta mt-2">A vencer</p>
+            <Linhas itens={[...d.pagar.proximos7, ...d.pagar.ate30]} vazio="Nada vence nos próximos 30 dias." />
+          </div>
+        </Cartao>
+
+        <Cartao titulo="A receber e inadimplência" subtitulo={`${brl(soma(d.receber.proximos7))} entra em 7 dias · ${brl(atrasado)} atrasado`}>
+          <div className="space-y-2.5 mb-4">
+            {d.receber.faixas.map((f) => (
+              <div key={f.faixa} className="flex items-center gap-3">
+                <span className="t-meta w-28 shrink-0">{f.faixa}</span>
+                <div className="flex-1 h-2 rounded-full bg-secondary overflow-hidden">
+                  <div className="h-full rounded-full bg-destructive" style={{ width: `${atrasado ? (f.cents / atrasado) * 100 : 0}%` }} />
+                </div>
+                <span className={`t-rotulo tabular-nums w-24 text-right ${f.cents ? 'text-destructive' : 'text-muted-foreground'}`}>{brl(f.cents)}</span>
+              </div>
+            ))}
+          </div>
+          <div className="max-h-40 overflow-y-auto pr-1">
+            {d.receber.atrasadosPorCliente.length === 0 ? <Linhas itens={d.receber.proximos7} vazio="Ninguém atrasado e nada vence em 7 dias." /> : (
+              <ul className="divide-y divide-border">
                 {d.receber.atrasadosPorCliente.map((c) => (
-                  <li key={c.nome} className="flex justify-between gap-3 py-1.5">
-                    <span className="text-gray-700 truncate">{c.nome} <span className="text-gray-400 text-xs">desde {br(c.desde).slice(0, 5)}</span></span>
-                    <span className="font-medium text-red-700 tabular-nums">{brl(c.cents)}</span>
+                  <li key={c.nome} className="flex items-center gap-3 py-2 t-corpo">
+                    <span className="text-foreground truncate flex-1">{c.nome} <span className="t-meta">desde {br(c.desde).slice(0, 5)}</span></span>
+                    <span className="font-medium text-destructive tabular-nums">{brl(c.cents)}</span>
                   </li>
                 ))}
               </ul>
             )}
           </div>
-          <div><p className="text-xs font-semibold text-gray-700 mb-1">Entra nos próximos 7 dias</p><Lista itens={d.receber.proximos7} vazio="Nada vence." /></div>
-        </div>
-      </Secao>
-
-      <Secao id="dre" titulo="Resultado do mês" resumo={resultado ? <>operacional {brl(resultado.atualCents)}</> : '—'} alerta={!!resultado && resultado.atualCents < 0}>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-[11px] uppercase tracking-wide text-gray-400 text-left">
-                <th className="font-medium py-2" /><th className="font-medium py-2 text-right">Este mês</th><th className="font-medium py-2 text-right">Anterior</th><th className="font-medium py-2 text-right">Var.</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {d.dre.map((l) => (
-                <tr key={l.rotulo} className={l.total ? 'font-semibold' : ''}>
-                  <td className={`py-1.5 ${l.total ? 'text-gray-900' : 'text-gray-600'}`}>{l.rotulo}</td>
-                  <td className={`py-1.5 text-right tabular-nums ${l.total && l.atualCents < 0 ? 'text-red-600' : 'text-gray-900'}`}>{brl(l.atualCents)}</td>
-                  <td className="py-1.5 text-right tabular-nums text-gray-500">{l.anteriorCents === null ? '—' : brl(l.anteriorCents)}</td>
-                  <td className="py-1.5 text-right tabular-nums text-xs"><Variacao l={l} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div>
-            <p className="text-xs font-semibold text-gray-700 mb-1">Custos por categoria</p>
-            <ul className="divide-y divide-gray-100 text-sm">
-              {d.custosPorCategoria.map((c) => (
-                <li key={c.category} className="flex justify-between gap-3 py-1.5">
-                  <span className="text-gray-700">{c.category}</span>
-                  <span className="tabular-nums text-gray-900">{brl(c.pagoCents)} <span className="text-gray-400 text-xs">de {brl(c.previstoCents)}</span></span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      </Secao>
-
-      <Secao id="clientes" titulo="Receita por cliente" resumo={d.concentracao.alerta ? `Concentração: maior cliente ${d.concentracao.top1}%` : `${d.concentracao.clientes.length} clientes · ${brl(d.concentracao.totalCents)}`} alerta={!!d.concentracao.alerta}>
-        {d.concentracao.alerta && <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">{d.concentracao.alerta}</p>}
-        <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
-          {d.concentracao.clientes.map((c) => (
-            <li key={c.nome}>
-              <div className="flex justify-between gap-3">
-                <span className="text-gray-700 truncate">{c.nome}</span>
-                <span className="tabular-nums text-gray-900 shrink-0">{brl(c.cents)} <span className="text-gray-400 text-xs">{c.share}%</span></span>
-              </div>
-              <div className="h-1.5 rounded-full bg-gray-100 mt-1"><div className="h-1.5 rounded-full bg-[#030A8C]" style={{ width: `${Math.min(100, c.share)}%` }} /></div>
-            </li>
-          ))}
-        </ul>
-      </Secao>
+        </Cartao>
+      </div>
 
       {d.pendencias.semCategoria.length > 0 && (
-        <Secao id="pendencias" titulo="Pendente de classificação" resumo={`${d.pendencias.semCategoria.length} movimento(s) do caixa sem categoria`}>
-          <ul className="divide-y divide-gray-100 text-sm">
+        <Cartao titulo="Pendente de classificação" subtitulo={`${d.pendencias.semCategoria.length} movimento(s) do caixa sem categoria · classifique em Caixa`}>
+          <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-6 max-h-48 overflow-y-auto pr-1">
             {d.pendencias.semCategoria.map((m) => (
-              <li key={m.id} className="flex justify-between gap-3 py-1.5">
-                <span className="text-gray-700 truncate"><span className="text-gray-400 tabular-nums mr-2">{br(m.dia).slice(0, 5)}</span>{m.descricao}</span>
-                <span className="tabular-nums text-gray-900 shrink-0">{brl(Math.abs(m.cents))}</span>
+              <li key={m.id} className="flex items-center gap-3 py-1.5 t-corpo border-b border-border">
+                <span className="t-meta tabular-nums w-10 shrink-0">{br(m.dia).slice(0, 5)}</span>
+                <span className="text-foreground truncate flex-1">{m.descricao}</span>
+                <span className="tabular-nums text-foreground shrink-0">{brl(Math.abs(m.cents))}</span>
               </li>
             ))}
           </ul>
-        </Secao>
+        </Cartao>
       )}
+    </div>
+  )
+}
+
+/** Rosca com a legenda ao lado: valor e participação de cada fatia. */
+function Rosca({ dados, vazio }: { dados: Array<{ nome: string; valor: number }>; vazio: string }) {
+  const total = dados.reduce((s, x) => s + x.valor, 0)
+  if (total <= 0) return <p className="t-legenda py-10 text-center">{vazio}</p>
+  return (
+    <div className="flex items-center gap-4">
+      <div className="relative w-36 h-36 shrink-0">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie data={dados} dataKey="valor" nameKey="nome" innerRadius={44} outerRadius={68} paddingAngle={1} stroke="none">
+              {dados.map((_, i) => <Cell key={i} fill={PIZZA[i % PIZZA.length]} />)}
+            </Pie>
+            <Tooltip content={<Dica />} />
+          </PieChart>
+        </ResponsiveContainer>
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+          <span className="t-meta">total</span>
+          <span className="t-rotulo text-foreground tabular-nums">{brlCurto(total)}</span>
+        </div>
+      </div>
+      <ul className="flex-1 min-w-0 space-y-1.5">
+        {dados.map((x, i) => (
+          <li key={x.nome} className="flex items-center gap-2 text-[12px]">
+            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: PIZZA[i % PIZZA.length] }} />
+            <span className="truncate flex-1 text-muted-foreground">{x.nome}</span>
+            <span className="tabular-nums font-medium text-foreground">{brlCurto(x.valor)}</span>
+            <span className="tabular-nums t-meta w-8 text-right">{Math.round((x.valor / total) * 100)}%</span>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }

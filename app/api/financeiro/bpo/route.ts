@@ -7,7 +7,7 @@ import { materializeReceivables } from '@/lib/receivables'
 import { cashTotals } from '@/lib/caixa-core'
 import { listarSocios, situacaoPrincipal } from '@/lib/conciliacao'
 import {
-  addDays, checklistFechamento, concentracao, contaCorrente, dreGerencial, faixasDeAtraso, projetarCaixa, resumoPorSocio, riscoDeCaixa,
+  addDays, checklistFechamento, concentracao, contaCorrente, dreGerencial, faixasDeAtraso, projetarCaixa, resumoPorSocio, riscoDeCaixa, serieSaldoDiaria,
   type Previsto,
 } from '@/lib/bpo-core'
 
@@ -157,6 +157,7 @@ export async function GET(req: NextRequest) {
       risco: riscoDeCaixa(d30),
       projecoes,
       atrasadosReceberCents,
+      serie: serieSaldoDiaria({ saldoCents, hoje, receber, pagar, dias: 90 }),
     },
     pagar: {
       vencidas: pagar.filter((p) => p.vence < hoje),

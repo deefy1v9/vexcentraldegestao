@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  addDays, checklistFechamento, concentracao, contaCorrente, diasEntre, dreGerencial, faixasDeAtraso, projetarCaixa,
+  addDays, checklistFechamento, concentracao, contaCorrente, diasEntre, dreGerencial, faixasDeAtraso, projetarCaixa, serieSaldoDiaria,
   resumoPorSocio, riscoDeCaixa,
 } from '../../lib/bpo-core'
 
@@ -117,4 +117,15 @@ test('conta corrente do sócio: soma com sinal, ordena do mais novo e tolera R$ 
   assert.equal(c.lancamentos[0].dia, '2026-10-30')
   assert.equal(contaCorrente([{ dia: '2026-10-30', amountCents: 50, description: 'centavos' }]).situacao, 'zerado')
   assert.equal(contaCorrente([{ dia: '2026-10-30', amountCents: 33514, description: 'crédito' }]).situacao, 'receber')
+})
+
+test('saldo dia a dia: vencido a pagar sai no primeiro dia, cada vencimento no seu dia', () => {
+  const s = serieSaldoDiaria({
+    saldoCents: 1000, hoje: '2026-10-30', dias: 3,
+    receber: [{ vence: '2026-10-31', cents: 500, nome: 'a' }, { vence: '2026-10-01', cents: 200, nome: 'atrasado' }],
+    pagar: [{ vence: '2026-10-20', cents: 300, nome: 'vencida' }, { vence: '2026-11-01', cents: 100, nome: 'b' }],
+  })
+  assert.deepEqual(s.map((p) => p.saldoCents), [700, 1200, 1100, 1100])
+  assert.equal(s[0].comAtrasadosCents, 900)
+  assert.equal(s.length, 4)
 })
