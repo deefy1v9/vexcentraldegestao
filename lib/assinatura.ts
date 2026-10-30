@@ -25,6 +25,7 @@ import { uazSendDocumentChecked, uazSendTextChecked } from './uazapi'
 import { VEX } from './proposal-template'
 import { anexarRelatorioDeAssinatura } from './assinatura-pdf'
 import { notifyContractSigned } from './email-notify'
+import { subirContratoNoDrive } from './drive'
 import {
   PDF_MAX_BYTES, TENTATIVAS_MAX, VALIDADE_DO_CODIGO_MIN,
   codigoConfere, cpfValido, formatarCpf, freioDosCodigos, gerarCodigo, gerarToken, hmacDoCodigo,
@@ -364,6 +365,14 @@ async function fecharSeTodosAssinaram(contractId: string, base: string): Promise
     pdf: bytes,
     refId: `contrato:${c.id}`,
   }).catch((e) => console.warn(`[assinatura] o e-mail do contrato ${c.id} não saiu: ${e instanceof Error ? e.message : e}`))
+
+  // E na pasta do cliente no Drive (02_ADM_FINANCEIRO/CONTRATOS). Falha aqui também não desfaz nada.
+  const cliente = c.clientId ? await prisma.client.findUnique({ where: { id: c.clientId }, select: { name: true } }) : null
+  if (cliente) {
+    await subirContratoNoDrive({ clienteNome: cliente.name, arquivo: nomeDoAssinado(c.fileName), pdf: bytes })
+      .then((r) => (r.ok ? console.log(`[assinatura] contrato ${c.id} no Drive: ${r.caminho}`) : console.warn(`[assinatura] contrato ${c.id} não subiu no Drive: ${r.motivo}`)))
+      .catch((e) => console.warn(`[assinatura] contrato ${c.id} não subiu no Drive: ${e instanceof Error ? e.message : e}`))
+  }
   return true
 }
 
