@@ -28,7 +28,7 @@ export default async function BriefingPage({ params }: { params: Promise<{ id: s
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <Header title="Briefings" subtitle={b.name} />
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-8 pb-8 pt-2">
         <div className="grid xl:grid-cols-[minmax(0,1fr)_360px] gap-4 items-start">
           <EditorBriefing
             inicial={{ id: b.id, name: b.name, description: b.description ?? '', active: b.active, perguntas: perguntasDe(b.questions), publicToken: b.publicToken, respostas: b._count.responses }}

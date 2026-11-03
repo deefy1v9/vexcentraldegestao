@@ -28,7 +28,7 @@ export default function PortfolioSegmentation({ segments, total }: { segments: S
         className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 transition-colors"
       >
         <span className="flex items-center gap-2 font-semibold text-gray-900 text-sm">
-          <Layers className="w-4 h-4 text-[#030A8C]" />
+          <Layers className="w-4 h-4 text-marca-texto" />
           Segmentação da carteira
         </span>
         <span className="flex items-center gap-3">
@@ -58,7 +58,7 @@ export default function PortfolioSegmentation({ segments, total }: { segments: S
                 <div className="flex items-center gap-2 mt-1.5">
                   <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                     <div
-                      className={`h-full rounded-full ${s.tier === 'SCALE' ? 'bg-[#F74A13]' : s.tier ? 'bg-[#030A8C]' : 'bg-gray-300'}`}
+                      className={`h-full rounded-full ${s.tier === 'SCALE' ? 'bg-primary' : s.tier ? 'bg-marca' : 'bg-gray-300'}`}
                       style={{ width: `${Math.min(share, 100)}%` }}
                     />
                   </div>

@@ -65,9 +65,10 @@ export default function NovoContrato({ clientes, representantes }: { clientes: P
   const pronto = !!arquivo && revisei && titulo.trim().length >= 3 && clienteNome.trim().length >= 3 && !!clienteWhats && (!vexNome.trim() || !!vexWhats)
 
   return (
-    <aside className="rounded-[12px] border border-border bg-card p-4 space-y-3 xl:sticky xl:top-0">
+    <aside className="rounded-[24px] border border-border bg-card p-6 space-y-3.5 shadow-[0_1px_2px_rgba(16,24,40,0.04)] xl:sticky xl:top-0">
       <div>
-        <p className="t-secao text-foreground">Novo contrato para assinar</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Novo</p>
+        <p className="mt-1 font-display text-[19px] font-semibold tracking-[-0.01em] text-foreground">Novo contrato para assinar</p>
         <p className="text-xs text-muted-foreground mt-0.5">O PDF fica congelado: depois de guardado, não muda. Para corrigir, cancele e suba de novo.</p>
       </div>
       <div className="space-y-1.5">
@@ -79,14 +80,14 @@ export default function NovoContrato({ clientes, representantes }: { clientes: P
         <Input id="titulo" value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Contrato MOOP · SEO Essencial 3 meses" />
       </div>
 
-      <fieldset className="space-y-1.5 rounded-lg border border-border p-3">
+      <fieldset className="space-y-1.5 rounded-2xl border border-border bg-secondary/30 p-3.5">
         <legend className="px-1 text-xs font-medium text-foreground">Assina pela VEX</legend>
         <SearchSelect options={representantes} value={vexId} onChange={escolherRepresentante} placeholder="Escolher sócio" allLabel="Ninguém" searchPlaceholder="Buscar" shortLabel={false} />
         <Input value={vexNome} onChange={(e) => setVexNome(e.target.value)} placeholder="Nome de quem assina" aria-label="Nome de quem assina pela VEX" />
         <Input value={vexWhats} onChange={(e) => setVexWhats(e.target.value)} inputMode="tel" placeholder="WhatsApp (31) 99999-9999" aria-label="WhatsApp de quem assina pela VEX" />
       </fieldset>
 
-      <fieldset className="space-y-1.5 rounded-lg border border-border p-3">
+      <fieldset className="space-y-1.5 rounded-2xl border border-border bg-secondary/30 p-3.5">
         <legend className="px-1 text-xs font-medium text-foreground">Assina pelo cliente</legend>
         <Input value={clienteNome} onChange={(e) => setClienteNome(e.target.value)} placeholder="Nome de quem assina" aria-label="Nome de quem assina pelo cliente" />
         <Input value={clienteWhats} onChange={(e) => setClienteWhats(e.target.value)} inputMode="tel" placeholder="WhatsApp (11) 99999-9999" aria-label="WhatsApp de quem assina pelo cliente" />
@@ -104,7 +105,7 @@ export default function NovoContrato({ clientes, representantes }: { clientes: P
       <Button onClick={salvar} disabled={salvando || !pronto} className="w-full">
         {salvando && <Loader2 className="animate-spin" />} Gerar os links de assinatura
       </Button>
-      {erro && <p className="text-sm text-destructive">{erro}</p>}
+      {erro && <p className="text-sm text-destructive-texto">{erro}</p>}
     </aside>
   )
 }

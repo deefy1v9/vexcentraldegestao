@@ -3,8 +3,11 @@ import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Header from '@/components/layout/Header'
 import Link from 'next/link'
-import { ArrowLeft, Save, Trash2, Mail, DollarSign, Shield } from 'lucide-react'
+import { ArrowLeft, Save, Trash2, Mail, DollarSign, Shield, KeyRound } from 'lucide-react'
 import { formatCurrency, formatDateTime } from '@/lib/utils'
+import { Button } from '@/components/vex/button'
+import { Avatar } from '@/components/vex/avatar'
+import { Painel, Chip, Numero, Sobretitulo } from '@/components/vex/vireo'
 
 interface User {
   id: string
@@ -21,11 +24,11 @@ interface User {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  TODO: 'bg-gray-100 text-gray-500',
-  EM_ANDAMENTO: 'bg-yellow-100 text-yellow-700',
-  EM_REVISAO: 'bg-purple-100 text-purple-700',
-  CONCLUIDO: 'bg-green-100 text-green-700',
-  BACKLOG: 'bg-gray-100 text-gray-500',
+  TODO: 'bg-secondary text-muted-foreground',
+  EM_ANDAMENTO: 'bg-warning-suave text-warning',
+  EM_REVISAO: 'bg-info-suave text-info',
+  CONCLUIDO: 'bg-success-suave text-success',
+  BACKLOG: 'bg-secondary text-muted-foreground',
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -106,7 +109,7 @@ export default function EditColaboradorPage() {
       <div className="flex flex-col h-full overflow-hidden">
         <Header title="Carregando..." />
         <div className="flex-1 flex items-center justify-center">
-          <div className="w-8 h-8 border-2 border-[#030A8C] border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-2 border-marca border-t-transparent rounded-full animate-spin" />
         </div>
       </div>
     )
@@ -114,30 +117,29 @@ export default function EditColaboradorPage() {
 
   if (!user) return null
 
+  // A API devolve só as 10 demandas mais recentes: os números dizem isso.
+  const recentes = user.assignedTasks
+  const abertas = recentes.filter((t) => t.status !== 'CONCLUIDO').length
+  const concluidas = recentes.length - abertas
+  const campo = 'block t-rotulo font-semibold text-foreground mb-1.5'
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <Header title={`Editar — ${user.name}`} subtitle={user.position || user.role} />
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-        <div className="max-w-4xl">
-          <Link href="/colaboradores" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 mb-6">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:px-8">
+        <div className="max-w-6xl">
+          <Link href="/colaboradores" className="inline-flex items-center gap-1 t-corpo text-muted-foreground hover:text-foreground mb-5">
             <ArrowLeft className="w-4 h-4" /> Voltar para Colaboradores
           </Link>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-5 items-start">
             {/* Edit Form */}
-            <div className="lg:col-span-2 space-y-4">
-              <form onSubmit={handleSave} className="space-y-4">
-                <div className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6 space-y-4">
-                  <h2 className="font-bold text-gray-900 flex items-center gap-2">
-                    <div className="w-7 h-7 bg-[#030A8C]/10 rounded-lg flex items-center justify-center">
-                      <Mail className="w-4 h-4 text-[#030A8C]" />
-                    </div>
-                    Dados Pessoais
-                  </h2>
-
+            <div className="space-y-5 order-2 lg:order-1">
+              <form onSubmit={handleSave} className="space-y-5">
+                <Painel rotulo="Cadastro" titulo={<span className="flex items-center gap-2.5"><Chip icone={Mail} tamanho="sm" /> Dados Pessoais</span>}>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="sm:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Nome Completo *</label>
+                      <label className={campo}>Nome Completo *</label>
                       <input
                         required
                         value={form.name}
@@ -147,7 +149,7 @@ export default function EditColaboradorPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                      <label className={campo}>Email *</label>
                       <input
                         required
                         type="email"
@@ -157,7 +159,7 @@ export default function EditColaboradorPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
+                      <label className={campo}>Telefone</label>
                       <input
                         value={form.phone}
                         onChange={(e) => setField('phone', e.target.value)}
@@ -166,7 +168,7 @@ export default function EditColaboradorPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Cargo</label>
+                      <label className={campo}>Cargo</label>
                       <input
                         value={form.position}
                         onChange={(e) => setField('position', e.target.value)}
@@ -175,7 +177,7 @@ export default function EditColaboradorPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+                      <label className="t-rotulo font-semibold text-foreground mb-1.5 flex items-center gap-1">
                         <Shield className="w-3.5 h-3.5" /> Nível de Acesso
                       </label>
                       <select
@@ -188,138 +190,129 @@ export default function EditColaboradorPage() {
                       </select>
                     </div>
                   </div>
-                </div>
+                </Painel>
 
-                <div className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6 space-y-4">
-                  <h2 className="font-bold text-gray-900 flex items-center gap-2">
-                    <div className="w-7 h-7 bg-[#030A8C]/10 rounded-lg flex items-center justify-center">
-                      <DollarSign className="w-4 h-4 text-[#030A8C]" />
-                    </div>
-                    Financeiro
-                  </h2>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Salário Mensal (R$)</label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <Painel rotulo="Remuneração" titulo={<span className="flex items-center gap-2.5"><Chip icone={DollarSign} tom="sucesso" tamanho="sm" /> Financeiro</span>}>
+                    <label className={campo}>Salário Mensal (R$)</label>
                     <input
                       type="number"
                       min="0"
                       step="0.01"
                       value={form.salary}
                       onChange={(e) => setField('salary', e.target.value)}
-                      className="input max-w-xs"
+                      className="input"
                       placeholder="Ex: 3500.00"
                     />
-                  </div>
-                </div>
+                  </Painel>
 
-                <div className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6 space-y-4">
-                  <h2 className="font-bold text-gray-900">Alterar Senha</h2>
-                  <p className="text-xs text-gray-500">Deixe em branco para manter a senha atual.</p>
-                  <input
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className="input max-w-xs"
-                    placeholder="Nova senha (mín. 6 caracteres)"
-                    minLength={6}
-                  />
+                  <Painel rotulo="Acesso" titulo={<span className="flex items-center gap-2.5"><Chip icone={KeyRound} tom="neutro" tamanho="sm" /> Alterar Senha</span>}>
+                    <input
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="input"
+                      placeholder="Nova senha (mín. 6 caracteres)"
+                      minLength={6}
+                    />
+                    <p className="t-legenda mt-1.5">Deixe em branco para manter a senha atual.</p>
+                  </Painel>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3">
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="flex items-center justify-center gap-2 px-5 py-2.5 bg-[#030A8C] text-white rounded-xl text-sm font-medium hover:bg-[#02077a] transition-colors disabled:opacity-50"
-                  >
-                    <Save className="w-4 h-4" />
+                  <Button type="submit" disabled={saving}>
+                    <Save />
                     {saving ? 'Salvando...' : 'Salvar Alterações'}
-                  </button>
-                  <Link
-                    href="/colaboradores"
-                    className="px-5 py-2.5 border border-gray-200 text-gray-500 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
-                  >
-                    Cancelar
-                  </Link>
-                  <button
+                  </Button>
+                  <Button asChild variant="outline">
+                    <Link href="/colaboradores">Cancelar</Link>
+                  </Button>
+                  <Button
                     type="button"
+                    variant="ghost"
                     onClick={handleDeactivate}
-                    className="sm:ml-auto flex items-center gap-2 px-4 py-2.5 text-red-500 hover:bg-red-50 rounded-xl text-sm font-medium transition-colors"
+                    className="sm:ml-auto text-destructive-texto hover:bg-destructive-suave hover:text-destructive-texto"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 />
                     Desativar
-                  </button>
+                  </Button>
                 </div>
               </form>
             </div>
 
-            {/* Sidebar */}
-            <div className="space-y-4">
-              {/* Stats */}
-              <div className="bg-white rounded-2xl border border-gray-200 p-5">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 bg-[#030A8C] rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold text-lg">{user.name.charAt(0)}</span>
-                  </div>
-                  <div>
-                    <p className="font-bold text-gray-900 text-sm">{user.name}</p>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${user.role === 'ADMIN' ? 'bg-purple-100 text-purple-700' : 'bg-[#030A8C]/10 text-[#030A8C]'}`}>
-                      {user.role}
-                    </span>
-                  </div>
-                </div>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Tarefas atribuídas</span>
-                    <span className="font-semibold text-gray-900">{user.assignedTasks.length}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Ações registradas</span>
-                    <span className="font-semibold text-gray-900">{user.activityLogs.length}</span>
-                  </div>
+            {/* Perfil (modelo Vireo: cartão da pessoa e números) */}
+            <div className="space-y-5 order-1 lg:order-2">
+              <section className="rounded-[24px] border border-border bg-card overflow-hidden shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+                <div className="h-20 bg-gradient-to-br from-marca-suave via-marca-suave/60 to-card" />
+                <div className="px-6 pb-6 -mt-9">
+                  <Avatar nome={user.name} tamanho="xl" className="w-[72px] h-[72px] text-[22px] bg-marca text-white ring-4 ring-card" />
+                  <h2 className="mt-3 font-display text-[21px] font-semibold tracking-[-0.01em] text-foreground">{user.name}</h2>
+                  <p className="t-legenda">{user.position || 'Sem cargo definido'}</p>
+                  <span className={`mt-2 inline-flex items-center gap-1 h-[22px] rounded-md px-2 text-[11.5px] font-medium ${user.role === 'ADMIN' ? 'bg-marca-suave text-marca-texto' : 'bg-secondary text-muted-foreground'}`}>
+                    <Shield className="w-3 h-3" /> {user.role === 'ADMIN' ? 'Administrador' : 'Colaborador'}
+                  </span>
+
+                  <dl className="mt-5 grid grid-cols-3 gap-2 text-center">
+                    <div className="rounded-xl bg-secondary/60 py-2.5 flex flex-col-reverse">
+                      <dt className="t-meta">em aberto</dt>
+                      <dd><Numero className="text-[20px]">{abertas}</Numero></dd>
+                    </div>
+                    <div className="rounded-xl bg-secondary/60 py-2.5 flex flex-col-reverse">
+                      <dt className="t-meta">concluídas</dt>
+                      <dd><Numero className="text-[20px]">{concluidas}</Numero></dd>
+                    </div>
+                    <div className="rounded-xl bg-secondary/60 py-2.5 flex flex-col-reverse">
+                      <dt className="t-meta">ações</dt>
+                      <dd><Numero className="text-[20px]">{user.activityLogs.length}</Numero></dd>
+                    </div>
+                  </dl>
+                  <p className="t-legenda mt-2">
+                    Contando as {recentes.length} demandas mais recentes e as {user.activityLogs.length} últimas ações registradas.
+                  </p>
                   {user.salary && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Salário</span>
-                      <span className="font-semibold text-gray-900">{formatCurrency(user.salary)}</span>
+                    <div className="mt-4 pt-4 border-t border-border flex items-baseline justify-between">
+                      <Sobretitulo>Salário</Sobretitulo>
+                      <span><Numero className="text-[16px]">{formatCurrency(user.salary)}</Numero><span className="t-legenda">/mês</span></span>
                     </div>
                   )}
                 </div>
-              </div>
+              </section>
 
-              {/* Active Tasks */}
-              {user.assignedTasks.length > 0 && (
-                <div className="bg-white rounded-2xl border border-gray-200 p-5">
-                  <h3 className="font-bold text-gray-900 text-sm mb-3">Demandas Atribuídas</h3>
-                  <div className="space-y-2">
-                    {user.assignedTasks.map((task) => (
-                      <div key={task.id} className="flex items-start gap-2">
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 mt-0.5 ${STATUS_COLORS[task.status] || 'bg-gray-100 text-gray-500'}`}>
+              {/* Demandas recentes */}
+              {recentes.length > 0 && (
+                <Painel rotulo={`As ${recentes.length} mais recentes`} titulo="Demandas Atribuídas" semPadding>
+                  <ul className="divide-y divide-border border-t border-border">
+                    {recentes.map((task) => (
+                      <li key={task.id} className="px-6 py-3 flex items-start gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="t-corpo font-medium text-foreground leading-tight">{task.title}</p>
+                          {task.client && <p className="t-legenda mt-0.5">{task.client.name}</p>}
+                        </div>
+                        <span className={`text-[11px] px-2 py-0.5 rounded-md font-medium shrink-0 ${STATUS_COLORS[task.status] || 'bg-secondary text-muted-foreground'}`}>
                           {STATUS_LABEL[task.status] || task.status}
                         </span>
-                        <div>
-                          <p className="text-xs font-medium text-gray-900 leading-tight">{task.title}</p>
-                          {task.client && <p className="text-[11px] text-gray-500">{task.client.name}</p>}
-                        </div>
-                      </div>
+                      </li>
                     ))}
-                  </div>
-                </div>
+                  </ul>
+                </Painel>
               )}
 
-              {/* Recent Activity */}
+              {/* Atividade recente */}
               {user.activityLogs.length > 0 && (
-                <div className="bg-white rounded-2xl border border-gray-200 p-5">
-                  <h3 className="font-bold text-gray-900 text-sm mb-3">Atividade Recente</h3>
-                  <div className="space-y-2">
-                    {user.activityLogs.slice(0, 8).map((log) => (
-                      <div key={log.id} className="flex items-start gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-[#030A8C] mt-1.5 shrink-0" />
-                        <div>
-                          <p className="text-xs text-gray-700">{log.action}</p>
-                          <p className="text-[10px] text-gray-500">{log.module} · {formatDateTime(log.createdAt)}</p>
+                <Painel rotulo="Linha do tempo" titulo="Atividade Recente">
+                  <ol>
+                    {user.activityLogs.slice(0, 8).map((log, i, arr) => (
+                      <li key={log.id} className="relative flex items-start gap-3 pb-4 last:pb-0">
+                        {i < arr.length - 1 && <span aria-hidden className="absolute left-[5px] top-3 bottom-0 w-px bg-border" />}
+                        <span className="relative w-[11px] h-[11px] rounded-full bg-marca-suave ring-2 ring-marca/40 mt-1 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="t-corpo text-foreground leading-snug">{log.action}</p>
+                          <p className="t-meta">{log.module} · {formatDateTime(log.createdAt)}</p>
                         </div>
-                      </div>
+                      </li>
                     ))}
-                  </div>
-                </div>
+                  </ol>
+                </Painel>
               )}
             </div>
           </div>

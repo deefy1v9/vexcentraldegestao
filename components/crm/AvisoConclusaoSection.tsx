@@ -35,8 +35,8 @@ export default function AvisoConclusaoSection() {
 
   return (
     <div className="space-y-2">
-      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
-        <BellRing className="w-3.5 h-3.5 text-[#030A8C]" />
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+        <BellRing className="w-3.5 h-3.5 text-marca-texto" />
         Aviso de demanda concluída
       </p>
       <label className="flex items-start gap-2 cursor-pointer">
@@ -45,15 +45,15 @@ export default function AvisoConclusaoSection() {
           checked={!!ligado}
           disabled={ligado === null || salvando}
           onChange={(e) => alternar(e.target.checked)}
-          className="mt-0.5 accent-[#030A8C]"
+          className="mt-0.5 accent-marca"
         />
         <span className="min-w-0">
-          <span className="block text-xs text-gray-700 font-medium flex items-center gap-1.5">
+          <span className="block text-xs text-foreground font-medium flex items-center gap-1.5">
             Avisar o grupo do cliente quando a demanda for concluída
-            {salvando && <Loader2 className="w-3 h-3 animate-spin text-gray-400" />}
-            {salvo && <Check className="w-3 h-3 text-green-600" />}
+            {salvando && <Loader2 className="w-3 h-3 animate-spin text-subtle" />}
+            {salvo && <Check className="w-3 h-3 text-success" />}
           </span>
-          <span className="block text-[10px] text-gray-400 leading-snug">
+          <span className="block text-[10px] text-subtle leading-snug">
             Vale só para os clientes com o aviso ligado e o grupo escolhido no cadastro. Cada demanda avisa uma vez.
           </span>
         </span>

@@ -11,6 +11,9 @@ import { ColunaDeSecao } from './ColunaDeSecao'
 import { TopHeader, type PessoaDoCabecalho } from './TopHeader'
 import ChatIA from './ChatIA'
 import { TituloDaTela } from './TituloDaTela'
+import { CascaContext } from './ShellContext'
+import { BuscaGeral } from './BuscaGeral'
+import { FundoDesfocado } from '@/components/v2/CascaV2'
 import type { Contexto } from './TrocarContexto'
 
 /**
@@ -44,9 +47,13 @@ export function AppShell({
   const [gaveta, setGaveta] = useState(false)
   // O trilho abre e fecha, e a escolha fica no navegador: quem trabalha o dia
   // todo aqui não quer reabrir o menu a cada visita.
-  const [aberta, setAberta] = useState(false)
+  // Aberto por padrão, com os nomes, como no modelo Vireo (o dono, 03/11);
+  // recolhe para só ícones e a escolha fica salva.
+  const [aberta, setAberta] = useState(true)
   useEffect(() => {
-    try { setAberta(localStorage.getItem('vex-menu') === 'aberto') } catch {}
+    // Preferência salva só existe no navegador: ler no useState quebraria a hidratação
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    try { setAberta(localStorage.getItem('vex-menu') !== 'fechado') } catch {}
   }, [])
   const alternarMenu = () => {
     setAberta((v) => {
@@ -56,11 +63,22 @@ export function AppShell({
     })
   }
   const pathname = usePathname()
+  const [busca, setBusca] = useState(false)
+  // Ctrl K / ⌘K abre a busca geral em qualquer tela
+  useEffect(() => {
+    const atalho = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setBusca(true) }
+    }
+    window.addEventListener('keydown', atalho)
+    return () => window.removeEventListener('keydown', atalho)
+  }, [])
+  const casca = { alternarMenu, abrirGaveta: () => setGaveta(true), abrirBusca: () => setBusca(true) }
 
   // Numa tela de Configurações a coluna da seção abre ao lado do trilho.
   const atual = itemAtivo(pathname, secoes)
   const colunaDaSecao = atual?.secao.coluna ? atual.secao : null
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- fecha a gaveta ao trocar de página
   useEffect(() => { setGaveta(false) }, [pathname])
   useEffect(() => {
     if (!gaveta) return
@@ -70,17 +88,20 @@ export function AppShell({
   }, [gaveta])
 
   return (
+    <CascaContext.Provider value={casca}>
     <Tooltip.Provider delayDuration={300} skipDelayDuration={200}>
-      <div className="flex h-dvh overflow-hidden bg-background">
+      <div className="relative flex h-dvh overflow-hidden bg-background">
+        {/* Fundo com manchas desfocadas, como na versão 2 (o dono, 03/11) */}
+        <FundoDesfocado />
         {/* ── Trilho (computador) ─────────────────────────────────────── */}
-        <div className="hidden md:flex">
+        <div className="relative hidden md:flex">
           <Sidebar
             marca={{ nome: 'VEX Growth', href: '/dashboard' }}
             secoes={secoes}
             contextos={contextos}
             pessoa={pessoa}
             aberta={aberta}
-            aoAlternar={alternarMenu}
+            aoBuscar={() => setBusca(true)}
           />
         </div>
 
@@ -107,6 +128,7 @@ export function AppShell({
                 pessoa={pessoa}
                 modo="gaveta"
                 assinatura
+                aoBuscar={() => { setGaveta(false); setBusca(true) }}
                 aoNavegar={() => setGaveta(false)}
               />
               <button
@@ -121,7 +143,7 @@ export function AppShell({
         )}
 
         {/* ── Cabeçalho + conteúdo ────────────────────────────────────── */}
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="relative flex min-w-0 flex-1 flex-col">
           <TopHeader secoes={secoes} titulos={TITULOS} pessoa={pessoa} abrirMenu={() => setGaveta(true)} />
           <main className={cn('flex min-h-0 flex-1 flex-col overflow-y-auto')}>
             <TituloDaTela titulos={TITULOS} />
@@ -131,6 +153,8 @@ export function AppShell({
       </div>
       {/* Assistente com IA: só administradores */}
       {admin && <ChatIA />}
+      {busca && <BuscaGeral secoes={secoes} aoFechar={() => setBusca(false)} />}
     </Tooltip.Provider>
+    </CascaContext.Provider>
   )
 }

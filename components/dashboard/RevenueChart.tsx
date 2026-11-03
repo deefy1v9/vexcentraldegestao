@@ -126,7 +126,7 @@ export default function RevenueChart() {
               aria-pressed={range === key}
               className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-colors ${
                 range === key
-                  ? 'bg-[#030A8C] text-white'
+                  ? 'bg-marca text-white'
                   : 'text-gray-500 hover:bg-gray-100'
               }`}
             >
@@ -168,8 +168,8 @@ export default function RevenueChart() {
             >
               <defs>
                 <linearGradient id="rev-fill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#030A8C" stopOpacity="0.10" />
-                  <stop offset="100%" stopColor="#030A8C" stopOpacity="0" />
+                  <stop offset="0%" stopOpacity="0.10" style={{ stopColor: 'var(--marca)' }} />
+                  <stop offset="100%" stopOpacity="0" style={{ stopColor: 'var(--marca)' }} />
                 </linearGradient>
               </defs>
 
@@ -179,7 +179,7 @@ export default function RevenueChart() {
                   <line
                     x1={PAD.left + axisW} x2={width - PAD.right}
                     y1={y(t)} y2={y(t)}
-                    stroke="#f3f4f6" strokeWidth="1"
+                    strokeWidth="1" style={{ stroke: 'var(--border)' }}
                   />
                   <text x={PAD.left + axisW - 6} y={y(t) + 3.5} textAnchor="end" className="fill-gray-400" fontSize="10">
                     {brlAxis.format(t)}
@@ -189,7 +189,7 @@ export default function RevenueChart() {
 
               {/* Área + linha */}
               {areaPath && <path d={areaPath} fill="url(#rev-fill)" />}
-              <path d={linePath} fill="none" stroke="#030A8C" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+              <path d={linePath} fill="none" strokeWidth="2" style={{ stroke: 'var(--marca)' }} strokeLinejoin="round" strokeLinecap="round" />
 
               {/* Rótulos do eixo x */}
               {points.map((p, i) => (
@@ -203,8 +203,8 @@ export default function RevenueChart() {
               {/* Crosshair + marcador */}
               {hover != null && hovered && (
                 <g>
-                  <line x1={x(hover)} x2={x(hover)} y1={PAD.top} y2={PAD.top + plotH} stroke="#d1d5db" strokeWidth="1" strokeDasharray="3 3" />
-                  <circle cx={x(hover)} cy={y(hovered.total)} r="5" fill="#030A8C" stroke="#fff" strokeWidth="2" />
+                  <line x1={x(hover)} x2={x(hover)} y1={PAD.top} y2={PAD.top + plotH} strokeWidth="1" strokeDasharray="3 3" style={{ stroke: 'var(--border)' }} />
+                  <circle cx={x(hover)} cy={y(hovered.total)} r="5" strokeWidth="2" style={{ fill: 'var(--marca)', stroke: 'var(--card)' }} />
                 </g>
               )}
 

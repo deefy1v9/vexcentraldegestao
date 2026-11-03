@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { Bot, MessageCircle } from 'lucide-react'
 import { Switch } from '@/components/vex/switch'
+import { campo } from '@/components/clientes/FormSecao'
 
 export interface AvisoForm {
   whatsappGroupId: string
@@ -45,21 +46,21 @@ export default function ClientAvisoSection({
   const semGrupo = !form.whatsappGroupId
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6 space-y-4">
-      <h2 className="font-bold text-gray-900 flex items-center gap-2">
-        <MessageCircle className="w-4 h-4 text-[#030A8C]" />
+    <section className="bg-card rounded-[24px] border border-border p-6 space-y-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+      <h2 className="font-display text-[21px] font-semibold tracking-[-0.01em] text-foreground flex items-center gap-3">
+        <span className="w-9 h-9 shrink-0 rounded-xl grid place-items-center bg-marca-suave text-marca-texto"><MessageCircle className="w-[18px] h-[18px]" /></span>
         Aviso no WhatsApp
       </h2>
-      <p className="text-sm text-gray-500">
+      <p className="text-sm text-muted-foreground">
         Quando uma demanda deste cliente avança de uma etapa marcada no processo (briefing, desenvolvimento, publicação...), a Central avisa no grupo dele pelo WhatsApp da VEX.
       </p>
 
       <div>
-        <label className="text-xs font-medium text-gray-600 mb-1 block">Grupo do cliente</label>
+        <label className="block text-[13px] font-medium text-foreground mb-1.5">Grupo do cliente</label>
         <select
           value={form.whatsappGroupId}
           onChange={(e) => onChange('whatsappGroupId', e.target.value)}
-          className="input"
+          className={campo}
           disabled={grupos === null}
         >
           <option value="">{grupos === null ? 'Carregando grupos…' : 'Nenhum grupo (não avisa)'}</option>
@@ -68,11 +69,11 @@ export default function ClientAvisoSection({
             <option key={g.id} value={g.id}>{g.nome || g.id} · {g.participantes} pessoas</option>
           ))}
         </select>
-        {erro && <p className="text-xs text-red-600 mt-1">{erro}</p>}
-        {salvoForaDaLista && <p className="text-xs text-amber-700 mt-1">O WhatsApp da Central não aparece mais neste grupo. Escolha outro ou deixe sem grupo.</p>}
+        {erro && <p className="text-xs text-destructive-texto mt-1">{erro}</p>}
+        {salvoForaDaLista && <p className="text-xs text-warning mt-1">O WhatsApp da Central não aparece mais neste grupo. Escolha outro ou deixe sem grupo.</p>}
       </div>
 
-      <label className={`flex items-center gap-3 text-sm ${semGrupo ? 'text-gray-400' : 'text-gray-700'}`}>
+      <label className={`flex items-center gap-3 text-sm ${semGrupo ? 'text-muted-foreground' : 'text-foreground'}`}>
         <Switch
           checked={form.avisoConclusaoAtivo}
           disabled={semGrupo && !form.avisoConclusaoAtivo}
@@ -82,7 +83,7 @@ export default function ClientAvisoSection({
         Avisar o grupo quando uma etapa terminar
       </label>
 
-      <div className={`space-y-1 ${semGrupo ? 'text-gray-400' : 'text-gray-700'}`}>
+      <div className={`space-y-1 ${semGrupo ? 'text-muted-foreground' : 'text-foreground'}`}>
         <label className="flex items-center gap-3 text-sm">
           <Switch
             checked={form.agenteAcompanha}
@@ -90,18 +91,18 @@ export default function ClientAvisoSection({
             onCheckedChange={(v) => onChange('agenteAcompanha', v)}
             aria-label="Agente de IA acompanha o grupo"
           />
-          <Bot className="w-4 h-4 text-[#030A8C]" /> Agente de IA acompanha o grupo
+          <Bot className="w-4 h-4 text-ia" /> Agente de IA acompanha o grupo
         </label>
-        <p className="text-xs text-gray-400 pl-12">O agente lê as mensagens novas do grupo e já trabalha os pedidos de ajuste, entregando para você validar. Ele nunca responde no grupo: o aviso ao cliente só sai depois da sua aprovação.</p>
+        <p className="text-xs text-muted-foreground pl-12">O agente lê as mensagens novas do grupo e já trabalha os pedidos de ajuste, entregando para você validar. Ele nunca responde no grupo: o aviso ao cliente só sai depois da sua aprovação.</p>
       </div>
 
-      <div className="rounded-xl bg-gray-50 border border-gray-100 px-3 py-2 text-xs text-gray-600">
-        <span className="font-semibold text-gray-700">Exemplo: </span>
+      <div className="rounded-[16px] bg-secondary/60 border border-border px-4 py-3 text-xs text-muted-foreground">
+        <span className="font-semibold text-foreground">Exemplo: </span>
         ✅ Atualização do seu projeto: • Finalizamos o briefing do seu site • Agendamos o post de Outubro Rosa. Qualquer dúvida, é só chamar.
       </div>
-      <p className="text-xs text-gray-400">
+      <p className="text-xs text-muted-foreground">
         Sai de segunda a sexta, das 8h às 20h; fora disso espera o próximo horário. O que avançar em até 10 minutos vai numa mensagem só. As etapas e as frases são definidas em Processos. Precisa também do aviso ligado no geral (CRM › WhatsApp).
       </p>
-    </div>
+    </section>
   )
 }

@@ -187,7 +187,7 @@ export default function AiImportModal({
         {/* Header */}
         <div className="flex items-center justify-between px-4 sm:px-5 py-4 border-b border-gray-100 shrink-0">
           <p className="font-bold text-gray-900 flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-[#030A8C]" />
+            <Sparkles className="w-4 h-4 text-ia" />
             Importar calendário com IA
           </p>
           <div className="flex items-center gap-3">
@@ -227,8 +227,8 @@ export default function AiImportModal({
                     }}
                     className={`py-2.5 rounded-xl text-sm font-semibold border transition-colors ${
                       mode === key
-                        ? 'bg-[#030A8C] text-white border-[#030A8C]'
-                        : 'bg-white text-gray-600 border-gray-200 hover:border-[#030A8C] hover:text-[#030A8C]'
+                        ? 'bg-marca text-white border-marca'
+                        : 'bg-white text-gray-600 border-gray-200 hover:border-marca hover:text-marca-texto'
                     }`}
                   >
                     {label}
@@ -245,14 +245,14 @@ export default function AiImportModal({
                     onChange={(e) => setText(e.target.value)}
                     rows={8}
                     placeholder={'Ex:\n18/08 - Post carrossel dicas de costura - Nobre\n20/08 - Reels bastidores - CX Lab...'}
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 bg-white outline-none focus:border-[#030A8C] resize-none"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 bg-white outline-none focus:border-marca resize-none"
                   />
                 </div>
               ) : (
                 <div className="space-y-3">
                   <button
                     onClick={() => fileRef.current?.click()}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-6 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-600 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors"
+                    className="w-full flex items-center justify-center gap-2 px-4 py-6 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-600 hover:border-marca hover:text-marca-texto transition-colors"
                   >
                     <Upload className="w-4 h-4" />
                     {file ? file.name : mode === 'pdf' ? 'Clique para escolher o PDF' : 'Clique para escolher o CSV'}
@@ -278,7 +278,7 @@ export default function AiImportModal({
                       onChange={(e) => setText(e.target.value)}
                       rows={2}
                       placeholder="Instruções adicionais sobre o arquivo..."
-                      className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 bg-white outline-none focus:border-[#030A8C] resize-none"
+                      className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 bg-white outline-none focus:border-marca resize-none"
                     />
                   </div>
                 </div>
@@ -302,7 +302,7 @@ export default function AiImportModal({
                 <button
                   onClick={analyze}
                   disabled={mode === 'texto' ? text.trim().length < 10 : !file}
-                  className="w-full sm:w-auto px-5 py-2 bg-[#030A8C] text-white rounded-lg text-sm font-semibold hover:bg-[#02077a] disabled:opacity-50 transition-colors"
+                  className="w-full sm:w-auto px-5 py-2 bg-ia text-ia-texto rounded-lg text-sm font-semibold hover:bg-ia/90 disabled:opacity-50 transition-colors"
                 >
                   Analisar com IA
                 </button>
@@ -313,7 +313,7 @@ export default function AiImportModal({
           {/* Etapa 2: analisando */}
           {step === 2 && (
             <div className="py-16 text-center">
-              <div className="w-10 h-10 border-2 border-[#030A8C] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+              <div className="w-10 h-10 border-2 border-ia border-t-transparent rounded-full animate-spin mx-auto mb-4" />
               <p className="text-sm font-semibold text-gray-900">Analisando o calendário e organizando as demandas…</p>
               <p className="text-xs text-gray-400 mt-1">
                 Normalmente leva menos de um minuto. Se o modelo estiver sobrecarregado, tentamos de novo sozinhos — aguarde nesta tela.
@@ -357,7 +357,7 @@ export default function AiImportModal({
                       {rows.map((r, i) => {
                         const missing = r.selected && (!r.title.trim() || !r.clientId || !r.responsibleId || !r.dueDate)
                         return (
-                          <tr key={r.itemId} className={`border-b border-gray-100 ${missing ? 'bg-orange-50/40' : ''}`}>
+                          <tr key={r.itemId} className={`border-b border-gray-100 ${missing ? 'bg-warning-suave/40' : ''}`}>
                             <td className="px-2 py-2 align-top">
                               <input type="checkbox" checked={r.selected} onChange={(e) => update(i, 'selected', e.target.checked)} />
                             </td>
@@ -374,11 +374,11 @@ export default function AiImportModal({
                                 className="w-full border border-gray-100 rounded px-2 py-1 text-[11px] text-gray-600 mt-1 resize-none"
                               />
                               <div className="flex flex-wrap gap-1 mt-1">
-                                <span className="text-[9px] bg-[#030A8C]/10 text-[#030A8C] px-1.5 py-0.5 rounded-full font-semibold">IA sugeriu</span>
+                                <span className="text-[9px] bg-ia/10 text-ia px-1.5 py-0.5 rounded-full font-semibold">IA sugeriu</span>
                                 {r.contentType && <span className="text-[9px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full">{r.contentType}</span>}
                                 {r.platform && <span className="text-[9px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full">{r.platform}</span>}
                                 {r.warnings.map((w) => (
-                                  <span key={w} className="inline-flex items-center gap-0.5 text-[9px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full font-semibold">
+                                  <span key={w} className="inline-flex items-center gap-0.5 text-[9px] bg-warning-suave text-warning px-1.5 py-0.5 rounded-full font-semibold">
                                     <AlertTriangle className="w-2 h-2" /> {w}
                                   </span>
                                 ))}
@@ -388,7 +388,7 @@ export default function AiImportModal({
                               <select
                                 value={r.clientId ?? ''}
                                 onChange={(e) => update(i, 'clientId', e.target.value || null)}
-                                className={`border rounded px-1.5 py-1 text-xs bg-white ${!r.clientId ? 'border-orange-300 text-orange-700' : 'border-gray-200 text-gray-900'}`}
+                                className={`border rounded px-1.5 py-1 text-xs bg-white ${!r.clientId ? 'border-warning/40 text-warning' : 'border-gray-200 text-gray-900'}`}
                               >
                                 <option value="">Selecionar...</option>
                                 {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -401,7 +401,7 @@ export default function AiImportModal({
                               <select
                                 value={r.responsibleId ?? ''}
                                 onChange={(e) => update(i, 'responsibleId', e.target.value || null)}
-                                className={`border rounded px-1.5 py-1 text-xs bg-white ${!r.responsibleId ? 'border-orange-300 text-orange-700' : 'border-gray-200 text-gray-900'}`}
+                                className={`border rounded px-1.5 py-1 text-xs bg-white ${!r.responsibleId ? 'border-warning/40 text-warning' : 'border-gray-200 text-gray-900'}`}
                               >
                                 <option value="">Selecionar...</option>
                                 {users.map((u) => <option key={u.id} value={u.id}>{u.name.split(' ')[0]}</option>)}
@@ -412,7 +412,7 @@ export default function AiImportModal({
                                 type="date"
                                 value={r.dueDate ?? ''}
                                 onChange={(e) => update(i, 'dueDate', e.target.value || null)}
-                                className={`border rounded px-1.5 py-1 text-xs bg-white ${!r.dueDate ? 'border-orange-300' : 'border-gray-200'} text-gray-900`}
+                                className={`border rounded px-1.5 py-1 text-xs bg-white ${!r.dueDate ? 'border-warning/40' : 'border-gray-200'} text-gray-900`}
                               />
                             </td>
                             <td className="px-2 py-2 align-top text-gray-500 whitespace-nowrap">
@@ -428,7 +428,7 @@ export default function AiImportModal({
                               </select>
                             </td>
                             <td className="px-2 py-2 align-top">
-                              <span className={`text-[10px] font-bold ${r.confidence >= 0.7 ? 'text-green-600' : r.confidence >= 0.4 ? 'text-orange-600' : 'text-red-500'}`}>
+                              <span className={`text-[10px] font-bold ${r.confidence >= 0.7 ? 'text-green-600' : r.confidence >= 0.4 ? 'text-warning' : 'text-red-500'}`}>
                                 {Math.round(r.confidence * 100)}%
                               </span>
                             </td>
@@ -455,7 +455,7 @@ export default function AiImportModal({
               <p className="text-xs text-gray-400 mt-2">Os responsáveis foram avisados pelo WhatsApp.</p>
               <button
                 onClick={onClose}
-                className="mt-6 px-6 py-2 bg-[#030A8C] text-white rounded-lg text-sm font-semibold hover:bg-[#02077a] transition-colors"
+                className="mt-6 px-6 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:bg-primary-hover transition-colors"
               >
                 Fechar
               </button>
@@ -469,13 +469,13 @@ export default function AiImportModal({
             <p className="text-xs text-gray-500">
               {selected.length} de {rows.length} selecionada(s)
               {incomplete.length > 0 && (
-                <span className="text-orange-600 font-medium"> · {incomplete.length} com pendências (cliente, responsável ou data)</span>
+                <span className="text-warning font-medium"> · {incomplete.length} com pendências (cliente, responsável ou data)</span>
               )}
             </p>
             <button
               onClick={confirm}
               disabled={confirming || selected.length === 0 || incomplete.length > 0}
-              className="w-full sm:w-auto px-5 py-2 bg-[#030A8C] text-white rounded-lg text-sm font-semibold hover:bg-[#02077a] disabled:opacity-50 transition-colors"
+              className="w-full sm:w-auto px-5 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:bg-primary-hover disabled:opacity-50 transition-colors"
             >
               {confirming ? 'Criando...' : `Criar ${selected.length} demanda(s)`}
             </button>

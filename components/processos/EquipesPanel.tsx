@@ -75,10 +75,10 @@ export default function EquipesPanel({ equipes, pessoas }: { equipes: EquipeLinh
       <div className="grid sm:grid-cols-2 gap-3">
         {equipes.map((e) => (
           <button key={e.id} type="button" onClick={() => abrir(e)}
-            className={`text-left rounded-[12px] border bg-card p-4 transition-colors ${editando === e.id ? 'border-marca ring-2 ring-marca/20' : 'border-border hover:border-subtle'}`}>
+            className={`text-left rounded-[24px] border bg-card p-5 transition-colors ${editando === e.id ? 'border-marca ring-2 ring-marca/20' : 'border-border hover:border-subtle'}`}>
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full" style={{ background: e.color }} />
-              <p className="t-secao text-foreground flex-1 truncate">{e.name}</p>
+              <p className="font-display text-[16px] font-semibold text-foreground flex-1 truncate">{e.name}</p>
               {!e.active && <Badge variant="default">Desativada</Badge>}
             </div>
             {e.description && <p className="t-legenda mt-1 line-clamp-2">{e.description}</p>}
@@ -92,13 +92,13 @@ export default function EquipesPanel({ equipes, pessoas }: { equipes: EquipeLinh
           </button>
         ))}
         <button type="button" onClick={() => abrir(null)}
-          className="rounded-[12px] border border-dashed border-subtle bg-card p-4 min-h-[132px] grid place-items-center text-muted-foreground hover:border-marca hover:text-marca-texto transition-colors">
+          className="rounded-[24px] border border-dashed border-subtle bg-card p-5 min-h-[132px] grid place-items-center text-muted-foreground hover:border-marca hover:text-marca-texto transition-colors">
           <span className="inline-flex items-center gap-1.5 t-corpo font-medium"><Plus className="w-4 h-4" /> Nova equipe</span>
         </button>
       </div>
 
       {editando ? (
-        <section className="rounded-[12px] border border-border bg-card p-4 space-y-4">
+        <section className="rounded-[24px] border border-border bg-card p-6 space-y-4">
           <p className="t-secao text-foreground">{editando === 'nova' ? 'Nova equipe' : 'Editar equipe'}</p>
           <label className="block"><span className="t-rotulo text-foreground mb-1.5 block">Nome</span>
             <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Atendimento, Criação, Desenvolvimento" className={input} /></label>
@@ -135,7 +135,7 @@ export default function EquipesPanel({ equipes, pessoas }: { equipes: EquipeLinh
           </div>
         </section>
       ) : (
-        <section className="rounded-[12px] border border-border bg-card p-4">
+        <section className="rounded-[24px] border border-border bg-card p-6">
           <Users className="w-5 h-5 text-muted-foreground" />
           <p className="t-secao text-foreground mt-2">Como funcionam as equipes</p>
           <p className="t-corpo text-muted-foreground mt-1">

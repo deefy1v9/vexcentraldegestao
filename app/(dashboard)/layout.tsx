@@ -26,7 +26,9 @@ function contextosDe(): Contexto[] {
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await auth()
-  if (!session) redirect('/login')
+  // Chegou aqui com cookie (o middleware deixou passar), mas a sessão não vale
+  // mais: limpa o cookie em vez de voltar para /login, que devolveria para cá
+  if (!session) redirect('/api/sessao-expirada')
 
   const admin = session.user?.role === 'ADMIN'
   // Qual produto está aberto quem decide é a rota, no cliente (TrocarContexto).

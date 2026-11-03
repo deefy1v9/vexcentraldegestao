@@ -23,13 +23,13 @@ export default function BpoTab({ competencia }: { competencia: string }) {
   }, [competencia, versao])
 
   const atual = res?.competencia === competencia ? res : null
-  if (atual?.erro) return <p className="mt-3 t-corpo font-medium text-destructive bg-destructive/10 rounded-lg px-4 py-3 text-center">{atual.erro}</p>
+  if (atual?.erro) return <p className="mt-3 t-corpo font-medium text-destructive-texto bg-destructive-suave rounded-2xl px-4 py-3 text-center">{atual.erro}</p>
   if (!atual?.dados) {
     return (
       <div className="space-y-4 animate-pulse py-4">
-        <div className="h-24 rounded-2xl bg-card" />
-        <div className="grid grid-cols-2 xl:grid-cols-4 gap-5">{[...Array(4)].map((_, i) => <div key={i} className="h-36 rounded-2xl bg-card" />)}</div>
-        <div className="h-80 rounded-2xl bg-card" />
+        <div className="h-48 rounded-[24px] border border-border bg-card" />
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-5">{[...Array(4)].map((_, i) => <div key={i} className="h-40 rounded-[24px] border border-border bg-card" />)}</div>
+        <div className="h-80 rounded-[24px] border border-border bg-card" />
       </div>
     )
   }

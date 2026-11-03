@@ -10,18 +10,18 @@ export const COST_CATEGORIES = [
   'Aluguel', 'Equipamentos', 'Serviços', 'Administrativo', 'Outros',
 ]
 
-const INPUT = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 outline-none focus:border-[#030A8C]'
+const INPUT = 'w-full border border-border rounded-lg px-3 py-2 text-sm bg-card text-foreground outline-none focus:border-marca'
 
 function Modal({ title, onClose, children, footer }: { title: string; onClose: () => void; children: React.ReactNode; footer: React.ReactNode }) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 sm:p-4" onClick={onClose}>
-      <div className="bg-white w-full h-full sm:h-auto sm:max-h-[92dvh] sm:max-w-xl sm:rounded-2xl sm:border sm:border-gray-200 sm:shadow-2xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={title}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <p className="font-bold text-gray-900">{title}</p>
-          <button onClick={onClose} aria-label="Fechar" className="p-1.5 hover:bg-gray-100 rounded-lg"><X className="w-4 h-4 text-gray-400" /></button>
+      <div className="bg-card w-full h-full sm:h-auto sm:max-h-[92dvh] sm:max-w-xl sm:rounded-[24px] sm:border sm:border-border sm:shadow-2xl flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={title}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <p className="font-bold text-foreground">{title}</p>
+          <button onClick={onClose} aria-label="Fechar" className="p-1.5 hover:bg-secondary rounded-lg"><X className="w-4 h-4 text-muted-foreground" /></button>
         </div>
         <div className="flex-1 overflow-y-auto p-5 space-y-3">{children}</div>
-        <div className="px-5 py-4 border-t border-gray-100 flex items-center justify-end gap-2">{footer}</div>
+        <div className="px-5 py-4 border-t border-border flex items-center justify-end gap-2">{footer}</div>
       </div>
     </div>
   )
@@ -61,8 +61,8 @@ export function NewCostModal({ period, onClose, onSaved }: {
       onClose={onClose}
       footer={
         <>
-          <button type="button" onClick={onClose} className="px-3 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded-lg">Cancelar</button>
-          <button type="button" onClick={submit} disabled={!form.name.trim() || form.amount == null || saving} className="px-4 py-2 bg-[#030A8C] text-white text-sm font-semibold rounded-lg hover:bg-[#02077a] disabled:opacity-40">
+          <button type="button" onClick={onClose} className="px-3 py-2 text-sm text-muted-foreground hover:bg-secondary rounded-lg">Cancelar</button>
+          <button type="button" onClick={submit} disabled={!form.name.trim() || form.amount == null || saving} className="px-4 py-2 bg-primary text-primary-foreground text-sm font-semibold rounded-lg hover:bg-primary-hover disabled:opacity-40">
             {saving ? 'Salvando…' : 'Salvar custo'}
           </button>
         </>
@@ -70,25 +70,25 @@ export function NewCostModal({ period, onClose, onSaved }: {
     >
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-          <label className="text-xs font-medium text-gray-600 mb-1 block">Nome do custo *</label>
+          <label className="text-xs font-medium text-muted-foreground mb-1 block">Nome do custo *</label>
           <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className={INPUT} placeholder="Ex: Assinatura Adobe" />
         </div>
         <div>
-          <label className="text-xs font-medium text-gray-600 mb-1 block">Categoria</label>
+          <label className="text-xs font-medium text-muted-foreground mb-1 block">Categoria</label>
           <select value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))} className={INPUT}>
             {COST_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
         <div className="sm:col-span-2">
-          <label className="text-xs font-medium text-gray-600 mb-1 block">Descrição</label>
+          <label className="text-xs font-medium text-muted-foreground mb-1 block">Descrição</label>
           <input value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} className={INPUT} placeholder="Detalhes do custo" />
         </div>
         <div>
-          <label className="text-xs font-medium text-gray-600 mb-1 block">Valor *</label>
+          <label className="text-xs font-medium text-muted-foreground mb-1 block">Valor *</label>
           <CurrencyInput value={form.amount} onChange={(v) => setForm((f) => ({ ...f, amount: v }))} className={INPUT} ariaLabel="Valor do custo" />
         </div>
         <div>
-          <label className="text-xs font-medium text-gray-600 mb-1 block">Tipo *</label>
+          <label className="text-xs font-medium text-muted-foreground mb-1 block">Tipo *</label>
           <select value={form.recurrenceType} onChange={(e) => setForm((f) => ({ ...f, recurrenceType: e.target.value }))} className={INPUT}>
             <option value="UNICO">Custo único</option>
             <option value="RECORRENTE">Custo recorrente</option>
@@ -97,11 +97,11 @@ export function NewCostModal({ period, onClose, onSaved }: {
         {form.recurrenceType === 'UNICO' ? (
           <>
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Vencimento *</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Vencimento *</label>
               <input type="date" value={form.dueDate} onChange={(e) => setForm((f) => ({ ...f, dueDate: e.target.value }))} className={INPUT} />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Situação</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Situação</label>
               <select value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))} className={INPUT}>
                 <option value="PENDENTE">Pendente</option>
                 <option value="PAGO">Pago</option>
@@ -109,7 +109,7 @@ export function NewCostModal({ period, onClose, onSaved }: {
             </div>
             {form.status === 'PAGO' && (
               <div>
-                <label className="text-xs font-medium text-gray-600 mb-1 block">Data do pagamento</label>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Data do pagamento</label>
                 <input type="date" value={form.paidAt} onChange={(e) => setForm((f) => ({ ...f, paidAt: e.target.value }))} className={INPUT} />
               </div>
             )}
@@ -117,7 +117,7 @@ export function NewCostModal({ period, onClose, onSaved }: {
         ) : (
           <>
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Frequência *</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Frequência *</label>
               <select value={form.frequency} onChange={(e) => setForm((f) => ({ ...f, frequency: e.target.value }))} className={INPUT}>
                 <option value="MENSAL">Mensal</option>
                 <option value="TRIMESTRAL">Trimestral</option>
@@ -125,21 +125,21 @@ export function NewCostModal({ period, onClose, onSaved }: {
               </select>
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Início *</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Início *</label>
               <input type="date" value={form.startDate} onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))} className={INPUT} />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Término (opcional)</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Término (opcional)</label>
               <input type="date" value={form.endDate} onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))} className={INPUT} />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Dia do vencimento</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Dia do vencimento</label>
               <input type="number" min="1" max="31" value={form.dueDay} onChange={(e) => setForm((f) => ({ ...f, dueDay: e.target.value }))} className={INPUT} />
             </div>
           </>
         )}
       </div>
-      {error && <p className="text-xs font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
+      {error && <p className="text-xs font-medium text-destructive-texto bg-destructive-suave border border-destructive/20 rounded-lg px-3 py-2">{error}</p>}
     </Modal>
   )
 }
@@ -182,8 +182,8 @@ export function NewSalaryModal({ period, users, onClose, onSaved }: {
       onClose={onClose}
       footer={
         <>
-          <button type="button" onClick={onClose} className="px-3 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded-lg">Cancelar</button>
-          <button type="button" onClick={submit} disabled={!form.userId || form.amount == null || saving} className="px-4 py-2 bg-[#030A8C] text-white text-sm font-semibold rounded-lg hover:bg-[#02077a] disabled:opacity-40">
+          <button type="button" onClick={onClose} className="px-3 py-2 text-sm text-muted-foreground hover:bg-secondary rounded-lg">Cancelar</button>
+          <button type="button" onClick={submit} disabled={!form.userId || form.amount == null || saving} className="px-4 py-2 bg-primary text-primary-foreground text-sm font-semibold rounded-lg hover:bg-primary-hover disabled:opacity-40">
             {saving ? 'Salvando…' : 'Salvar salário'}
           </button>
         </>
@@ -191,22 +191,22 @@ export function NewSalaryModal({ period, users, onClose, onSaved }: {
     >
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-          <label className="text-xs font-medium text-gray-600 mb-1 block">Colaborador *</label>
+          <label className="text-xs font-medium text-muted-foreground mb-1 block">Colaborador *</label>
           <select value={form.userId} onChange={(e) => pickUser(e.target.value)} className={INPUT}>
             <option value="">Selecione...</option>
             {users.map((u) => <option key={u.id} value={u.id}>{u.name}{u.position ? ` — ${u.position}` : ''}</option>)}
           </select>
         </div>
         <div>
-          <label className="text-xs font-medium text-gray-600 mb-1 block">Valor do salário *</label>
+          <label className="text-xs font-medium text-muted-foreground mb-1 block">Valor do salário *</label>
           <CurrencyInput value={form.amount} onChange={(v) => setForm((f) => ({ ...f, amount: v }))} className={INPUT} ariaLabel="Valor do salário" />
         </div>
         <div>
-          <label className="text-xs font-medium text-gray-600 mb-1 block">Dia do pagamento</label>
+          <label className="text-xs font-medium text-muted-foreground mb-1 block">Dia do pagamento</label>
           <input type="number" min="1" max="31" value={form.payDay} onChange={(e) => setForm((f) => ({ ...f, payDay: e.target.value }))} className={INPUT} />
         </div>
         <div>
-          <label className="text-xs font-medium text-gray-600 mb-1 block">Mês inicial</label>
+          <label className="text-xs font-medium text-muted-foreground mb-1 block">Mês inicial</label>
           <input
             type="month"
             value={`${form.startYear}-${String(form.startMonth).padStart(2, '0')}`}
@@ -215,22 +215,22 @@ export function NewSalaryModal({ period, users, onClose, onSaved }: {
           />
         </div>
         <div>
-          <label className="text-xs font-medium text-gray-600 mb-1 block">Data final (opcional)</label>
+          <label className="text-xs font-medium text-muted-foreground mb-1 block">Data final (opcional)</label>
           <input type="date" value={form.endDate} onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))} className={INPUT} />
         </div>
         <div>
-          <label className="text-xs font-medium text-gray-600 mb-1 block">Situação do mês</label>
+          <label className="text-xs font-medium text-muted-foreground mb-1 block">Situação do mês</label>
           <select value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))} className={INPUT}>
             <option value="PENDENTE">Pendente</option>
             <option value="PAGO">Pago</option>
           </select>
         </div>
         <div className="sm:col-span-2">
-          <label className="text-xs font-medium text-gray-600 mb-1 block">Observação</label>
+          <label className="text-xs font-medium text-muted-foreground mb-1 block">Observação</label>
           <input value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} className={INPUT} placeholder="Ex: acordo de horas, bônus incluído..." />
         </div>
       </div>
-      {error && <p className="text-xs font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
+      {error && <p className="text-xs font-medium text-destructive-texto bg-destructive-suave border border-destructive/20 rounded-lg px-3 py-2">{error}</p>}
     </Modal>
   )
 }
@@ -262,12 +262,12 @@ export function CostEditForm({ entry, onCancel, onSave }: {
         <input value={f.description} onChange={(e) => setF((p) => ({ ...p, description: e.target.value }))} className={`${INPUT} sm:col-span-2`} placeholder="Descrição" aria-label="Descrição" />
       </div>
       <div className="flex gap-2 justify-end">
-        <button type="button" onClick={onCancel} className="text-xs px-3 py-2 text-gray-600 hover:bg-gray-200 rounded-lg">Cancelar</button>
+        <button type="button" onClick={onCancel} className="text-xs px-3 py-2 text-muted-foreground hover:bg-secondary rounded-lg">Cancelar</button>
         <button
           type="button"
           onClick={() => onSave({ name: f.name, description: f.description, category: f.category, amount: f.amount, dueDate: f.dueDate || undefined })}
           disabled={!f.name.trim() || f.amount == null}
-          className="text-xs px-4 py-2 bg-[#030A8C] text-white rounded-lg hover:bg-[#02077a] disabled:opacity-50 font-semibold"
+          className="text-xs px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary-hover disabled:opacity-50 font-semibold"
         >
           Salvar
         </button>
@@ -285,12 +285,12 @@ export function SalaryEditForm({ value, onChange, onCancel, onSave }: {
   return (
     <div className="flex flex-wrap items-end gap-3">
       <div className="flex-1 min-w-[180px]">
-        <label className="text-xs font-medium text-gray-600 mb-1 block">Novo valor</label>
+        <label className="text-xs font-medium text-muted-foreground mb-1 block">Novo valor</label>
         <CurrencyInput value={value} onChange={onChange} className={INPUT} ariaLabel="Novo valor do salário" />
       </div>
       <div className="flex gap-2">
-        <button type="button" onClick={onCancel} className="text-xs px-3 py-2 text-gray-600 hover:bg-gray-200 rounded-lg">Cancelar</button>
-        <button type="button" onClick={onSave} disabled={value == null} className="text-xs px-4 py-2 bg-[#030A8C] text-white rounded-lg hover:bg-[#02077a] disabled:opacity-50 font-semibold">Salvar</button>
+        <button type="button" onClick={onCancel} className="text-xs px-3 py-2 text-muted-foreground hover:bg-secondary rounded-lg">Cancelar</button>
+        <button type="button" onClick={onSave} disabled={value == null} className="text-xs px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary-hover disabled:opacity-50 font-semibold">Salvar</button>
       </div>
     </div>
   )
@@ -306,13 +306,13 @@ export function ScopeDialog({ title, onlyLabel, futureLabel, onPick, onClose }: 
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl w-full max-w-sm p-5 shadow-xl" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={title}>
-        <p className="font-semibold text-gray-900 mb-4">{title}</p>
+      <div className="bg-card rounded-[24px] border border-border w-full max-w-sm p-6 shadow-xl" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={title}>
+        <p className="font-semibold text-foreground mb-4">{title}</p>
         <div className="space-y-2">
-          <button type="button" onClick={() => onPick('only')} className="w-full text-left px-4 py-3 border border-gray-200 rounded-lg text-sm text-gray-700 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors">{onlyLabel}</button>
-          <button type="button" onClick={() => onPick('future')} className="w-full text-left px-4 py-3 border border-gray-200 rounded-lg text-sm text-gray-700 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors">{futureLabel}</button>
+          <button type="button" onClick={() => onPick('only')} className="w-full text-left px-4 py-3 border border-border rounded-lg text-sm text-foreground hover:border-marca hover:text-marca-texto transition-colors">{onlyLabel}</button>
+          <button type="button" onClick={() => onPick('future')} className="w-full text-left px-4 py-3 border border-border rounded-lg text-sm text-foreground hover:border-marca hover:text-marca-texto transition-colors">{futureLabel}</button>
         </div>
-        <button type="button" onClick={onClose} className="mt-3 w-full py-2 text-sm text-gray-500 hover:bg-gray-50 rounded-lg">Cancelar</button>
+        <button type="button" onClick={onClose} className="mt-3 w-full py-2 text-sm text-muted-foreground hover:bg-secondary/60 rounded-lg">Cancelar</button>
       </div>
     </div>
   )
@@ -328,13 +328,13 @@ export function DueDateDialog({ label, current, onClose, onConfirm }: {
   const [date, setDate] = useState(current)
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl w-full max-w-sm p-5 shadow-xl" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Alterar vencimento">
-        <p className="font-semibold text-gray-900 mb-1">Alterar vencimento</p>
-        <p className="text-xs text-gray-500 mb-3 truncate">{label}</p>
+      <div className="bg-card rounded-[24px] border border-border w-full max-w-sm p-6 shadow-xl" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Alterar vencimento">
+        <p className="font-semibold text-foreground mb-1">Alterar vencimento</p>
+        <p className="text-xs text-muted-foreground mb-3 truncate">{label}</p>
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={INPUT} aria-label="Novo vencimento" />
         <div className="flex justify-end gap-2 mt-4">
-          <button type="button" onClick={onClose} className="px-3 py-2 text-xs font-medium text-gray-600 hover:text-gray-900">Cancelar</button>
-          <button type="button" onClick={() => onConfirm(date)} disabled={!date} className="px-4 py-2 bg-[#030A8C] text-white rounded-lg text-xs font-semibold hover:bg-[#02077a] disabled:opacity-40">Salvar</button>
+          <button type="button" onClick={onClose} className="px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground">Cancelar</button>
+          <button type="button" onClick={() => onConfirm(date)} disabled={!date} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-xs font-semibold hover:bg-primary-hover disabled:opacity-40">Salvar</button>
         </div>
       </div>
     </div>

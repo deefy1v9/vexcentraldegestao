@@ -1,10 +1,13 @@
 'use client'
 import { useSession } from 'next-auth/react'
 import { getInitials } from '@/lib/utils'
-import { X, AlertCircle, CheckCircle2, Menu } from 'lucide-react'
-import { IconBell, IconMail, IconSun, IconMoon, IconSearch } from '@/components/icons/duotone'
+import { X, AlertCircle, CheckCircle2, Menu, ChevronRight } from 'lucide-react'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { itemAtivo } from '@/components/shell/nav-config'
+import { useCasca } from '@/components/shell/ShellContext'
+import { IconBell, IconSun, IconMoon } from '@/components/icons/duotone'
 import { useState, useEffect, useRef } from 'react'
-import { useMobileNav } from './MobileNav'
 
 interface Notification {
   id: string
@@ -17,13 +20,17 @@ interface Notification {
 interface HeaderProps {
   title: string
   subtitle?: string
+  /** Botões à direita do título (período, ação principal), como no Vireo. */
+  acoes?: React.ReactNode
 }
 
-export default function Header({ title, subtitle }: HeaderProps) {
+export default function Header({ title, subtitle, acoes }: HeaderProps) {
   const { data: session } = useSession()
   const name = session?.user?.name ?? ''
   const email = session?.user?.email ?? ''
-  const { toggle } = useMobileNav()
+  const casca = useCasca()
+  const pathname = usePathname()
+  const secao = itemAtivo(pathname)?.secao.label ?? null
 
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [open, setOpen] = useState(false)
@@ -77,123 +84,129 @@ export default function Header({ title, subtitle }: HeaderProps) {
     }).catch(() => {})
   }
 
+  const botaoTopo = 'w-10 h-10 flex items-center justify-center rounded-xl text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors'
+
   return (
-    <header className="h-[72px] bg-[var(--surface)]/85 backdrop-blur-md border-b border-[var(--border)] px-4 sm:px-6 flex items-center justify-between gap-2 shrink-0">
-      <div className="flex items-center gap-2 min-w-0">
-        {/* Hambúrguer: abre a sidebar como drawer no mobile. */}
+    <div className="shrink-0">
+      {/* Faixa de cima: ir para, tema, sino e a pessoa (modelo Vireo) */}
+      <header className="h-[60px] bg-card/80 backdrop-blur-md border-b border-border px-4 sm:px-8 flex items-center gap-3">
+        {/* ☰ como no Vireo: no computador abre e recolhe o menu; no celular, a gaveta */}
         <button
-          onClick={toggle}
-          aria-label="Abrir menu"
-          className="lg:hidden w-9 h-9 shrink-0 flex items-center justify-center rounded-xl hover:bg-gray-100 transition-colors -ml-1"
+          onClick={() => (window.matchMedia('(min-width: 768px)').matches ? casca.alternarMenu() : casca.abrirGaveta())}
+          aria-label="Abrir ou recolher o menu"
+          title="Abrir ou recolher o menu"
+          className={`-ml-1.5 ${botaoTopo}`}
         >
-          <Menu className="w-5 h-5 text-gray-600" />
-        </button>
-        <div className="min-w-0">
-          <h1 className="text-lg sm:text-xl font-bold text-[var(--text)] leading-tight truncate">{title}</h1>
-          {subtitle && <p className="text-xs text-[var(--text-secondary)] mt-0.5 truncate">{subtitle}</p>}
-        </div>
-      </div>
-
-      <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-        <div className="hidden lg:flex items-center gap-2 bg-gray-100 rounded-full h-10 px-4 mr-2 text-sm text-gray-400 w-60">
-          <IconSearch className="w-4 h-4" />
-          <span>Buscar...</span>
-          <span className="ml-auto text-[10px] bg-white rounded-md px-1.5 py-0.5 text-gray-400 border border-gray-200">⌘F</span>
-        </div>
-
-        <button
-          onClick={toggleTheme}
-          title={dark ? 'Mudar para tema claro' : 'Mudar para tema escuro'}
-          aria-label={dark ? 'Mudar para tema claro' : 'Mudar para tema escuro'}
-          className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
-        >
-          {dark
-            ? <IconSun className="w-5 h-5 text-gray-600" />
-            : <IconMoon className="w-5 h-5 text-gray-600" />}
+          <Menu className="w-5 h-5" />
         </button>
 
-        <button className="hidden sm:flex w-10 h-10 items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors" aria-label="Mensagens">
-          <IconMail className="w-5 h-5 text-gray-600" />
-        </button>
-
-        {/* Notification bell */}
-        <div className="relative" ref={dropdownRef}>
+        <div className="ml-auto flex items-center gap-1 sm:gap-1.5">
           <button
-            onClick={() => setOpen((p) => !p)}
-            aria-label="Notificações"
-            className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors relative"
+            onClick={toggleTheme}
+            title={dark ? 'Mudar para tema claro' : 'Mudar para tema escuro'}
+            aria-label={dark ? 'Mudar para tema claro' : 'Mudar para tema escuro'}
+            className={botaoTopo}
           >
-            <IconBell className="w-5 h-5 text-gray-600" />
-            {count > 0 && (
-              <span className="absolute top-1 right-1 min-w-[16px] h-4 bg-[#F74A13] rounded-full flex items-center justify-center px-1">
-                <span className="text-white text-[9px] font-bold leading-none">{count > 9 ? '9+' : count}</span>
-              </span>
-            )}
-            {count === 0 && (
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#030A8C] rounded-full" />
-            )}
+            {dark ? <IconSun className="w-5 h-5" /> : <IconMoon className="w-5 h-5" />}
           </button>
 
-          {open && (
-            <div className="absolute right-0 top-full mt-2 w-[calc(100vw-2rem)] max-w-[360px] bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-                <p className="font-bold text-gray-900 text-sm">Notificações</p>
-                {count > 0 && (
-                  <button
-                    onClick={() => markRead(visible.map((n) => n.id))}
-                    className="text-xs text-gray-400 hover:text-gray-700 transition-colors"
-                  >
-                    Marcar todas como lidas
-                  </button>
-                )}
-              </div>
-
-              <div className="max-h-[400px] overflow-y-auto">
-                {visible.length === 0 ? (
-                  <div className="px-4 py-10 text-center">
-                    <IconBell className="w-8 h-8 text-gray-200 mx-auto mb-2" />
-                    <p className="text-sm text-gray-400">Nenhuma notificação</p>
-                  </div>
-                ) : (
-                  visible.map((n) => (
-                    <div key={n.id} className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 transition-colors group border-b border-gray-50 last:border-0">
-                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
-                        n.type === 'overdue_payment' ? 'bg-red-50' : 'bg-green-50'
-                      }`}>
-                        {n.type === 'overdue_payment'
-                          ? <AlertCircle className="w-4 h-4 text-red-500" />
-                          : <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        }
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-gray-900 leading-snug">{n.title}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">{n.description}</p>
-                      </div>
-                      <button
-                        onClick={() => markRead([n.id])}
-                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-200 rounded-lg transition-all"
-                      >
-                        <X className="w-3 h-3 text-gray-500" />
-                      </button>
+          {/* Notification bell */}
+          <div className="relative" ref={dropdownRef}>
+            <button
+              onClick={() => setOpen((p) => !p)}
+              aria-label="Notificações"
+              className={`${botaoTopo} relative`}
+            >
+              <IconBell className="w-5 h-5" />
+              {count > 0 && (
+                <span className="absolute top-1 right-1 min-w-[16px] h-4 bg-primary rounded-full flex items-center justify-center px-1">
+                  <span className="text-primary-foreground text-[9px] font-bold leading-none">{count > 9 ? '9+' : count}</span>
+                </span>
+              )}
+              {count === 0 && (
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-marca rounded-full" />
+              )}
+            </button>
+  
+            {open && (
+              <div className="absolute right-0 top-full mt-2 w-[calc(100vw-2rem)] max-w-[360px] bg-card rounded-2xl shadow-xl border border-border z-50 overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+                  <p className="font-bold text-foreground text-sm">Notificações</p>
+                  {count > 0 && (
+                    <button
+                      onClick={() => markRead(visible.map((n) => n.id))}
+                      className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Marcar todas como lidas
+                    </button>
+                  )}
+                </div>
+  
+                <div className="max-h-[400px] overflow-y-auto">
+                  {visible.length === 0 ? (
+                    <div className="px-4 py-10 text-center">
+                      <IconBell className="w-8 h-8 text-subtle mx-auto mb-2" />
+                      <p className="text-sm text-muted-foreground">Nenhuma notificação</p>
                     </div>
-                  ))
-                )}
+                  ) : (
+                    visible.map((n) => (
+                      <div key={n.id} className="flex items-start gap-3 px-4 py-3 hover:bg-secondary transition-colors group border-b border-border/60 last:border-0">
+                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+                          n.type === 'overdue_payment' ? 'bg-destructive-suave' : 'bg-success-suave'
+                        }`}>
+                          {n.type === 'overdue_payment'
+                            ? <AlertCircle className="w-4 h-4 text-destructive-texto" />
+                            : <CheckCircle2 className="w-4 h-4 text-success" />
+                          }
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-foreground leading-snug">{n.title}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{n.description}</p>
+                        </div>
+                        <button
+                          onClick={() => markRead([n.id])}
+                          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-secondary rounded-lg transition-all"
+                        >
+                          <X className="w-3 h-3 text-muted-foreground" />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
+            )}
+          </div>
+  
+  
+          <span aria-hidden className="hidden sm:block w-px h-6 bg-border mx-1.5" />
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 bg-marca rounded-full flex items-center justify-center shadow-sm">
+              <span className="text-white text-xs font-bold">{getInitials(name)}</span>
             </div>
-          )}
+            <div className="hidden md:block">
+              <p className="text-[13px] font-semibold text-foreground leading-tight">{name}</p>
+              <p className="text-[11px] text-muted-foreground leading-none mt-0.5">{email}</p>
+            </div>
+          </div>
         </div>
+      </header>
 
-        {/* User */}
-        <div className="flex items-center gap-2.5 ml-2 pl-3 border-l border-[var(--border)]">
-          <div className="w-9 h-9 bg-[#030A8C] rounded-full flex items-center justify-center shadow-sm">
-            <span className="text-white text-xs font-bold">{getInitials(name)}</span>
-          </div>
-          <div className="hidden sm:block">
-            <p className="text-sm font-semibold text-[var(--text)] leading-tight">{name}</p>
-            <p className="text-[11px] text-[var(--text-secondary)] leading-none">{email}</p>
-          </div>
+      {/* Cabeçalho da página: trilha, título grande e a frase (modelo Vireo) */}
+      <div className="px-4 sm:px-8 pt-5 pb-3 flex flex-wrap items-end gap-x-6 gap-y-3">
+        <div className="min-w-0 flex-1">
+        <nav aria-label="Onde você está" className="flex items-center gap-1.5 text-[12.5px] text-muted-foreground">
+          <Link href="/dashboard" className="hover:text-foreground">Início</Link>
+          {secao && <><ChevronRight className="w-3.5 h-3.5 text-subtle" /><span>{secao}</span></>}
+          <ChevronRight className="w-3.5 h-3.5 text-subtle" />
+          <span className="text-foreground font-medium truncate">{title}</span>
+        </nav>
+        <h1 className="mt-1.5 font-display text-[26px] sm:text-[30px] leading-tight font-semibold tracking-[-0.02em] text-foreground truncate">{title}</h1>
+        {subtitle && <p className="mt-1 text-[14px] sm:text-[15px] text-muted-foreground truncate">{subtitle}</p>}
         </div>
+        {acoes && <div className="flex flex-wrap items-center gap-2">{acoes}</div>}
       </div>
-    </header>
+
+    </div>
   )
 }
+

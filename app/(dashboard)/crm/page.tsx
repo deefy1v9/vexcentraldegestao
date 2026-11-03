@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { getSessionUser } from '@/lib/api-auth'
-import Header from '@/components/layout/Header'
 import CrmPanel from '@/components/crm/CrmPanel'
 
 export default async function CrmPage() {
@@ -32,7 +31,7 @@ export default async function CrmPage() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <Header title="CRM — WhatsApp" subtitle="Gestão de conversas via UAZAPI" />
+      {/* O cabeçalho mora no painel: as ações (adicionar contato, configurações) abrem modais dele */}
       <CrmPanel initialContacts={contacts} availableClients={clients} />
     </div>
   )

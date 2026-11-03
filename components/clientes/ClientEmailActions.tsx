@@ -69,7 +69,7 @@ export default function ClientEmailActions({ clientId, clientName }: { clientId:
   return (
     <div className="relative inline-flex items-center gap-2" ref={ref}>
       {msg && (
-        <span className={`text-xs font-medium ${msg.ok ? 'text-green-700' : 'text-red-600'}`}>{msg.text}</span>
+        <span className={`text-xs font-medium ${msg.ok ? 'text-success' : 'text-destructive-texto'}`}>{msg.text}</span>
       )}
       <button
         type="button"
@@ -110,39 +110,39 @@ export default function ClientEmailActions({ clientId, clientName }: { clientId:
 
       {modal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-xl w-full max-w-lg max-h-[90dvh] overflow-y-auto p-4 sm:p-6 shadow-xl space-y-3">
+          <div className="bg-card border border-border rounded-[24px] w-full max-w-lg max-h-[90dvh] overflow-y-auto p-6 shadow-xl space-y-3">
             <div>
-              <p className="font-semibold text-gray-900">Comunicado para {clientName}</p>
-              <p className="text-xs text-gray-500 mt-0.5">Sai pelo remetente contato@ no layout da marca.</p>
+              <p className="font-semibold text-foreground">Comunicado para {clientName}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Sai pelo remetente contato@ no layout da marca.</p>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Título *</label>
+              <label className="block text-xs font-medium text-foreground mb-1">Título *</label>
               <input value={title} onChange={(e) => setTitle(e.target.value)} className="input" maxLength={120} />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Mensagem *</label>
+              <label className="block text-xs font-medium text-foreground mb-1">Mensagem *</label>
               <textarea value={message} onChange={(e) => setMessage(e.target.value)} className="input" rows={6} maxLength={4000} />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Texto do botão (opcional)</label>
+                <label className="block text-xs font-medium text-foreground mb-1">Texto do botão (opcional)</label>
                 <input value={ctaLabel} onChange={(e) => setCtaLabel(e.target.value)} className="input" maxLength={40} placeholder="Ex: Ver novidade" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Link do botão</label>
+                <label className="block text-xs font-medium text-foreground mb-1">Link do botão</label>
                 <input value={ctaUrl} onChange={(e) => setCtaUrl(e.target.value)} className="input" placeholder="https://..." />
               </div>
             </div>
-            {msg && !msg.ok && <p className="text-xs text-red-600">{msg.text}</p>}
+            {msg && !msg.ok && <p className="text-xs text-destructive-texto">{msg.text}</p>}
             <div className="flex justify-end gap-2 pt-1">
-              <button type="button" onClick={() => setModal(false)} disabled={busy != null} className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 disabled:opacity-50">
+              <button type="button" onClick={() => setModal(false)} disabled={busy != null} className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground disabled:opacity-50">
                 Cancelar
               </button>
               <button
                 type="button"
                 disabled={!title.trim() || !message.trim() || busy != null || (!!ctaLabel !== !!ctaUrl)}
                 onClick={() => send('announcement', { title, message, ctaLabel, ctaUrl })}
-                className="px-4 py-2 bg-[#030A8C] text-white rounded-lg text-sm font-semibold hover:bg-[#02077a] disabled:opacity-40 transition-colors"
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:bg-primary-hover disabled:opacity-40 transition-colors"
               >
                 {busy ? 'Enviando...' : 'Enviar comunicado'}
               </button>

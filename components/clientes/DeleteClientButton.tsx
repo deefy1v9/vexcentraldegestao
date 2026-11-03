@@ -60,8 +60,8 @@ export default function DeleteClientButton({
         title={`Excluir ${clientName}`}
         className={
           variant === 'menu'
-            ? 'w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors text-left'
-            : 'inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-medium hover:bg-red-600 hover:text-white transition-colors'
+            ? 'w-full flex items-center gap-2 px-3 py-2 text-sm text-destructive-texto hover:bg-destructive-suave transition-colors text-left'
+            : 'inline-flex items-center gap-1.5 px-3 py-1.5 bg-destructive-suave text-destructive-texto rounded-lg text-xs font-medium hover:bg-destructive hover:text-destructive-foreground transition-colors'
         }
       >
         <Trash2 className={variant === 'menu' ? 'w-4 h-4' : 'w-3 h-3'} />
@@ -70,14 +70,14 @@ export default function DeleteClientButton({
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-xl w-full max-w-md max-h-[90dvh] overflow-y-auto p-4 sm:p-6 shadow-xl">
+          <div className="bg-card border border-border rounded-[24px] w-full max-w-md max-h-[90dvh] overflow-y-auto p-6 shadow-xl">
             <div className="flex items-start gap-3 mb-4">
-              <div className="w-9 h-9 rounded-lg bg-red-50 flex items-center justify-center shrink-0">
-                <AlertTriangle className="w-4 h-4 text-red-600" />
+              <div className="w-9 h-9 rounded-lg bg-destructive-suave flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-4 h-4 text-destructive-texto" />
               </div>
               <div>
-                <p className="font-semibold text-gray-900">Excluir {clientName}?</p>
-                <p className="text-sm text-gray-500 mt-1">
+                <p className="font-semibold text-foreground">Excluir {clientName}?</p>
+                <p className="text-sm text-muted-foreground mt-1">
                   Esta ação não pode ser desfeita. Também serão apagados os pagamentos,
                   serviços, credenciais e o histórico de CRM deste cliente. As demandas e
                   eventos de calendário são mantidos, mas ficam sem cliente vinculado.
@@ -85,24 +85,24 @@ export default function DeleteClientButton({
               </div>
             </div>
 
-            <label className="block text-xs font-medium text-gray-600 mb-1.5">
-              Digite <span className="font-semibold text-gray-900">{clientName}</span> para confirmar
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+              Digite <span className="font-semibold text-foreground">{clientName}</span> para confirmar
             </label>
             <input
               autoFocus
               value={typed}
               onChange={(e) => setTyped(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-gray-900"
+              className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-destructive text-foreground"
             />
 
-            {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
+            {error && <p className="text-xs text-destructive-texto mt-2">{error}</p>}
 
             <div className="flex justify-end gap-2 mt-5">
               <button
                 type="button"
                 onClick={close}
                 disabled={busy}
-                className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 disabled:opacity-50"
+                className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground disabled:opacity-50"
               >
                 Cancelar
               </button>
@@ -110,7 +110,7 @@ export default function DeleteClientButton({
                 type="button"
                 onClick={handleDelete}
                 disabled={!confirmed || busy}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 disabled:opacity-40 disabled:hover:bg-red-600 transition-colors"
+                className="px-4 py-2 bg-destructive text-destructive-foreground rounded-lg text-sm font-semibold hover:brightness-95 disabled:opacity-40 disabled:hover:bg-destructive transition-colors"
               >
                 {busy ? 'Excluindo...' : 'Excluir cliente'}
               </button>

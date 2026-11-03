@@ -225,6 +225,7 @@
   --radius-xl: var(--radius);
 
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--font-space), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
 
 @layer base {
@@ -2119,13 +2120,8 @@ aside[data-trilho="claro"] [data-pe-trilho] button[data-state="open"] {
   background: #9CA3AF;
 }
 
-/* Line clamp */
-.line-clamp-2 {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
+/* Line clamp: o Tailwind 4 já tem line-clamp-N. A regra solta que morava
+   aqui ficava fora das camadas e anulava variantes como @2xl:line-clamp-1. */
 
 /* ===========================================================================
    TEMA ESCURO — ativado pela classe .dark no <html> (toggle no cabeçalho,
@@ -2216,3 +2212,19 @@ body, .bg-white, .input { transition: background-color 0.25s ease, border-color 
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ── Versão 2 (prévia /v2, 03/11): entradas animadas da casca ─────────────── */
+@keyframes v2-cima { from { opacity: 0; transform: translateY(-14px); } to { opacity: 1; transform: none; } }
+@keyframes v2-esq { from { opacity: 0; transform: translateX(-18px); } to { opacity: 1; transform: none; } }
+.v2-entrar-cima { animation: v2-cima 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.v2-entrar-esq { animation: v2-esq 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both; }
+@media (prefers-reduced-motion: reduce) {
+  .v2-entrar-cima, .v2-entrar-esq { animation: none; }
+}
+
+/* V2: as manchas desfocadas do fundo flutuam devagar */
+@keyframes v2-flutuar { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(40px, -30px) scale(1.08); } }
+.v2-mancha { animation: v2-flutuar 18s ease-in-out infinite; }
+.v2-mancha-2 { animation-duration: 22s; animation-delay: -6s; }
+.v2-mancha-3 { animation-duration: 26s; animation-delay: -12s; }
+@media (prefers-reduced-motion: reduce) { .v2-mancha { animation: none; } }

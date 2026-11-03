@@ -190,7 +190,7 @@ export default function ConstrutorProcesso({ inicial, pessoas, equipes }: { inic
   return (
     <div className="flex-1 min-h-0 flex flex-col gap-2 p-2">
       {/* barra de cima */}
-      <div className="rounded-[12px] border border-border bg-card px-3 h-14 flex items-center gap-3 shrink-0">
+      <div className="rounded-[20px] border border-border bg-card px-3 h-14 flex items-center gap-3 shrink-0">
         <Button asChild variant="ghost" size="icon-sm" aria-label="Voltar para Processos"><Link href="/processos"><ArrowLeft /></Link></Button>
         <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: cor }} />
         <input
@@ -215,7 +215,7 @@ export default function ConstrutorProcesso({ inicial, pessoas, equipes }: { inic
 
       <div className="flex-1 min-h-0 grid lg:grid-cols-[minmax(0,1fr)_340px] gap-2">
         {/* tela com os blocos */}
-        <section className="min-h-0 rounded-[12px] border border-border bg-background flex flex-col overflow-hidden">
+        <section className="min-h-0 rounded-[24px] border border-border bg-background flex flex-col overflow-hidden">
           <div
             className="flex-1 min-h-0 overflow-auto"
             style={{ backgroundImage: 'radial-gradient(var(--border) 1px, transparent 1px)', backgroundSize: '18px 18px' }}
@@ -223,7 +223,7 @@ export default function ConstrutorProcesso({ inicial, pessoas, equipes }: { inic
           >
             <div className="min-w-max flex items-center gap-0 p-10 min-h-full" onClick={(e) => { if (e.target === e.currentTarget) setSelecionada(null) }}>
               {/* entrada */}
-              <div className="w-[200px] rounded-[12px] border border-border bg-card p-3.5 shrink-0">
+              <div className="w-[200px] rounded-2xl border border-border bg-card p-3.5 shrink-0">
                 <div className="flex items-start gap-2.5">
                   <span className="w-8 h-8 rounded-lg bg-marca-suave text-marca-texto grid place-items-center shrink-0"><Zap className="w-4 h-4" /></span>
                   <div className="min-w-0">
@@ -262,7 +262,7 @@ export default function ConstrutorProcesso({ inicial, pessoas, equipes }: { inic
                       type="button"
                       onClick={() => setSelecionada(sel ? null : e.key)}
                       aria-pressed={sel}
-                      className={`w-[220px] text-left rounded-[12px] border bg-card p-3.5 shrink-0 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
+                      className={`w-[220px] text-left rounded-2xl border bg-card p-3.5 shrink-0 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
                         sel ? 'border-marca ring-2 ring-marca/20' : avisos.length ? 'border-warning/50' : 'border-border hover:border-subtle'
                       }`}
                     >
@@ -321,7 +321,7 @@ export default function ConstrutorProcesso({ inicial, pessoas, equipes }: { inic
         </section>
 
         {/* painel da direita: a etapa escolhida ou o processo */}
-        <aside className="min-h-0 overflow-y-auto rounded-[12px] border border-border bg-card">
+        <aside className="min-h-0 overflow-y-auto rounded-[24px] border border-border bg-card">
           {atual ? (
             <div className="p-4 space-y-4">
               <div className="flex items-center justify-between gap-2">
@@ -472,7 +472,7 @@ export default function ConstrutorProcesso({ inicial, pessoas, equipes }: { inic
       {/* "O que acontece agora?" */}
       {inserirEm !== null && (
         <div className="fixed inset-0 z-50 bg-foreground/40 grid place-items-center p-4" onClick={() => setInserirEm(null)}>
-          <div role="dialog" aria-label="O que acontece agora?" onClick={(e) => e.stopPropagation()} className="w-full max-w-[720px] max-h-[85dvh] overflow-y-auto rounded-[12px] border border-border bg-card p-5 shadow-[0_12px_40px_rgb(16_24_40/0.2)]">
+          <div role="dialog" aria-label="O que acontece agora?" onClick={(e) => e.stopPropagation()} className="w-full max-w-[720px] max-h-[85dvh] overflow-y-auto rounded-[24px] border border-border bg-card p-5 shadow-[0_12px_40px_rgb(16_24_40/0.2)]">
             <h2 className="t-secao text-foreground text-[16px]">O que acontece agora?</h2>
             <p className="t-rotulo text-muted-foreground mt-1">Uma etapa de trabalho entrega algo; uma aprovação aprova ou devolve com o ajuste.</p>
             {MODELOS.map((g) => (
@@ -483,7 +483,7 @@ export default function ConstrutorProcesso({ inicial, pessoas, equipes }: { inic
                 <div className="grid sm:grid-cols-2 gap-2">
                   {g.itens.map((m) => (
                     <button key={m.titulo} type="button" onClick={() => inserir(m.cria())}
-                      className="text-left rounded-[12px] border border-border bg-card p-3 flex items-start gap-3 hover:border-marca hover:bg-accent transition-colors focus-visible:outline-2 focus-visible:outline-ring">
+                      className="text-left rounded-2xl border border-border bg-card p-3 flex items-start gap-3 hover:border-marca hover:bg-accent transition-colors focus-visible:outline-2 focus-visible:outline-ring">
                       <span className={`w-8 h-8 rounded-lg grid place-items-center shrink-0 ${g.grupo === 'Alguém faz' ? 'bg-marca-suave text-marca-texto' : 'bg-warning-suave text-warning'}`}><m.icone className="w-4 h-4" /></span>
                       <span className="min-w-0">
                         <span className="block t-corpo font-semibold text-foreground">{m.titulo}</span>

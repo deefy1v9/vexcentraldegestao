@@ -13,8 +13,8 @@ export default function CopiarLink({ caminho, rotulo = 'Copiar link' }: { caminh
     setTimeout(() => setOk(false), 1800)
   }
   return (
-    <button type="button" onClick={copiar} className="h-9 px-3 inline-flex items-center gap-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary-hover">
-      {ok ? <Check className="w-3.5 h-3.5" /> : <Link2 className="w-3.5 h-3.5" />}
+    <button type="button" onClick={copiar} className="h-9 px-3 inline-flex items-center gap-1.5 rounded-lg border border-border bg-card text-foreground text-xs font-medium hover:bg-accent hover:border-subtle/60 transition-colors">
+      {ok ? <Check className="w-3.5 h-3.5 text-success" /> : <Link2 className="w-3.5 h-3.5 text-muted-foreground" />}
       {ok ? 'Copiado' : rotulo}
     </button>
   )

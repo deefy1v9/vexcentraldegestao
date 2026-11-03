@@ -51,9 +51,9 @@ export default async function DemandasPage() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <Header title="Demandas" subtitle="Tarefas por processo, quadro e calendário" />
-      {/* Filtros e visão vivem na URL (useSearchParams) */}
-      <Suspense fallback={<p className="p-6 text-sm text-gray-400">Carregando demandas…</p>}>
+      {/* Filtros e visão vivem na URL (useSearchParams). O cabeçalho é do
+          workspace, que tem as ações (nova demanda, importar com IA). */}
+      <Suspense fallback={<><Header title="Demandas" subtitle="Tarefas por processo, quadro e calendário" /><p className="px-8 py-6 text-sm text-muted-foreground">Carregando demandas…</p></>}>
         <DemandasWorkspace
           initialTasks={tasks}
           clients={clients}

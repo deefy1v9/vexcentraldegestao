@@ -140,28 +140,28 @@ export default function EmailSettingsCard() {
     }
   }
 
-  if (loading) return <div className="h-40 bg-gray-100 rounded-xl animate-pulse" />
+  if (loading) return <div className="h-40 bg-secondary rounded-xl animate-pulse" />
 
   const input = 'input'
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 space-y-4 text-sm">
-      <p className="font-bold text-gray-900 flex items-center gap-2">
-        <Mail className="w-4 h-4 text-[#030A8C]" /> E-mail transacional
+    <div className="bg-card rounded-xl border border-border p-4 sm:p-5 space-y-4 text-sm">
+      <p className="font-bold text-foreground flex items-center gap-2">
+        <Mail className="w-4 h-4 text-marca-texto" /> E-mail transacional
       </p>
 
       {/* Servidor */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">Servidor SMTP</label>
+          <label className="block text-xs font-medium text-foreground mb-1">Servidor SMTP</label>
           <input value={form.SMTP_HOST} onChange={(e) => set('SMTP_HOST', e.target.value)} className={input} placeholder="smtp.gmail.com" />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">Porta</label>
+          <label className="block text-xs font-medium text-foreground mb-1">Porta</label>
           <input value={form.SMTP_PORT} onChange={(e) => set('SMTP_PORT', e.target.value)} className={input} placeholder="587" />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">Segurança</label>
+          <label className="block text-xs font-medium text-foreground mb-1">Segurança</label>
           <select value={form.SMTP_SECURE} onChange={(e) => set('SMTP_SECURE', e.target.value)} className={input}>
             <option value="false">STARTTLS (porta 587)</option>
             <option value="true">SSL/TLS direto (porta 465)</option>
@@ -174,26 +174,26 @@ export default function EmailSettingsCard() {
         { key: 'contato', title: 'Contato — mensagens e avisos', fromKey: 'MAIL_FROM_CONTATO', userKey: 'SMTP_CONTATO_USER', passKey: 'SMTP_CONTATO_PASS' },
         { key: 'financeiro', title: 'Financeiro — boletos e cobrança', fromKey: 'MAIL_FROM_FINANCEIRO', userKey: 'SMTP_USER', passKey: 'SMTP_PASS' },
       ] as const).map((p) => (
-        <div key={p.key} className="border border-gray-100 rounded-lg p-3 space-y-3">
-          <p className="text-xs font-semibold text-gray-700 flex items-center gap-2">
+        <div key={p.key} className="border border-border rounded-lg p-3 space-y-3">
+          <p className="text-xs font-semibold text-foreground flex items-center gap-2">
             {p.title}
             {passSet[p.key] ? (
-              <span className="text-[11px] font-medium text-green-700 bg-green-50 px-2 py-0.5 rounded-full">senha configurada</span>
+              <span className="text-[11px] font-medium text-success bg-success-suave px-2 py-0.5 rounded-full">senha configurada</span>
             ) : (
-              <span className="text-[11px] font-medium text-orange-700 bg-orange-50 px-2 py-0.5 rounded-full">sem senha</span>
+              <span className="text-[11px] font-medium text-warning bg-warning-suave px-2 py-0.5 rounded-full">sem senha</span>
             )}
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Remetente exibido</label>
+              <label className="block text-xs font-medium text-foreground mb-1">Remetente exibido</label>
               <input value={form[p.fromKey]} onChange={(e) => set(p.fromKey, e.target.value)} className={input} />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Usuário SMTP</label>
+              <label className="block text-xs font-medium text-foreground mb-1">Usuário SMTP</label>
               <input value={form[p.userKey]} onChange={(e) => set(p.userKey, e.target.value)} className={input} placeholder={`${p.key}@vexgrowth.com.br`} />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Senha de app</label>
+              <label className="block text-xs font-medium text-foreground mb-1">Senha de app</label>
               <input
                 type="password"
                 autoComplete="new-password"
@@ -207,7 +207,7 @@ export default function EmailSettingsCard() {
         </div>
       ))}
 
-      <p className="text-[11px] text-gray-400">
+      <p className="text-[11px] text-muted-foreground">
         Sem usuário/senha próprios, o perfil de contato usa a credencial do financeiro — o que só funciona se o
         servidor de saída autorizar enviar por todo o domínio (relay). As senhas ficam cifradas no banco e nunca voltam para a tela.
       </p>
@@ -216,28 +216,28 @@ export default function EmailSettingsCard() {
         <button
           onClick={save}
           disabled={saving}
-          className="px-4 py-2 bg-[#030A8C] text-white rounded-lg text-xs font-semibold hover:bg-[#02077a] disabled:opacity-50 transition-colors"
+          className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-xs font-semibold hover:bg-primary-hover disabled:opacity-50 transition-colors"
         >
           {saving ? 'Salvando...' : saved ? 'Salvo' : 'Salvar e-mail'}
         </button>
       </div>
 
       {/* Teste real */}
-      <div className="border-t border-gray-100 pt-3 space-y-2">
-        <label className="block text-xs font-medium text-gray-700">Enviar teste real para</label>
+      <div className="border-t border-border pt-3 space-y-2">
+        <label className="block text-xs font-medium text-foreground">Enviar teste real para</label>
         <div className="flex flex-col sm:flex-row gap-2">
           <input value={to} onChange={(e) => setTo(e.target.value)} className={`${input} flex-1`} placeholder="voce@exemplo.com" />
           <button
             onClick={() => test('contato')}
             disabled={!to || testing != null}
-            className="flex items-center justify-center gap-1.5 px-3 py-2 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 hover:border-[#030A8C] hover:text-[#030A8C] disabled:opacity-50 transition-colors"
+            className="flex items-center justify-center gap-1.5 px-3 py-2 border border-border rounded-lg text-xs font-semibold text-foreground hover:border-marca hover:text-marca-texto disabled:opacity-50 transition-colors"
           >
             <Send className="w-3.5 h-3.5" /> {testing === 'contato' ? 'Enviando...' : 'Testar contato'}
           </button>
           <button
             onClick={() => test('financeiro')}
             disabled={!to || testing != null}
-            className="flex items-center justify-center gap-1.5 px-3 py-2 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 hover:border-[#030A8C] hover:text-[#030A8C] disabled:opacity-50 transition-colors"
+            className="flex items-center justify-center gap-1.5 px-3 py-2 border border-border rounded-lg text-xs font-semibold text-foreground hover:border-marca hover:text-marca-texto disabled:opacity-50 transition-colors"
           >
             <Send className="w-3.5 h-3.5" /> {testing === 'financeiro' ? 'Enviando...' : 'Testar financeiro'}
           </button>
@@ -247,37 +247,37 @@ export default function EmailSettingsCard() {
           <button
             onClick={sendPreviews}
             disabled={!to || testing != null}
-            className="text-xs font-semibold text-[#030A8C] hover:underline disabled:opacity-50 text-left"
+            className="text-xs font-semibold text-marca-texto hover:underline disabled:opacity-50 text-left"
           >
             {testing === 'preview' ? 'Enviando modelos...' : 'Enviar todos os modelos de e-mail (fatura, lembretes, nota, boas-vindas…) para revisão'}
           </button>
-          {previewMsg && <span className="text-xs text-gray-600">{previewMsg}</span>}
+          {previewMsg && <span className="text-xs text-muted-foreground">{previewMsg}</span>}
         </div>
 
         {result && (
           <div className="space-y-1.5">
-            <p className={`flex items-center gap-2 text-xs font-medium ${result.sent ? 'text-green-700' : 'text-red-600'}`}>
+            <p className={`flex items-center gap-2 text-xs font-medium ${result.sent ? 'text-success' : 'text-destructive-texto'}`}>
               {result.sent ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
               {result.sent
                 ? `Aceito pelo provedor como ${result.from} — ${result.providerResponse ?? ''}`
                 : result.error}
             </p>
             {result.dns && (
-              <div className="text-xs text-gray-600 space-y-0.5">
+              <div className="text-xs text-muted-foreground space-y-0.5">
                 <p className="flex items-center gap-2">
-                  {result.dns.spf ? <CheckCircle2 className="w-3.5 h-3.5 text-green-600" /> : <AlertTriangle className="w-3.5 h-3.5 text-orange-500" />}
+                  {result.dns.spf ? <CheckCircle2 className="w-3.5 h-3.5 text-success" /> : <AlertTriangle className="w-3.5 h-3.5 text-warning" />}
                   SPF {result.dns.spf ? 'publicado' : 'ausente'}
                 </p>
                 <p className="flex items-center gap-2">
-                  {result.dns.dkim ? <CheckCircle2 className="w-3.5 h-3.5 text-green-600" /> : <AlertTriangle className="w-3.5 h-3.5 text-orange-500" />}
+                  {result.dns.dkim ? <CheckCircle2 className="w-3.5 h-3.5 text-success" /> : <AlertTriangle className="w-3.5 h-3.5 text-warning" />}
                   DKIM {result.dns.dkim ? `publicado (seletor ${result.dns.dkimSelector})` : 'ausente'}
                 </p>
                 <p className="flex items-center gap-2">
-                  {result.dns.dmarc ? <CheckCircle2 className="w-3.5 h-3.5 text-green-600" /> : <AlertTriangle className="w-3.5 h-3.5 text-orange-500" />}
+                  {result.dns.dmarc ? <CheckCircle2 className="w-3.5 h-3.5 text-success" /> : <AlertTriangle className="w-3.5 h-3.5 text-warning" />}
                   DMARC {result.dns.dmarc ? 'publicado' : 'ausente'}
                 </p>
                 {result.dns.missing.map((m) => (
-                  <p key={m} className="text-[11px] text-orange-700 break-words">• {m}</p>
+                  <p key={m} className="text-[11px] text-warning break-words">• {m}</p>
                 ))}
               </div>
             )}

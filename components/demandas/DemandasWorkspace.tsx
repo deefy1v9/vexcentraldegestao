@@ -2,10 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { ListChecks, Users } from 'lucide-react'
+import { ListChecks, Plus, Users } from 'lucide-react'
+import Header from '@/components/layout/Header'
+import { Button } from '@/components/vex/button'
+import { EstrelaIa } from '@/components/vex/estrela-ia'
 import AiImportModal from '@/components/demandas/AiImportModal'
 import {
-  canSee, filterTasks, sortTasks, tabCounts, tabFromFilters, filtersForTab, EMPTY_DEMANDAS_FILTERS,
+  canSee, filterTasks, isLate, sortTasks, tabCounts, tabFromFilters, filtersForTab, EMPTY_DEMANDAS_FILTERS,
   type ActionKind, type DemandasFilters, type ListTab, type Period, type SortKey, type TaskStatus,
 } from '@/lib/demandas-core'
 import { DemandasTopBar, DemandasTabs, DemandasFilterRow, DemandasChips } from './DemandasToolbar'
@@ -165,18 +168,34 @@ export default function DemandasWorkspace({
     </>
   )
 
+  // Cabeçalho da página (modelo Vireo): a frase traz o tamanho da fila e as
+  // ações principais ficam à direita do título
+  const abertas = tasks.filter((t) => t.status !== 'CONCLUIDO')
+  const atrasadas = abertas.filter((t) => isLate(t)).length
+  const cabecalho = (
+    <Header
+      title="Demandas"
+      subtitle={`Tarefas por processo, quadro e calendário — ${abertas.length} aberta${abertas.length === 1 ? '' : 's'}${atrasadas ? `, ${atrasadas} atrasada${atrasadas === 1 ? '' : 's'}` : ''}`}
+      acoes={isAdmin ? (
+        <>
+          <Button type="button" variant="outline" onClick={() => setShowAiImport(true)} title="Importar calendário com IA" className="hover:border-ia/40 hover:text-ia">
+            <EstrelaIa /> <span className="hidden md:inline">Importar com IA</span>
+          </Button>
+          <Button type="button" onClick={() => setShowNew(true)}>
+            <Plus /> <span className="hidden sm:inline">Nova demanda</span>
+          </Button>
+        </>
+      ) : undefined}
+    />
+  )
+
   // Visão padrão: lista de tarefas + resumo lateral, sem painel nem abas
   if (view === 'tarefas') {
     return (
       <div className="flex-1 min-h-0 flex flex-col">
-        <div className="px-2 py-2 shrink-0">
-          <BarraDaVisao
-            view={view}
-            onView={(v) => push({ view: v })}
-            isAdmin={isAdmin}
-            onNew={() => setShowNew(true)}
-            onImport={() => setShowAiImport(true)}
-          />
+        {cabecalho}
+        <div className="px-4 sm:px-8 pb-4 shrink-0">
+          <BarraDaVisao view={view} onView={(v) => push({ view: v })} />
         </div>
         <TarefasView
           tasks={allTasks}
@@ -194,71 +213,71 @@ export default function DemandasWorkspace({
   }
 
   return (
-    <div className="flex-1 min-h-0 flex">
-      {/* Painel lateral de altura inteira: fila pessoal (colaborador) ou equipe/fila (admin) */}
-      <aside className="hidden lg:flex w-[300px] xl:w-[320px] shrink-0 flex-col border-r border-gray-100 bg-white min-h-0">
-        {isAdmin && (
-          <div className="flex p-2 gap-1 border-b border-gray-100 shrink-0" role="tablist">
-            {([['equipe', 'Equipe', Users], ['fila', 'Minha fila', ListChecks]] as const).map(([k, label, Icon]) => (
-              <button
-                key={k}
-                type="button"
-                role="tab"
-                aria-selected={asideTab === k}
-                onClick={() => setAsideTab(k)}
-                className={`flex-1 h-8 rounded-lg text-xs font-semibold inline-flex items-center justify-center gap-1.5 ${asideTab === k ? 'bg-[#030A8C] text-white' : 'text-gray-600 hover:bg-gray-50'}`}
-              >
-                <Icon className="w-3.5 h-3.5" /> {label}
-              </button>
-            ))}
-          </div>
-        )}
-        <div className="flex-1 min-h-0">{aside}</div>
-      </aside>
-
-      <main className="flex-1 min-h-0 flex flex-col">
-        <div className="px-4 sm:px-6 pt-4 pb-3 space-y-3 shrink-0">
-          <DemandasTopBar
-            mine={filters.mine}
-            onScope={(mine) => push({ mine, assignee: mine ? '' : filters.assignee })}
-            view={view}
-            onView={(v) => push({ view: v })}
-            isAdmin={isAdmin}
-            onNew={() => setShowNew(true)}
-            onImport={() => setShowAiImport(true)}
-          />
-          <DemandasTabs active={tab} counts={counts} isAdmin={isAdmin} onChange={(t) => push(filtersForTab(filters, t))} />
-          <DemandasFilterRow
-            filters={filters}
-            onChange={push}
-            users={users}
-            clients={clients}
-            isAdmin={isAdmin}
-            sort={sort}
-            onSort={(s) => push({ sort: s })}
-          />
-          <DemandasChips
-            filters={filters}
-            users={users}
-            clients={clients}
-            onRemove={(k) => push({ [k]: k === 'action' ? false : '' } as Partial<DemandasFilters>)}
-            onClear={() => push({ ...EMPTY_DEMANDAS_FILTERS, mine: filters.mine })}
-          />
-        </div>
-
-        {view === 'fila' && (
-          <>
-            <div className="lg:hidden flex-1 min-h-0 bg-white"><MyQueue tasks={tasks} userId={currentUserId} onOpen={open} /></div>
-            <div className="hidden lg:flex flex-1 min-h-0 flex-col">
-              <ListView tasks={sorted} userId={currentUserId} isAdmin={isAdmin} onOpen={open} onAction={rowAction} onMove={(t, s) => updateTaskStatus(t.id, s)} />
+    <div className="flex-1 min-h-0 flex flex-col">
+      {cabecalho}
+      <div className="flex-1 min-h-0 flex gap-4 px-4 sm:px-8 pb-6">
+        {/* Painel lateral: fila pessoal (colaborador) ou equipe/fila (admin) */}
+        <aside className="hidden lg:flex w-[300px] xl:w-[320px] shrink-0 flex-col rounded-[24px] border border-border bg-card overflow-hidden min-h-0 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+          {isAdmin && (
+            <div className="flex m-2 p-1 gap-1 rounded-xl border border-border bg-secondary/60 shrink-0" role="tablist">
+              {([['equipe', 'Equipe', Users], ['fila', 'Minha fila', ListChecks]] as const).map(([k, label, Icon]) => (
+                <button
+                  key={k}
+                  type="button"
+                  role="tab"
+                  aria-selected={asideTab === k}
+                  onClick={() => setAsideTab(k)}
+                  className={`flex-1 h-8 rounded-lg text-[12.5px] font-semibold inline-flex items-center justify-center gap-1.5 transition-colors ${asideTab === k ? 'bg-card text-marca-texto shadow-[0_0_0_1px_var(--border)]' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  <Icon className="w-3.5 h-3.5" /> {label}
+                </button>
+              ))}
             </div>
-          </>
-        )}
-        {view === 'lista' && <ListView tasks={sorted} userId={currentUserId} isAdmin={isAdmin} onOpen={open} onAction={rowAction} onMove={(t, s) => updateTaskStatus(t.id, s)} />}
-        {view === 'quadro' && <BoardView tasks={sorted} canDrag onOpen={open} onDrop={updateTaskStatus} forceBacklog={filters.status === 'BACKLOG'} />}
-        {view === 'calendario' && <CalendarTab tasks={sorted} onOpen={open} />}
-      </main>
+          )}
+          <div className="flex-1 min-h-0">{aside}</div>
+        </aside>
 
+        <main className="flex-1 min-w-0 min-h-0 flex flex-col">
+          <div className="pb-3 space-y-3 shrink-0">
+            <DemandasTopBar
+              mine={filters.mine}
+              onScope={(mine) => push({ mine, assignee: mine ? '' : filters.assignee })}
+              view={view}
+              onView={(v) => push({ view: v })}
+              isAdmin={isAdmin}
+            />
+            <DemandasTabs active={tab} counts={counts} isAdmin={isAdmin} onChange={(t) => push(filtersForTab(filters, t))} />
+            <DemandasFilterRow
+              filters={filters}
+              onChange={push}
+              users={users}
+              clients={clients}
+              isAdmin={isAdmin}
+              sort={sort}
+              onSort={(s) => push({ sort: s })}
+            />
+            <DemandasChips
+              filters={filters}
+              users={users}
+              clients={clients}
+              onRemove={(k) => push({ [k]: k === 'action' ? false : '' } as Partial<DemandasFilters>)}
+              onClear={() => push({ ...EMPTY_DEMANDAS_FILTERS, mine: filters.mine })}
+            />
+          </div>
+
+          {view === 'fila' && (
+            <>
+              <div className="lg:hidden flex-1 min-h-0 rounded-[24px] border border-border bg-card overflow-hidden"><MyQueue tasks={tasks} userId={currentUserId} onOpen={open} /></div>
+              <div className="hidden lg:flex flex-1 min-h-0 flex-col">
+                <ListView tasks={sorted} userId={currentUserId} isAdmin={isAdmin} onOpen={open} onAction={rowAction} onMove={(t, s) => updateTaskStatus(t.id, s)} />
+              </div>
+            </>
+          )}
+          {view === 'lista' && <ListView tasks={sorted} userId={currentUserId} isAdmin={isAdmin} onOpen={open} onAction={rowAction} onMove={(t, s) => updateTaskStatus(t.id, s)} />}
+          {view === 'quadro' && <BoardView tasks={sorted} canDrag onOpen={open} onDrop={updateTaskStatus} forceBacklog={filters.status === 'BACKLOG'} />}
+          {view === 'calendario' && <CalendarTab tasks={sorted} onOpen={open} />}
+        </main>
+      </div>
       {modais}
     </div>
   )

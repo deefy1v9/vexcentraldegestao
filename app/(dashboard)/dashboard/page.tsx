@@ -1,16 +1,18 @@
 import Link from 'next/link'
-import { ArrowUpRight, CalendarClock, CircleAlert, Clock, Inbox, Wallet, TrendingUp, Receipt, ListChecks } from 'lucide-react'
+import { ArrowUpRight, CalendarClock, CircleAlert, Clock, Inbox, Wallet, TrendingUp, Receipt, ListChecks, AlarmClock, Users, CalendarCheck } from 'lucide-react'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import Header from '@/components/layout/Header'
 import PeriodSelector from '@/components/dashboard/PeriodSelector'
-import GraficoMeses from '@/components/dashboard/GraficoMeses'
+import GraficoBarrasMeses from '@/components/dashboard/GraficoBarrasMeses'
 import { Card } from '@/components/vex/card'
 import { Badge } from '@/components/vex/badge'
 import { Button } from '@/components/vex/button'
+import { Chip, Painel, LinhaRelance as Relance, type Tom } from '@/components/vex/vireo'
 import { formatCurrency } from '@/lib/utils'
 import { getPeriodSummary, getSeries, type PeriodView } from '@/lib/finance-summary'
 import { cashBalance } from '@/lib/caixa-core'
+import { prazoAtual } from '@/lib/processos'
 
 /**
  * Dashboard: "o que precisa da minha atenção hoje?". Quatro números do mês,
@@ -38,23 +40,34 @@ const DAY = 24 * 60 * 60 * 1000
 const brl = (cents: number) => formatCurrency(cents / 100)
 const diaMes = (d: Date) => d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', timeZone: 'UTC' }).replace('.', '')
 
+const diaSP = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+
 function hojeSP() {
   return new Date(new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }) + 'T00:00:00Z')
 }
 
-/** Demandas abertas agrupadas pela etapa em que estão, com as atrasadas. */
+/**
+ * Demandas abertas agrupadas pela etapa em que estão, com as atrasadas. O
+ * prazo é o mesmo da lista de Demandas (o da etapa atual, via prazoAtual),
+ * para os dois lugares nunca contarem atrasadas diferentes.
+ */
 async function demandasPorEtapa(scope: Record<string, unknown>) {
-  const hoje = hojeSP()
+  const agora = new Date()
+  // Meia-noite de verdade em Brasília (não a "meia-noite UTC" de hojeSP), para
+  // o "vence hoje" do prazoAtual cair no dia certo
+  const meiaNoiteSP = new Date(`${diaSP(agora)}T00:00:00-03:00`)
   const abertas = await prisma.task.findMany({
     where: { status: { not: 'CONCLUIDO' }, ...scope },
-    select: { dueDate: true, stage: { select: { name: true, position: true } } },
+    select: { dueDate: true, stageId: true, stageEnteredAt: true, stageDeadlines: true, stage: true },
   })
   const etapas = new Map<string, { nome: string; ordem: number; total: number; atrasadas: number }>()
   for (const t of abertas) {
     const nome = t.stage?.name ?? 'Sem etapa'
     const e = etapas.get(nome) ?? { nome, ordem: t.stage?.position ?? 99, total: 0, atrasadas: 0 }
     e.total++
-    if (t.dueDate && t.dueDate < hoje) e.atrasadas++
+    // Compara o dia em Brasília, como a lista faz no navegador
+    const prazo = prazoAtual(t.stage, t, agora, meiaNoiteSP)
+    if (prazo && diaSP(prazo) < diaSP(agora)) e.atrasadas++
     etapas.set(nome, e)
   }
   const lista = [...etapas.values()].sort((a, b) => a.ordem - b.ordem || b.total - a.total)
@@ -130,7 +143,7 @@ export default async function DashboardPage({
   }
 
   /* ───────────────────────── administrador ───────────────────────── */
-  const [summary, serie, movs, atrasadas, aReceber7, aPagar7] = await Promise.all([
+  const [summary, serie, movs, atrasadas, aReceber7, aPagar7, clientesAtivos] = await Promise.all([
     getPeriodSummary(period.view, period.year, period.month),
     getSeries(12),
     prisma.cashMovement.findMany({ select: { kind: true, amountCents: true } }),
@@ -147,6 +160,7 @@ export default async function DashboardPage({
       where: { status: { not: 'PAGO' }, type: { in: ['CUSTO', 'SALARIO'] }, dueDate: { gte: hoje, lte: em7 } },
       orderBy: { dueDate: 'asc' },
     }),
+    prisma.client.count({ where: { status: 'ATIVO' } }),
   ])
 
   const saldoCents = cashBalance(movs)
@@ -182,134 +196,142 @@ export default async function DashboardPage({
   const mesParam = period.view === 'mensal' ? `${period.year}-${String(period.month ?? 1).padStart(2, '0')}` : ''
   const financeiroHref = mesParam ? `/financeiro?mes=${mesParam}` : '/financeiro'
 
+  const aReceber7Cents = aReceber7.reduce((a, p) => a + Math.round(Number(p.amount) * 100), 0)
+  const aPagar7Cents = aPagar7.reduce((a, e) => a + Math.round(Number(e.amount) * 100), 0)
+  const mesNome = summary.label
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <Header title="Dashboard" subtitle={summary.label} />
+      <Header
+        title="Dashboard"
+        subtitle={`${mesNome} · o que pede a sua atenção hoje`}
+        acoes={
+          <>
+            <PeriodSelector
+              view={summary.view}
+              year={summary.year}
+              month={summary.month}
+              isCurrent={summary.isCurrentPeriod}
+              referenceDate={summary.referenceDate}
+            />
+            <Button asChild><Link href="/demandas">Abrir demandas</Link></Button>
+          </>
+        }
+      />
 
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
-        <PeriodSelector
-          view={summary.view}
-          year={summary.year}
-          month={summary.month}
-          isCurrent={summary.isCurrentPeriod}
-          referenceDate={summary.referenceDate}
-        />
+      <div className="flex-1 overflow-y-auto px-4 sm:px-8 pb-8 pt-2 space-y-5">
+        {/* Resumo do período, no cartão de destaque do modelo Vireo */}
+        <section className="relative overflow-hidden rounded-[24px] border border-marca/15 bg-gradient-to-br from-marca-suave via-card to-card p-6 sm:p-7">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-marca-texto">{mesNome} · {clientesAtivos} clientes ativos</p>
+              <h2 className="mt-1 font-display text-[26px] sm:text-[30px] font-semibold tracking-[-0.02em] text-foreground">Resumo do mês</h2>
+            </div>
+            <Link href={financeiroHref} className="t-rotulo font-semibold text-marca-texto hover:underline inline-flex items-center gap-1">Abrir o financeiro <ArrowUpRight className="w-3.5 h-3.5" /></Link>
+          </div>
+          <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-px overflow-hidden rounded-2xl border border-border/70 bg-border/70">
+            <Celula icone={Wallet} tom="marca" rotulo="Saldo do caixa" valor={brl(saldoCents)} nota="Ver extrato" href="/financeiro?aba=caixa" alerta={saldoCents < 0} />
+            <Celula icone={TrendingUp} tom="sucesso" rotulo="Recebido" valor={brl(summary.recebidaCents)} nota={`${pctRecebido}% de ${brl(summary.previstaCents)} previstos`} href={`${financeiroHref}${mesParam ? '&' : '?'}situacao=pago`} />
+            <Celula icone={Inbox} tom="info" rotulo="A receber no prazo" valor={brl(summary.pendenteCents)} nota={`${brl(aReceberCents)} em aberto no mês`} href={`${financeiroHref}${mesParam ? '&' : '?'}situacao=pendente`} />
+            <Celula icone={CircleAlert} tom="perigo" rotulo="Em atraso" valor={brl(totalAtrasoCents)} nota={atrasos.length ? `${atrasos.length} cliente(s), todos os meses` : 'Ninguém em atraso'} href="/financeiro?aba=atrasados" alerta={totalAtrasoCents > 0} />
+            <Celula icone={Receipt} tom="atencao" rotulo={period.view === 'anual' ? 'Despesas do ano' : 'Despesas do mês'} valor={brl(despesasCents)} nota={`${brl(despesasPagasCents)} pagas · ${brl(despesasCents - despesasPagasCents)} a pagar`} href={`${financeiroHref}${mesParam ? '&' : '?'}aba=custos`} />
+            <Celula icone={AlarmClock} tom="perigo" rotulo="Demandas atrasadas" valor={String(etapas.atrasadas)} nota={`de ${etapas.total} abertas · equipe toda`} href="/demandas" alerta={etapas.atrasadas > 0} />
+          </div>
+        </section>
 
-        {/* Os quatro números do período */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
-          <Numero
-            rotulo="Saldo do caixa"
-            valor={brl(saldoCents)}
-            icone={Wallet}
-            href="/financeiro?aba=caixa"
-            alerta={saldoCents < 0}
-            detalhe="Ver extrato"
-          />
-          <Numero
-            rotulo="Recebido"
-            valor={brl(summary.recebidaCents)}
-            icone={TrendingUp}
-            href={`${financeiroHref}${mesParam ? '&' : '?'}situacao=pago`}
-            detalhe={
-              <div className="space-y-1.5">
-                <div className="h-1.5 rounded-full bg-secondary overflow-hidden" role="progressbar" aria-valuenow={pctRecebido} aria-valuemin={0} aria-valuemax={100} aria-label="Recebido do previsto">
-                  <div className="h-full rounded-full bg-marca" style={{ width: `${pctRecebido}%` }} />
-                </div>
-                <p>{pctRecebido}% de {brl(summary.previstaCents)} previstos</p>
-              </div>
-            }
-          />
-          <Numero
-            rotulo="A receber"
-            valor={brl(aReceberCents)}
-            icone={Inbox}
-            href={`${financeiroHref}${mesParam ? '&' : '?'}situacao=pendente`}
-            detalhe={summary.atrasadaCents > 0
-              ? <span>{brl(summary.pendenteCents)} no prazo · <span className="text-destructive-texto font-medium">{brl(summary.atrasadaCents)} em atraso</span></span>
-              : 'Tudo dentro do prazo'}
-          />
-          <Numero
-            rotulo="Despesas"
-            valor={brl(despesasCents)}
-            icone={Receipt}
-            href={`${financeiroHref}${mesParam ? '&' : '?'}aba=custos`}
-            detalhe={`${brl(despesasPagasCents)} pagas · ${brl(despesasCents - despesasPagasCents)} a pagar`}
-          />
+        {/* Movimento + num relance */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+          <Painel rotulo="Movimento" titulo="Recebido × despesas" sub="Quanto entrou e quanto saiu, mês a mês" className="xl:col-span-2" href="/financeiro" rotuloLink="Financeiro">
+            <GraficoBarrasMeses pontos={pontos} />
+          </Painel>
+          <Painel rotulo="Hoje" titulo="Num relance" sub="O que vence e o que está parado">
+            <ul className="divide-y divide-border">
+              <Relance icone={ListChecks} tom="marca" rotulo="Demandas abertas" valor={String(etapas.total)} href="/demandas" />
+              <Relance icone={AlarmClock} tom="perigo" rotulo="Com prazo vencido" valor={String(etapas.atrasadas)} href="/demandas" />
+              <Relance icone={CalendarCheck} tom="sucesso" rotulo="A receber em 7 dias" valor={brl(aReceber7Cents)} detalhe={`${aReceber7.length} parcela(s)`} href={financeiroHref} />
+              <Relance icone={CalendarClock} tom="atencao" rotulo="A pagar em 7 dias" valor={brl(aPagar7Cents)} detalhe={`${aPagar7.length} conta(s)`} href={`${financeiroHref}${mesParam ? '&' : '?'}aba=custos`} />
+              <Relance icone={Users} tom="info" rotulo="Clientes ativos" valor={String(clientesAtivos)} href="/clientes" />
+            </ul>
+          </Painel>
         </div>
 
-        {/* Movimento e o que pede atenção */}
-        <div className="grid grid-cols-1 xl:grid-cols-5 gap-3">
-          <Secao titulo="Recebido e despesas por mês" href="/financeiro" rotuloLink="Financeiro" className="xl:col-span-3">
-            <div className="p-4">
-              <GraficoMeses pontos={pontos} />
-            </div>
-          </Secao>
-
-          <Secao titulo="Precisa de atenção" className="xl:col-span-2">
-            <ul className="divide-y divide-border">
+        {/* O que pede atenção + próximos 7 dias */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+          <Painel rotulo="Ação" titulo="Precisa de atenção" sub="Atrasos de clientes e demandas vencidas">
+            <ul className="divide-y divide-border -mx-6">
               {atrasos.slice(0, 4).map((a) => (
-                <li key={a.nome} className="px-5 py-3 flex items-center gap-3">
-                  <CircleAlert className="w-4 h-4 text-destructive-texto shrink-0" />
+                <li key={a.nome} className="px-6 py-3 flex items-center gap-3">
+                  <Chip icone={CircleAlert} tom="perigo" />
                   <div className="min-w-0 flex-1">
-                    <p className="t-corpo text-foreground truncate">{a.nome}</p>
-                    <p className="t-legenda">em atraso desde {diaMes(a.desde)} · soma de todos os meses</p>
+                    <p className="t-corpo font-medium text-foreground truncate">{a.nome}</p>
+                    <p className="t-legenda">em atraso desde {diaMes(a.desde)}</p>
                   </div>
-                  <span className="t-corpo font-semibold text-foreground tabular">{brl(a.cents)}</span>
+                  <span className="font-display text-[15px] font-semibold text-destructive-texto tabular">{brl(a.cents)}</span>
                 </li>
               ))}
               {atrasos.length > 4 && (
-                <li className="px-5 py-2.5 t-rotulo text-muted-foreground">+ {atrasos.length - 4} cliente(s) · {brl(totalAtrasoCents)} no total</li>
+                <li className="px-6 py-2.5 t-rotulo text-muted-foreground">+ {atrasos.length - 4} cliente(s) · {brl(totalAtrasoCents)} no total</li>
               )}
               {etapas.atrasadas > 0 && (
-                <li className="px-5 py-3 flex items-center gap-3">
-                  <ListChecks className="w-4 h-4 text-warning shrink-0" />
-                  <p className="t-corpo text-foreground flex-1">{etapas.atrasadas} demanda(s) com prazo vencido</p>
+                <li className="px-6 py-3 flex items-center gap-3">
+                  <Chip icone={ListChecks} tom="atencao" />
+                  <p className="t-corpo text-foreground flex-1">{etapas.atrasadas} demanda(s) com prazo vencido <span className="t-legenda">· equipe toda</span></p>
                   <Button asChild variant="outline" size="sm"><Link href="/demandas">Ver</Link></Button>
                 </li>
               )}
-              {aPagar7.length > 0 && (
-                <li className="px-5 py-3 flex items-center gap-3">
-                  <CalendarClock className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <p className="t-corpo text-foreground flex-1">{aPagar7.length} conta(s) vencem em 7 dias</p>
-                  <span className="t-corpo font-semibold text-foreground tabular">{brl(aPagar7.reduce((a, e) => a + Math.round(Number(e.amount) * 100), 0))}</span>
-                </li>
-              )}
-              {atrasos.length === 0 && etapas.atrasadas === 0 && aPagar7.length === 0 && (
-                <li className="px-5 py-10 text-center t-corpo text-muted-foreground">Tudo em dia.</li>
+              {atrasos.length === 0 && etapas.atrasadas === 0 && (
+                <li className="px-6 py-10 text-center t-corpo text-muted-foreground">Tudo em dia.</li>
               )}
             </ul>
-          </Secao>
-        </div>
+          </Painel>
 
-        {/* Operação */}
-        <div className="grid grid-cols-1 xl:grid-cols-5 gap-3">
-          <Secao titulo={<>Demandas por etapa <span className="font-medium text-muted-foreground">{etapas.total}</span></>} href="/demandas" rotuloLink="Abrir demandas" className="xl:col-span-3">
-            <ListaEtapas etapas={etapas.lista} />
-          </Secao>
-
-          <Secao titulo="Próximos 7 dias" href={financeiroHref} rotuloLink="Financeiro" className="xl:col-span-2">
+          <Painel rotulo="Agenda" titulo="Próximos 7 dias" sub="Recebimentos e pagamentos por data" href={financeiroHref} rotuloLink="Financeiro">
             {proximos.length === 0 ? (
-              <p className="px-5 py-10 text-center t-corpo text-muted-foreground">Nada vence nos próximos 7 dias.</p>
+              <p className="py-10 text-center t-corpo text-muted-foreground">Nada vence nos próximos 7 dias.</p>
             ) : (
-              <ul className="divide-y divide-border">
-                {proximos.slice(0, 7).map((p, i) => (
-                  <li key={i} className="px-5 py-2.5 flex items-center gap-3">
-                    <span className="t-rotulo text-muted-foreground w-12 shrink-0 tabular">{diaMes(p.data)}</span>
+              <ul className="divide-y divide-border -mx-6">
+                {proximos.slice(0, 6).map((p, i) => (
+                  <li key={i} className="px-6 py-2.5 flex items-center gap-3">
+                    <span className="w-12 shrink-0 text-center rounded-xl bg-secondary py-1">
+                      <span className="block font-display text-[16px] font-semibold leading-5 text-foreground tabular">{p.data.toLocaleDateString('pt-BR', { day: '2-digit', timeZone: 'UTC' })}</span>
+                      <span className="block text-[10.5px] uppercase text-muted-foreground">{p.data.toLocaleDateString('pt-BR', { month: 'short', timeZone: 'UTC' }).replace('.', '')}</span>
+                    </span>
                     <div className="min-w-0 flex-1">
-                      <p className="t-corpo text-foreground truncate">{p.nome}</p>
+                      <p className="t-corpo font-medium text-foreground truncate">{p.nome}</p>
                       {p.detalhe && <p className="t-legenda truncate">{p.detalhe}</p>}
                     </div>
                     <Badge variant={p.tipo === 'receber' ? 'success' : 'default'}>{p.tipo === 'receber' ? 'Receber' : 'Pagar'}</Badge>
-                    <span className="t-corpo font-semibold text-foreground tabular w-24 text-right">{brl(p.cents)}</span>
+                    <span className="font-display text-[15px] font-semibold text-foreground tabular w-28 text-right">{brl(p.cents)}</span>
                   </li>
                 ))}
-                {proximos.length > 7 && <li className="px-5 py-2.5 t-rotulo text-muted-foreground">+ {proximos.length - 7} lançamento(s)</li>}
+                {proximos.length > 6 && <li className="px-6 py-2.5 t-rotulo text-muted-foreground">+ {proximos.length - 6} lançamento(s)</li>}
               </ul>
             )}
-          </Secao>
+          </Painel>
         </div>
+
+        {/* Demandas por etapa, como o "Deals by stage" do Vireo */}
+        <Painel rotulo="Produção" titulo="Demandas por etapa" sub={`${etapas.total} abertas · onde cada uma está parada`} href="/demandas" rotuloLink="Abrir demandas">
+          <ListaEtapas etapas={etapas.lista} />
+        </Painel>
       </div>
     </div>
+  )
+}
+
+/** Um número do cartão de resumo: ícone em chip, rótulo, valor grande e a nota. */
+function Celula({ icone, tom, rotulo, valor, nota, href, alerta }: {
+  icone: React.ElementType; tom: Tom; rotulo: string; valor: string; nota?: string; href: string; alerta?: boolean
+}) {
+  return (
+    <Link href={href} className="group flex items-start gap-3.5 p-5 bg-card/85 hover:bg-card transition-colors">
+      <Chip icone={icone} tom={tom} />
+      <div className="min-w-0">
+        <p className="t-rotulo text-muted-foreground">{rotulo}</p>
+        <p className={`mt-0.5 font-display text-[24px] leading-8 font-semibold tracking-[-0.02em] tabular ${alerta ? 'text-destructive-texto' : 'text-foreground'}`}>{valor}</p>
+        {nota && <p className="t-legenda mt-0.5 truncate group-hover:text-foreground">{nota}</p>}
+      </div>
+    </Link>
   )
 }
 
@@ -317,12 +339,12 @@ function ListaEtapas({ etapas }: { etapas: Array<{ nome: string; total: number; 
   if (etapas.length === 0) return <p className="px-5 py-10 text-center t-corpo text-muted-foreground">Nenhuma demanda aberta.</p>
   const maior = Math.max(...etapas.map((e) => e.total))
   return (
-    <ul className="p-5 space-y-3">
+    <ul className="space-y-3.5">
       {etapas.map((e) => (
-        <li key={e.nome} className="grid grid-cols-[120px_1fr_auto] items-center gap-3">
+        <li key={e.nome} className="grid grid-cols-[160px_1fr_auto] items-center gap-4">
           <span className="t-corpo text-foreground truncate">{e.nome}</span>
           <span className="h-2 rounded-full bg-secondary overflow-hidden">
-            <span className="block h-full rounded-full bg-[var(--grafico-2)]" style={{ width: `${Math.max(6, (e.total / maior) * 100)}%` }} />
+            <span className="block h-full rounded-full bg-marca" style={{ width: `${Math.max(6, (e.total / maior) * 100)}%` }} />
           </span>
           <span className="t-rotulo text-foreground tabular flex items-center gap-2">
             {e.total}

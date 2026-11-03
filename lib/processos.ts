@@ -246,6 +246,30 @@ export function normalizarPrazos(
   return { ok: Object.keys(base).length ? base : null }
 }
 
+const diaBrasilia = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+
+/**
+ * Data final remarcada: os prazos por etapa que já venceram ou que ficaram
+ * depois da nova data final deixam de valer (a etapa volta a seguir o
+ * processo). Sem isso, a demanda remarcada continuava "atrasada" pelo prazo
+ * antigo da etapa. Dias comparados no fuso de Brasília.
+ */
+export function prazosAposRemarcar(atual: unknown, novaFinal: Date | null, agora: Date = new Date()): { prazos: Record<string, string> | null; mudou: boolean } {
+  if (!atual || typeof atual !== 'object' || Array.isArray(atual)) return { prazos: null, mudou: false }
+  const hoje = diaBrasilia(agora)
+  const fim = novaFinal ? diaBrasilia(novaFinal) : null
+  const prazos: Record<string, string> = {}
+  let mudou = false
+  for (const [id, v] of Object.entries(atual as Record<string, unknown>)) {
+    const d = typeof v === 'string' ? new Date(v) : null
+    if (!d || Number.isNaN(d.getTime())) { mudou = true; continue }
+    const dia = diaBrasilia(d)
+    if (dia < hoje || (fim && dia > fim)) { mudou = true; continue }
+    prazos[id] = v as string
+  }
+  return { prazos: Object.keys(prazos).length ? prazos : null, mudou }
+}
+
 /**
  * Quem assume a etapa, nesta ordem: o papel na demanda, a pessoa fixa da
  * etapa, a equipe (com uma pessoa só vai direto para ela; com mais, ninguém:

@@ -49,19 +49,19 @@ export default function PipelineSection({
     <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
       <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
         <p className="font-semibold text-gray-900 text-sm flex items-center gap-2">
-          <Target className="w-4 h-4 text-[#030A8C]" /> Carteira aberta atual
+          <Target className="w-4 h-4 text-marca-texto" /> Carteira aberta atual
           <span className="text-[11px] font-normal text-gray-400">todos os períodos</span>
         </p>
-        <Link href="/pipeline" className="text-[11px] font-semibold text-[#030A8C] hover:underline flex items-center gap-1">
+        <Link href="/pipeline" className="text-[11px] font-semibold text-marca-texto hover:underline flex items-center gap-1">
           Abrir pipeline <ArrowUpRight className="w-3 h-3" />
         </Link>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-y lg:divide-y-0 divide-gray-100">
         {carteira.map((c) => (
-          <Link key={c.label} href={c.href} className={`p-4 hover:bg-gray-50 transition-colors ${c.destaque ? 'bg-[#030A8C]/[0.03]' : ''}`}>
+          <Link key={c.label} href={c.href} className={`p-4 hover:bg-gray-50 transition-colors ${c.destaque ? 'bg-marca/[0.03]' : ''}`}>
             <p className="text-[10px] text-gray-500 uppercase tracking-wide">{c.label}</p>
-            <p className={`text-lg font-bold mt-0.5 ${c.destaque ? 'text-[#F74A13]' : 'text-[#030A8C]'}`}>{c.value}</p>
+            <p className={`text-lg font-bold mt-0.5 ${c.destaque ? 'text-primary' : 'text-marca-texto'}`}>{c.value}</p>
             <p className="text-[10px] text-gray-400">{c.sub}</p>
           </Link>
         ))}
@@ -72,7 +72,7 @@ export default function PipelineSection({
           {summary.semPrevisao > 0 && (
             <Link
               href="/pipeline?semPrevisao=1"
-              className="inline-flex items-center gap-1.5 text-[11px] font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded-full px-2.5 py-1 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors"
+              className="inline-flex items-center gap-1.5 text-[11px] font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded-full px-2.5 py-1 hover:border-marca hover:text-marca-texto transition-colors"
             >
               <CalendarClock className="w-3 h-3" />
               {summary.semPrevisao} sem previsão de fechamento
@@ -81,7 +81,7 @@ export default function PipelineSection({
           {summary.semValor > 0 && (
             <Link
               href="/pipeline?semValor=1"
-              className="inline-flex items-center gap-1.5 text-[11px] font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded-full px-2.5 py-1 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors"
+              className="inline-flex items-center gap-1.5 text-[11px] font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded-full px-2.5 py-1 hover:border-marca hover:text-marca-texto transition-colors"
             >
               <HelpCircle className="w-3 h-3" />
               {summary.semValor} sem valor informado

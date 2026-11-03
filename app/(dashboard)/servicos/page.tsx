@@ -11,7 +11,7 @@ export default async function ServicosPage() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <Header title="Serviços" subtitle="Catálogo de serviços da VEX — escopo, faixa de preço e clientes" />
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-8 pt-2 pb-8">
         <ServiceCatalogPanel />
       </div>
     </div>

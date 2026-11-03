@@ -17,7 +17,10 @@ export interface ClienteNovo { id: string; nome: string; origem: string | null; 
 
 export interface BpoData {
   referencia: { hoje: string; competencia: string }
-  caixa: { saldoCents: number; risco: Risco; projecoes: Projecao[]; atrasadosReceberCents: number; serie: PontoSaldo[] }
+  caixa: {
+    saldoCents: number; risco: Risco; projecoes: Projecao[]; atrasadosReceberCents: number; serie: PontoSaldo[]
+    conferido: { conta: string; ate: string | null; pendentes: number; emDia: boolean } | null
+  }
   pagar: { vencidas: Previsto[]; proximos7: Previsto[]; ate30: Previsto[] }
   receber: {
     proximos7: Previsto[]
@@ -42,8 +45,8 @@ export interface VersaoProps {
 /* ------------------------------ formatação ------------------------------ */
 
 /* Paleta dos gráficos: as cores dos tokens da Central (marca, sucesso, perigo e séries) */
-export const COR = { marca: '#030A8C', marcaClara: '#5b63c7', verde: '#15803d', vermelho: '#d92d20', laranja: '#e8500f', cinza: '#98a2b3', grafite: '#1d2939', areia: '#f2994a', ambar: '#b54708' }
-export const PIZZA = [COR.marca, COR.laranja, COR.grafite, COR.areia, COR.marcaClara, COR.cinza, '#c4c9d4']
+export const COR = { marca: 'var(--marca)', marcaClara: 'color-mix(in srgb, var(--marca) 65%, var(--card))', verde: 'var(--success)', vermelho: 'var(--destructive)', laranja: 'var(--grafico-1)', cinza: 'var(--grafico-4)', grafite: 'var(--grafico-2)', areia: 'var(--grafico-3)', ambar: 'var(--warning)' }
+export const PIZZA = [COR.marca, COR.laranja, COR.grafite, COR.areia, COR.marcaClara, COR.cinza, 'color-mix(in srgb, var(--grafico-4) 45%, var(--card))']
 
 export const brl = (c: number) => (c / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 export const brlCurto = (c: number) => (c / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact', maximumFractionDigits: 1 })
@@ -128,7 +131,7 @@ export function Rosca({ dados, vazio, tamanho = 144 }: { dados: Array<{ nome: st
         </ResponsiveContainer>
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
           <span className="t-meta">total</span>
-          <span className="text-[13px] font-semibold text-foreground tabular-nums">{brlCurto(total)}</span>
+          <span className="font-display text-[14px] font-semibold text-foreground tabular-nums">{brlCurto(total)}</span>
         </div>
       </div>
       <ul className="flex-1 min-w-0 space-y-2">
@@ -146,8 +149,8 @@ export function Rosca({ dados, vazio, tamanho = 144 }: { dados: Array<{ nome: st
 }
 
 const SITUACAO = {
-  deve: { rotulo: 'Deve à empresa', cls: 'bg-destructive/10 text-destructive', frase: 'Precisa pagar este valor à empresa.' },
-  receber: { rotulo: 'A receber', cls: 'bg-success/10 text-success', frase: 'A empresa precisa devolver este valor.' },
+  deve: { rotulo: 'Deve à empresa', cls: 'bg-destructive-suave text-destructive-texto', frase: 'Precisa pagar este valor à empresa.' },
+  receber: { rotulo: 'A receber', cls: 'bg-success-suave text-success', frase: 'A empresa precisa devolver este valor.' },
   zerado: { rotulo: 'Em dia', cls: 'bg-secondary text-muted-foreground', frase: 'Nada a pagar nem a receber.' },
 } as const
 
@@ -176,27 +179,27 @@ export function CartaoSocio({ s, onSalvo, className = '' }: {
   return (
     <div className={`min-w-0 flex flex-col gap-4 ${className}`}>
       <div className="flex items-center gap-3">
-        <span className={`w-11 h-11 rounded-full flex items-center justify-center text-[15px] font-semibold text-white ${investidorSocio ? 'bg-[#6d28d9]' : 'bg-marca'}`}>{s.socio.slice(0, 1)}</span>
+        <span className={`w-11 h-11 rounded-full flex items-center justify-center text-[15px] font-semibold ${investidorSocio ? 'bg-marca-suave text-marca-texto' : 'bg-marca text-white'}`}>{s.socio.slice(0, 1)}</span>
         <div className="min-w-0">
-          <p className="text-[15px] font-semibold text-foreground truncate">{s.socio}</p>
+          <p className="font-display text-[17px] font-semibold text-foreground truncate">{s.socio}</p>
           <p className="t-legenda">{investidorSocio ? 'Sócio investidor' : 'Sócio operacional'}</p>
         </div>
-        <span className={`ml-auto t-meta rounded-full px-2.5 py-1 ${sit.cls}`}>{sit.rotulo}</span>
+        <span className={`ml-auto shrink-0 text-[11.5px] font-semibold rounded-full px-2.5 py-1 ${sit.cls}`}>{sit.rotulo}</span>
       </div>
 
       <div>
-        <p className={`text-[30px] leading-none font-bold tabular-nums ${s.conta.situacao === 'deve' ? 'text-destructive' : s.conta.situacao === 'receber' ? 'text-success' : 'text-foreground'}`}>
+        <p className={`font-display text-[30px] leading-none font-semibold tracking-[-0.02em] tabular-nums ${s.conta.situacao === 'deve' ? 'text-destructive-texto' : s.conta.situacao === 'receber' ? 'text-success' : 'text-foreground'}`}>
           {s.conta.situacao === 'zerado' ? 'R$ 0,00' : brl(Math.abs(s.conta.saldoCents))}
         </p>
         <p className="t-legenda mt-1.5">{sit.frase}</p>
       </div>
 
       {investidorSocio ? (
-        <div className="rounded-xl bg-secondary px-3.5 py-3 t-corpo text-muted-foreground">
+        <div className="rounded-2xl bg-secondary/60 px-3.5 py-3 t-corpo text-muted-foreground">
           Entra nos clientes novos que vierem de anúncio, a partir do investimento dele. <strong className="text-foreground">Ainda não participa dos clientes atuais.</strong>
         </div>
       ) : (
-        <div className="grid grid-cols-3 gap-2 rounded-xl bg-secondary px-3.5 py-3">
+        <div className="grid grid-cols-3 gap-2 rounded-2xl bg-secondary/60 px-3.5 py-3">
           <div><p className="t-meta">Retirou</p><p className="text-[13px] font-semibold text-foreground tabular-nums mt-0.5">{brl(s.retiradasCents)}</p></div>
           <div><p className="t-meta">Pôs no caixa</p><p className="text-[13px] font-semibold text-foreground tabular-nums mt-0.5">{brl(s.aportesCents)}</p></div>
           <div><p className="t-meta">Líquido</p><p className="text-[13px] font-semibold text-marca-texto tabular-nums mt-0.5">{brl(s.liquidoCents)}</p></div>
@@ -211,7 +214,7 @@ export function CartaoSocio({ s, onSalvo, className = '' }: {
               <li key={i} className="flex items-start gap-2 text-[12px] leading-snug">
                 <span className="t-meta tabular-nums w-9 shrink-0">{br(l.dia).slice(0, 5)}</span>
                 <span className="text-muted-foreground flex-1">{l.description}</span>
-                <span className={`tabular-nums shrink-0 font-semibold ${l.amountCents < 0 ? 'text-destructive' : 'text-success'}`}>{l.amountCents < 0 ? '−' : '+'}{brl(Math.abs(l.amountCents))}</span>
+                <span className={`tabular-nums shrink-0 font-semibold ${l.amountCents < 0 ? 'text-destructive-texto' : 'text-success'}`}>{l.amountCents < 0 ? '−' : '+'}{brl(Math.abs(l.amountCents))}</span>
               </li>
             ))}
           </ul>
@@ -220,7 +223,7 @@ export function CartaoSocio({ s, onSalvo, className = '' }: {
 
       <div className="mt-auto">
         {form ? (
-          <div className="rounded-xl border border-border p-3 space-y-2">
+          <div className="rounded-2xl border border-border bg-secondary/40 p-3 space-y-2">
             <div className="grid grid-cols-2 gap-1.5">
               {(['CREDITO', 'DEBITO'] as const).map((t) => (
                 <button key={t} type="button" onClick={() => setTipo(t)} className={`h-8 rounded-lg text-[12px] font-medium border ${tipo === t ? 'border-marca bg-marca-suave text-marca-texto' : 'border-border text-muted-foreground'}`}>
@@ -229,17 +232,17 @@ export function CartaoSocio({ s, onSalvo, className = '' }: {
               ))}
             </div>
             <div className="flex gap-1.5">
-              <input value={valor} onChange={(e) => setValor(e.target.value)} placeholder="Valor" className="h-9 w-24 rounded-lg border border-border bg-card px-2 text-[12px]" />
-              <input value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Do que se trata" className="h-9 flex-1 min-w-0 rounded-lg border border-border bg-card px-2 text-[12px]" />
+              <input value={valor} onChange={(e) => setValor(e.target.value)} placeholder="Valor" className="h-9 w-24 rounded-lg border border-border bg-card px-2 text-[12px] text-foreground outline-none focus:border-marca" />
+              <input value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Do que se trata" className="h-9 flex-1 min-w-0 rounded-lg border border-border bg-card px-2 text-[12px] text-foreground outline-none focus:border-marca" />
             </div>
-            {erro && <p className="text-[12px] text-destructive">{erro}</p>}
+            {erro && <p className="text-[12px] text-destructive-texto">{erro}</p>}
             <div className="flex justify-end gap-1.5">
               <button type="button" onClick={() => setForm(false)} className="h-8 px-3 rounded-lg text-[12px] text-muted-foreground hover:bg-secondary">Cancelar</button>
-              <button type="button" onClick={salvar} className="h-8 px-3 rounded-lg bg-marca text-white text-[12px] font-medium">Salvar acerto</button>
+              <button type="button" onClick={salvar} className="h-8 px-3 rounded-lg bg-primary text-primary-foreground hover:bg-primary-hover text-[12px] font-medium">Salvar acerto</button>
             </div>
           </div>
         ) : (
-          <button type="button" onClick={() => setForm(true)} className="w-full h-10 inline-flex items-center justify-center gap-1.5 rounded-xl border border-border text-[13px] font-medium text-foreground hover:border-marca hover:text-marca-texto">
+          <button type="button" onClick={() => setForm(true)} className="w-full h-10 inline-flex items-center justify-center gap-1.5 rounded-xl border border-border bg-card text-[13px] font-medium text-foreground hover:border-marca hover:text-marca-texto transition-colors">
             <Plus className="w-4 h-4" /> Registrar acerto
           </button>
         )}

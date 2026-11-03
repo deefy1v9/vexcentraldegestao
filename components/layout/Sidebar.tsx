@@ -64,11 +64,11 @@ function NavItem({
         'group flex items-center gap-3 py-2.5 text-[13.5px] rounded-xl transition-all',
         collapsed ? 'justify-center px-0 w-11 mx-auto' : 'px-3',
         active
-          ? 'bg-[#030A8C] text-white font-semibold shadow-[0_8px_18px_-8px_rgba(3,10,140,0.55)]'
+          ? 'bg-marca text-white font-semibold shadow-[0_8px_18px_-8px_color-mix(in_srgb,var(--marca)_55%,transparent)]'
           : 'text-[var(--text-secondary)] font-medium hover:bg-[var(--hover)] hover:text-[var(--text)]'
       )}
     >
-      <Icon className={cn('w-5 h-5 shrink-0 transition-colors', active ? 'text-white' : 'text-[var(--text-secondary)] group-hover:text-[#030A8C]')} />
+      <Icon className={cn('w-5 h-5 shrink-0 transition-colors', active ? 'text-white' : 'text-[var(--text-secondary)] group-hover:text-marca-texto')} />
       {!collapsed && label}
     </Link>
   )
@@ -121,7 +121,7 @@ export default function Sidebar() {
               onClick={toggleCollapsed}
               aria-label="Expandir menu"
               title="Expandir menu"
-              className="w-11 h-11 rounded-xl overflow-hidden shadow-sm ring-1 ring-black/5 hover:ring-[#030A8C]/40 transition-shadow"
+              className="w-11 h-11 rounded-xl overflow-hidden shadow-sm ring-1 ring-black/5 hover:ring-marca/40 transition-shadow"
             >
               {/* eslint-disable-next-line @next/next/no-img-element -- logo estático, sem ganho em otimizar */}
               <img src="/logo-mark.png" alt="VEX" className="w-full h-full object-cover" />
@@ -202,13 +202,13 @@ export default function Sidebar() {
               onClick={toggleCollapsed}
               title={`${name} · expandir menu`}
               aria-label="Expandir menu"
-              className="w-11 h-11 mx-auto rounded-full bg-[#030A8C] text-white flex items-center justify-center text-xs font-bold ring-2 ring-[var(--surface)] shadow-sm hover:bg-[#02077a]"
+              className="w-11 h-11 mx-auto rounded-full bg-marca text-white flex items-center justify-center text-xs font-bold ring-2 ring-[var(--surface)] shadow-sm hover:bg-marca/90"
             >
               {getInitials(name)}
             </button>
           ) : (
             <div className="flex items-center gap-3 rounded-xl bg-[var(--hover)] px-3 py-2.5">
-              <div className="w-9 h-9 rounded-full bg-[#030A8C] text-white flex items-center justify-center text-xs font-bold shrink-0 ring-2 ring-[var(--surface)] shadow-sm">
+              <div className="w-9 h-9 rounded-full bg-marca text-white flex items-center justify-center text-xs font-bold shrink-0 ring-2 ring-[var(--surface)] shadow-sm">
                 {getInitials(name)}
               </div>
               <div className="min-w-0">

@@ -4,8 +4,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  FileText, Filter, Search, Download, Send, Copy, MoreVertical, Check, X, Loader2, FilePlus2,
+  FileText, Filter, Search, Download, Send, Copy, MoreHorizontal, Check, X, Loader2, FilePlus2,
+  PencilLine, CircleCheck, CalendarX2,
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { Kpi, TOM, type Tom } from '@/components/vex/vireo'
 
 interface Row {
   id: string
@@ -26,22 +29,53 @@ interface Row {
   validLabel: string
 }
 
+/** Rótulo e cor de cada status (tokens de estado; navy fica para a seleção). */
 export const STATUS_LABEL: Record<string, { label: string; cls: string }> = {
-  RASCUNHO: { label: 'Rascunho', cls: 'bg-gray-100 text-gray-600' },
-  GERADA: { label: 'Gerada', cls: 'bg-blue-50 text-blue-700' },
-  ENVIADA: { label: 'Enviada', cls: 'bg-purple-50 text-purple-700' },
-  VISUALIZADA: { label: 'Visualizada', cls: 'bg-teal-50 text-teal-700' },
-  APROVADA: { label: 'Aprovada', cls: 'bg-green-100 text-green-700' },
-  RECUSADA: { label: 'Recusada', cls: 'bg-red-50 text-red-700' },
-  EXPIRADA: { label: 'Expirada', cls: 'bg-orange-50 text-orange-700' },
-  CANCELADA: { label: 'Cancelada', cls: 'bg-gray-100 text-gray-500' },
-  SUBSTITUIDA: { label: 'Substituída', cls: 'bg-gray-100 text-gray-500' },
+  RASCUNHO: { label: 'Rascunho', cls: 'bg-secondary text-muted-foreground' },
+  GERADA: { label: 'Gerada', cls: 'bg-secondary text-foreground' },
+  ENVIADA: { label: 'Enviada', cls: 'bg-info-suave text-info' },
+  VISUALIZADA: { label: 'Visualizada', cls: 'bg-info-suave text-info' },
+  APROVADA: { label: 'Aprovada', cls: 'bg-success-suave text-success' },
+  RECUSADA: { label: 'Recusada', cls: 'bg-destructive-suave text-destructive-texto' },
+  EXPIRADA: { label: 'Expirada', cls: 'bg-warning-suave text-warning' },
+  CANCELADA: { label: 'Cancelada', cls: 'bg-secondary text-muted-foreground' },
+  SUBSTITUIDA: { label: 'Substituída', cls: 'bg-secondary text-muted-foreground' },
 }
+
+/** As abas do topo da tabela (modelo Vireo); os demais status ficam no filtro. */
+const ABAS: Array<{ status: string; label: string }> = [
+  { status: '', label: 'Todas' },
+  { status: 'RASCUNHO', label: 'Rascunho' },
+  { status: 'ENVIADA', label: 'Enviadas' },
+  { status: 'VISUALIZADA', label: 'Visualizadas' },
+  { status: 'APROVADA', label: 'Aprovadas' },
+  { status: 'RECUSADA', label: 'Recusadas' },
+]
+
+const ABERTAS = ['GERADA', 'ENVIADA', 'VISUALIZADA']
+const TONS: Tom[] = ['marca', 'info', 'sucesso', 'atencao', 'neutro']
+function tomDe(nome: string): Tom {
+  let h = 0
+  for (const c of nome) h = (h * 31 + c.charCodeAt(0)) >>> 0
+  return TONS[h % TONS.length]
+}
+const iniciais = (nome: string) => nome.trim().split(/\s+/).slice(0, 2).map((p) => p[0]).join('').toUpperCase() || '?'
 
 function fmt(d: string) {
   const iso = d.slice(0, 10)
   const [y, m, day] = iso.split('-')
   return `${day}/${m}/${y}`
+}
+
+/** Selo de status: a cor nunca vem sozinha, sempre com o rótulo. */
+function StatusPill({ status }: { status: string }) {
+  const st = STATUS_LABEL[status] ?? { label: status, cls: 'bg-secondary text-muted-foreground' }
+  return (
+    <span className={cn('inline-flex items-center gap-1.5 h-[22px] px-2 rounded-md text-[11.5px] font-semibold whitespace-nowrap', st.cls)}>
+      <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-current opacity-70" />
+      {st.label}
+    </span>
+  )
 }
 
 /**
@@ -57,6 +91,10 @@ export default function ProposalsList({ clientId, compact = false }: { clientId?
   const [menu, setMenu] = useState<string | null>(null)
   const [showFilters, setShowFilters] = useState(false)
   const [filters, setFilters] = useState({ q: '', status: '', kind: '', from: '', to: '', validity: '' })
+  // Contagem por status: guardada da última busca sem status, para as abas
+  // e os indicadores não sumirem quando uma aba filtra a lista
+  const [contagem, setContagem] = useState<Record<string, number> | null>(null)
+  const [vencidas, setVencidas] = useState(0)
 
   const load = useCallback(() => {
     const params = new URLSearchParams()
@@ -68,7 +106,17 @@ export default function ProposalsList({ clientId, compact = false }: { clientId?
     if (filters.to) params.set('to', filters.to)
     fetch(`/api/propostas?${params}`)
       .then((r) => (r.ok ? r.json() : { proposals: [] }))
-      .then((b) => setRows(b.proposals ?? []))
+      .then((b) => {
+        const lista: Row[] = b.proposals ?? []
+        setRows(lista)
+        if (!filters.status) {
+          const c: Record<string, number> = {}
+          for (const r of lista) c[r.status] = (c[r.status] ?? 0) + 1
+          setContagem({ ...c, '': lista.length })
+          const today = new Date().toISOString().slice(0, 10)
+          setVencidas(lista.filter((r) => ABERTAS.includes(r.status) && r.validUntil.slice(0, 10) < today).length)
+        }
+      })
       .finally(() => setLoading(false))
   }, [clientId, filters])
 
@@ -120,157 +168,205 @@ export default function ProposalsList({ clientId, compact = false }: { clientId?
     }
   }
 
-  return (
-    <div className="space-y-3">
-      {/* Busca e filtros */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <div className="relative flex-1 min-w-[180px]">
-          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            value={filters.q}
-            onChange={(e) => setFilters((f) => ({ ...f, q: e.target.value }))}
-            placeholder="Número, cliente ou documento"
-            className="input"
-            style={{ paddingLeft: '2.25rem' }}
-          />
-        </div>
-        <button
-          onClick={() => setShowFilters((v) => !v)}
-          className={`flex items-center gap-1.5 px-3 py-2 border rounded-lg text-xs font-medium transition-colors ${
-            showFilters ? 'border-[#030A8C] text-[#030A8C]' : 'border-gray-200 text-gray-500 hover:border-gray-300'
-          }`}
-        >
-          <Filter className="w-3.5 h-3.5" /> Filtros
-        </button>
-      </div>
+  const n = (status: string) => contagem?.[status] ?? 0
+  const emAberto = ABERTAS.reduce((a, s) => a + n(s), 0)
+  const comIndicadores = !compact && !clientId
 
-      {showFilters && (
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 bg-gray-50 border border-gray-100 rounded-xl p-3">
-          <select value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))} className="input text-xs">
-            <option value="">Todos os status</option>
-            {Object.entries(STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-          </select>
-          <select value={filters.kind} onChange={(e) => setFilters((f) => ({ ...f, kind: e.target.value }))} className="input text-xs">
-            <option value="">Propostas e aditivos</option>
-            <option value="PROPOSTA">Somente propostas</option>
-            <option value="ADITIVO">Somente aditivos</option>
-          </select>
-          <select value={filters.validity} onChange={(e) => setFilters((f) => ({ ...f, validity: e.target.value }))} className="input text-xs">
-            <option value="">Válidas e vencidas</option>
-            <option value="valida">Somente válidas</option>
-            <option value="vencida">Somente vencidas</option>
-          </select>
-          <input type="date" value={filters.from} onChange={(e) => setFilters((f) => ({ ...f, from: e.target.value }))} className="input text-xs" />
-          <input type="date" value={filters.to} onChange={(e) => setFilters((f) => ({ ...f, to: e.target.value }))} className="input text-xs" />
+  return (
+    <div className="space-y-5">
+      {/* Indicadores do topo (modelo Vireo de faturas): só na lista geral */}
+      {comIndicadores && contagem && (
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+          <Kpi icone={Send} tom="info" rotulo="Em aberto" valor={emAberto} nota="geradas, enviadas e visualizadas" />
+          <Kpi icone={CalendarX2} tom="atencao" rotulo="Validade vencida" valor={vencidas} nota="em aberto e fora do prazo" alerta={vencidas > 0} />
+          <Kpi icone={CircleCheck} tom="sucesso" rotulo="Aprovadas" valor={n('APROVADA')} nota={`${n('RECUSADA')} recusada(s)`} />
+          <Kpi icone={PencilLine} tom="neutro" rotulo="Rascunhos" valor={n('RASCUNHO')} nota="ainda não geradas" />
         </div>
       )}
 
-      {msg && <p className="text-xs font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">{msg}</p>}
-
-      {loading ? (
-        <div className="space-y-2 animate-pulse">{[...Array(3)].map((_, i) => <div key={i} className="h-16 bg-gray-100 rounded-xl" />)}</div>
-      ) : visible.length === 0 ? (
-        <div className="text-center py-12">
-          <FileText className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-          <p className="text-sm text-gray-500">Nenhuma proposta ainda.</p>
-          <Link href={clientId ? `/propostas/nova?clientId=${clientId}` : '/propostas/nova'} className="text-xs font-semibold text-[#030A8C] hover:underline mt-1 inline-block">
-            Criar a primeira
-          </Link>
+      <section className={cn('rounded-[24px] border border-border bg-card shadow-[0_1px_2px_rgba(16,24,40,0.04)]', compact && 'rounded-[20px]')}>
+        {/* Abas de status com a contagem */}
+        <div className="px-4 sm:px-6 pt-3 border-b border-border flex items-center gap-1 overflow-x-auto" role="tablist" aria-label="Status das propostas">
+          {ABAS.map((a) => {
+            const ativa = filters.status === a.status
+            return (
+              <button
+                key={a.status || 'todas'}
+                role="tab"
+                aria-selected={ativa}
+                onClick={() => setFilters((f) => ({ ...f, status: a.status }))}
+                className={cn(
+                  'relative h-11 px-3 inline-flex items-center gap-2 text-[13px] font-semibold whitespace-nowrap transition-colors',
+                  ativa ? 'text-marca-texto' : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {a.label}
+                {contagem && (
+                  <span className={cn('rounded-md px-1.5 text-[11px] font-semibold tabular', ativa ? 'bg-marca-suave text-marca-texto' : 'bg-secondary text-muted-foreground')}>
+                    {n(a.status)}
+                  </span>
+                )}
+                {ativa && <span aria-hidden className="absolute left-2 right-2 -bottom-px h-0.5 rounded-full bg-marca" />}
+              </button>
+            )
+          })}
         </div>
-      ) : (
-        <>
-          {/* Desktop: tabela. Mobile: cards (sem rolagem horizontal). */}
-          <div className="hidden lg:block bg-white border border-gray-200 rounded-xl overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-100">
-                <tr className="text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
-                  <th className="px-4 py-2.5">Número</th>
-                  <th className="px-4 py-2.5">Cliente</th>
-                  <th className="px-4 py-2.5">Emissão</th>
-                  <th className="px-4 py-2.5">Validade</th>
-                  <th className="px-4 py-2.5">Mensal</th>
-                  <th className="px-4 py-2.5">Total</th>
-                  <th className="px-4 py-2.5">Status</th>
-                  <th className="px-4 py-2.5" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {visible.map((r) => {
-                  const st = STATUS_LABEL[r.status] ?? { label: r.status, cls: 'bg-gray-100 text-gray-600' }
-                  return (
-                    <tr key={r.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-3">
-                        <Link href={`/propostas/${r.id}`} className="font-semibold text-gray-900 hover:text-[#030A8C]">
-                          {r.number}
+
+        {/* Busca e filtros */}
+        <div className="px-4 sm:px-6 py-4 flex items-center gap-2 flex-wrap">
+          <div className="relative flex-1 min-w-[180px] max-w-[380px]">
+            <Search className="w-4 h-4 text-subtle absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              value={filters.q}
+              onChange={(e) => setFilters((f) => ({ ...f, q: e.target.value }))}
+              placeholder="Número, cliente ou documento"
+              aria-label="Buscar proposta"
+              className="w-full h-10 pl-10 pr-3 text-[13px] border border-border rounded-xl bg-card text-foreground placeholder:text-subtle focus:outline-none focus:border-marca focus:ring-2 focus:ring-marca/15"
+            />
+          </div>
+          <button
+            onClick={() => setShowFilters((v) => !v)}
+            aria-expanded={showFilters}
+            className={cn(
+              'h-10 px-3.5 inline-flex items-center gap-1.5 rounded-xl border text-[13px] font-medium transition-colors',
+              showFilters ? 'border-marca text-marca-texto bg-marca-suave' : 'border-border text-foreground bg-card hover:border-subtle/60',
+            )}
+          >
+            <Filter className="w-3.5 h-3.5" /> Filtros
+          </button>
+          {!compact && (
+            <p className="ml-auto t-meta">O CPF/CNPJ aparece mascarado nesta lista.</p>
+          )}
+        </div>
+
+        {showFilters && (
+          <div className="mx-4 sm:mx-6 mb-4 grid grid-cols-2 lg:grid-cols-5 gap-2 bg-secondary/60 border border-border rounded-2xl p-3">
+            <select value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))} className="input text-xs">
+              <option value="">Todos os status</option>
+              {Object.entries(STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+            </select>
+            <select value={filters.kind} onChange={(e) => setFilters((f) => ({ ...f, kind: e.target.value }))} className="input text-xs">
+              <option value="">Propostas e aditivos</option>
+              <option value="PROPOSTA">Somente propostas</option>
+              <option value="ADITIVO">Somente aditivos</option>
+            </select>
+            <select value={filters.validity} onChange={(e) => setFilters((f) => ({ ...f, validity: e.target.value }))} className="input text-xs">
+              <option value="">Válidas e vencidas</option>
+              <option value="valida">Somente válidas</option>
+              <option value="vencida">Somente vencidas</option>
+            </select>
+            <input type="date" value={filters.from} onChange={(e) => setFilters((f) => ({ ...f, from: e.target.value }))} className="input text-xs" aria-label="Emitidas a partir de" />
+            <input type="date" value={filters.to} onChange={(e) => setFilters((f) => ({ ...f, to: e.target.value }))} className="input text-xs" aria-label="Emitidas até" />
+          </div>
+        )}
+
+        {msg && <p className="mx-4 sm:mx-6 mb-4 text-xs font-medium text-foreground bg-marca-suave border border-marca/15 rounded-xl px-3 py-2">{msg}</p>}
+
+        {loading ? (
+          <div className="px-4 sm:px-6 pb-6 space-y-2 animate-pulse">{[...Array(3)].map((_, i) => <div key={i} className="h-14 bg-secondary rounded-xl" />)}</div>
+        ) : visible.length === 0 ? (
+          <div className="text-center py-14 border-t border-border">
+            <span className={cn('mx-auto mb-3 w-11 h-11 rounded-xl grid place-items-center', TOM.marca)}><FileText className="w-5 h-5" /></span>
+            <p className="text-sm text-muted-foreground">Nenhuma proposta ainda.</p>
+            <Link href={clientId ? `/propostas/nova?clientId=${clientId}` : '/propostas/nova'} className="text-xs font-semibold text-primary hover:underline mt-1 inline-block">
+              Criar a primeira
+            </Link>
+          </div>
+        ) : (
+          <>
+            {/* Desktop: tabela. Mobile: cards (sem rolagem horizontal). */}
+            <div className="hidden lg:block">
+              <table className="w-full text-[13px]">
+                <thead className="bg-secondary/60 border-y border-border">
+                  <tr className="text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.08em]">
+                    <th className="pl-6 pr-4 py-3">Número</th>
+                    <th className="px-4 py-3">Cliente</th>
+                    <th className="px-4 py-3">Emissão</th>
+                    <th className="px-4 py-3">Validade</th>
+                    <th className="px-4 py-3 text-right">Mensal</th>
+                    <th className="px-4 py-3 text-right">Total</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="pr-6 pl-2 py-3" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {visible.map((r) => (
+                    <tr key={r.id} className="hover:bg-secondary/40 transition-colors">
+                      <td className="pl-6 pr-4 py-3.5 whitespace-nowrap">
+                        <Link href={`/propostas/${r.id}`} className="font-semibold text-marca-texto tabular hover:underline">
+                          #{r.number}
                         </Link>
-                        {r.kind === 'ADITIVO' && <span className="ml-1.5 text-[10px] font-bold text-purple-700">aditivo</span>}
+                        {r.kind === 'ADITIVO' && <span className="ml-1.5 rounded-md bg-secondary px-1.5 py-0.5 text-[10.5px] font-semibold text-muted-foreground">aditivo</span>}
                       </td>
-                      <td className="px-4 py-3">
-                        <p className="text-gray-900 truncate max-w-[220px]">{r.recipientName}</p>
-                        <p className="text-[11px] text-gray-400">{r.documentMasked} · {r.recipientKind === 'PROSPECT' ? 'prospect' : 'cliente'}</p>
+                      <td className="px-4 py-3.5">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className={cn('shrink-0 w-8 h-8 rounded-full grid place-items-center text-[11px] font-bold', TOM[tomDe(r.recipientName)])}>{iniciais(r.recipientName)}</span>
+                          <div className="min-w-0">
+                            <p className="text-foreground font-medium truncate max-w-[240px]">{r.recipientName}</p>
+                            <p className="text-[11.5px] text-muted-foreground">{r.documentMasked} · {r.recipientKind === 'PROSPECT' ? 'prospect' : 'cliente'}</p>
+                          </div>
+                        </div>
                       </td>
-                      <td className="px-4 py-3 text-gray-600">{fmt(r.issueDate)}</td>
-                      <td className="px-4 py-3 text-gray-600">{r.validLabel}</td>
-                      <td className="px-4 py-3 text-gray-900">{r.monthly}</td>
-                      <td className="px-4 py-3 font-semibold text-gray-900">{r.total}</td>
-                      <td className="px-4 py-3">
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${st.cls}`}>{st.label}</span>
-                      </td>
-                      <td className="px-4 py-3 text-right relative">
+                      <td className="px-4 py-3.5 text-muted-foreground tabular whitespace-nowrap">{fmt(r.issueDate)}</td>
+                      <td className="px-4 py-3.5 text-muted-foreground whitespace-nowrap">{r.validLabel}</td>
+                      <td className="px-4 py-3.5 text-right text-foreground tabular whitespace-nowrap">{r.monthly}</td>
+                      <td className="px-4 py-3.5 text-right font-display font-semibold text-foreground tabular whitespace-nowrap">{r.total}</td>
+                      <td className="px-4 py-3.5"><StatusPill status={r.status} /></td>
+                      <td className="pr-6 pl-2 py-3.5 text-right relative">
                         <button
                           onClick={() => setMenu(menu === r.id ? null : r.id)}
                           aria-label={`Ações de ${r.number}`}
-                          className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                          className="p-1.5 rounded-lg text-subtle hover:text-foreground hover:bg-secondary"
                         >
-                          {busy === r.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <MoreVertical className="w-4 h-4" />}
+                          {busy === r.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <MoreHorizontal className="w-4 h-4" />}
                         </button>
                         {menu === r.id && <RowMenu row={r} onAct={act} onDownload={download} onClose={() => setMenu(null)} />}
                       </td>
                     </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-          <div className="lg:hidden space-y-2">
-            {visible.map((r) => {
-              const st = STATUS_LABEL[r.status] ?? { label: r.status, cls: 'bg-gray-100 text-gray-600' }
-              return (
-                <div key={r.id} className="bg-white border border-gray-200 rounded-xl p-3">
+            <div className="lg:hidden divide-y divide-border border-t border-border">
+              {visible.map((r) => (
+                <div key={r.id} className="px-4 py-3.5">
                   <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <Link href={`/propostas/${r.id}`} className="font-semibold text-gray-900 text-sm">
-                        {r.number}
-                      </Link>
-                      <p className="text-xs text-gray-600 truncate">{r.recipientName}</p>
-                      <p className="text-[11px] text-gray-400">{r.documentMasked}</p>
+                    <div className="flex items-start gap-3 min-w-0">
+                      <span className={cn('shrink-0 w-8 h-8 rounded-full grid place-items-center text-[11px] font-bold', TOM[tomDe(r.recipientName)])}>{iniciais(r.recipientName)}</span>
+                      <div className="min-w-0">
+                        <Link href={`/propostas/${r.id}`} className="font-semibold text-marca-texto text-sm tabular">
+                          #{r.number}
+                        </Link>
+                        <p className="text-xs text-foreground truncate">{r.recipientName}</p>
+                        <p className="text-[11px] text-subtle">{r.documentMasked}</p>
+                      </div>
                     </div>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${st.cls}`}>{st.label}</span>
+                    <StatusPill status={r.status} />
                   </div>
-                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 mt-2 text-[11px] text-gray-500">
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 mt-2 text-[11.5px] text-muted-foreground">
                     <span>Emissão: {fmt(r.issueDate)}</span>
                     <span>Validade: {r.validLabel}</span>
-                    <span>Mensal: <b className="text-gray-900">{r.monthly}</b></span>
-                    <span>Total: <b className="text-gray-900">{r.total}</b></span>
+                    <span>Mensal: <b className="text-foreground">{r.monthly}</b></span>
+                    <span>Total: <b className="text-foreground">{r.total}</b></span>
                   </div>
-                  <div className="flex items-center gap-2 mt-2.5 flex-wrap">
-                    <Link href={`/propostas/${r.id}`} className="text-[11px] font-semibold text-[#030A8C]">Abrir</Link>
-                    <button onClick={() => download(r.id, 'PDF')} disabled={busy === r.id} className="text-[11px] font-medium text-gray-600 disabled:opacity-50">PDF</button>
-                    <button onClick={() => act(r.id, { action: 'duplicar' }, 'Proposta duplicada.')} disabled={busy === r.id} className="text-[11px] font-medium text-gray-600 disabled:opacity-50">Duplicar</button>
+                  <div className="flex items-center gap-3 mt-2.5 flex-wrap">
+                    <Link href={`/propostas/${r.id}`} className="text-[12px] font-semibold text-marca-texto">Abrir</Link>
+                    <button onClick={() => download(r.id, 'PDF')} disabled={busy === r.id} className="text-[12px] font-medium text-muted-foreground disabled:opacity-50">PDF</button>
+                    <button onClick={() => act(r.id, { action: 'duplicar' }, 'Proposta duplicada.')} disabled={busy === r.id} className="text-[12px] font-medium text-muted-foreground disabled:opacity-50">Duplicar</button>
                   </div>
                 </div>
-              )
-            })}
-          </div>
-        </>
-      )}
+              ))}
+            </div>
+          </>
+        )}
 
-      {!compact && (
-        <p className="text-[11px] text-gray-400">
-          {visible.length} documento(s). O CPF/CNPJ aparece mascarado nesta lista.
-        </p>
-      )}
+        {!compact && !loading && visible.length > 0 && (
+          <p className="px-6 py-3 border-t border-border t-meta">
+            {visible.length} documento(s).
+          </p>
+        )}
+      </section>
     </div>
   )
 }
@@ -286,35 +382,35 @@ function RowMenu({
   return (
     <>
       <div className="fixed inset-0 z-20" onClick={onClose} />
-      <div className="absolute right-4 top-full mt-1 w-52 bg-white border border-gray-100 rounded-xl shadow-lg z-30 py-1 text-left">
-        <Link href={`/propostas/${row.id}`} className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
-          <FileText className="w-4 h-4 text-gray-400" /> Visualizar
+      <div className="absolute right-4 top-full mt-1 w-56 bg-popover border border-border rounded-2xl shadow-[var(--sombra-flutuante)] z-30 py-1.5 text-left">
+        <Link href={`/propostas/${row.id}`} className="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-secondary/60">
+          <FileText className="w-4 h-4 text-subtle" /> Visualizar
         </Link>
-        <button onClick={() => onDownload(row.id, 'PDF')} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">
-          <Download className="w-4 h-4 text-gray-400" /> Baixar PDF
+        <button onClick={() => onDownload(row.id, 'PDF')} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-secondary/60 text-left">
+          <Download className="w-4 h-4 text-subtle" /> Baixar PDF
         </button>
-        <button onClick={() => onDownload(row.id, 'DOCX')} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">
-          <Download className="w-4 h-4 text-gray-400" /> Baixar DOCX
+        <button onClick={() => onDownload(row.id, 'DOCX')} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-secondary/60 text-left">
+          <Download className="w-4 h-4 text-subtle" /> Baixar DOCX
         </button>
-        <button onClick={() => onAct(row.id, { action: 'duplicar' }, 'Proposta duplicada.')} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">
-          <Copy className="w-4 h-4 text-gray-400" /> Duplicar
+        <button onClick={() => onAct(row.id, { action: 'duplicar' }, 'Proposta duplicada.')} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-secondary/60 text-left">
+          <Copy className="w-4 h-4 text-subtle" /> Duplicar
         </button>
-        <button onClick={() => onAct(row.id, { action: 'versao' }, 'Nova versão aberta.')} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">
-          <FilePlus2 className="w-4 h-4 text-gray-400" /> Gerar nova versão
+        <button onClick={() => onAct(row.id, { action: 'versao' }, 'Nova versão aberta.')} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-secondary/60 text-left">
+          <FilePlus2 className="w-4 h-4 text-subtle" /> Gerar nova versão
         </button>
         {row.kind === 'PROPOSTA' && (
-          <Link href={`/propostas/nova?parentId=${row.id}&kind=ADITIVO`} className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
-            <Send className="w-4 h-4 text-gray-400" /> Criar aditivo
+          <Link href={`/propostas/nova?parentId=${row.id}&kind=ADITIVO`} className="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-secondary/60">
+            <Send className="w-4 h-4 text-subtle" /> Criar aditivo
           </Link>
         )}
-        <div className="border-t border-gray-100 my-1" />
-        <button onClick={() => onAct(row.id, { action: 'status', status: 'APROVADA' }, 'Marcada como aprovada.')} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-green-700 hover:bg-green-50 text-left">
+        <div className="border-t border-border my-1" />
+        <button onClick={() => onAct(row.id, { action: 'status', status: 'APROVADA' }, 'Marcada como aprovada.')} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-success hover:bg-success-suave text-left">
           <Check className="w-4 h-4" /> Marcar como aprovada
         </button>
-        <button onClick={() => onAct(row.id, { action: 'status', status: 'RECUSADA' }, 'Marcada como recusada.')} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">
-          <X className="w-4 h-4 text-gray-400" /> Marcar como recusada
+        <button onClick={() => onAct(row.id, { action: 'status', status: 'RECUSADA' }, 'Marcada como recusada.')} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-secondary/60 text-left">
+          <X className="w-4 h-4 text-subtle" /> Marcar como recusada
         </button>
-        <button onClick={() => onAct(row.id, { action: 'status', status: 'CANCELADA' }, 'Proposta cancelada.')} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 text-left">
+        <button onClick={() => onAct(row.id, { action: 'status', status: 'CANCELADA' }, 'Proposta cancelada.')} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-destructive-texto hover:bg-destructive-suave text-left">
           <X className="w-4 h-4" /> Cancelar
         </button>
       </div>

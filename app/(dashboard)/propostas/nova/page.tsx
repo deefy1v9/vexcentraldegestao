@@ -27,7 +27,7 @@ export default async function NovaPropostaPage({
         title={isAddendum ? 'Novo aditivo' : 'Nova proposta'}
         subtitle={isAddendum ? 'Altera o contrato sem tocar no documento original' : 'Cliente, serviços e valores'}
       />
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-8 pb-8 pt-2">
         <ProposalsNav showNew={false} />
         <ProposalWizard
           clients={clients}

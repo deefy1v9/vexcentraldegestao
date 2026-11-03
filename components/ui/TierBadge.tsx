@@ -5,8 +5,8 @@
  */
 const STYLES: Record<string, { label: string; cls: string }> = {
   START: { label: 'Start', cls: 'bg-gray-100 text-gray-600' },
-  GROWTH: { label: 'Growth', cls: 'bg-[#030A8C]/10 text-[#030A8C]' },
-  SCALE: { label: 'Scale', cls: 'bg-[#F74A13]/10 text-[#F74A13] ring-1 ring-inset ring-[#F74A13]/30' },
+  GROWTH: { label: 'Growth', cls: 'bg-marca/10 text-marca-texto' },
+  SCALE: { label: 'Scale', cls: 'bg-primary/10 text-primary ring-1 ring-inset ring-primary/30' },
 }
 
 export default function TierBadge({

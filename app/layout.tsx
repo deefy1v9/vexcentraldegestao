@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Inter, Space_Grotesk } from 'next/font/google'
 import './globals.css'
 
 /** Inter, a mesma do painel da VEX Sales. A variável é --font-inter porque
@@ -8,6 +8,14 @@ const fonte = Inter({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
   variable: '--font-inter',
+  display: 'swap',
+})
+
+/** Space Grotesk nos títulos e números grandes, como no modelo Vireo (03/11). */
+const display = Space_Grotesk({
+  subsets: ['latin'],
+  weight: ['500', '600', '700'],
+  variable: '--font-space',
   display: 'swap',
 })
 
@@ -40,7 +48,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
       </head>
-      <body className={`${fonte.variable} min-h-full h-full font-sans antialiased bg-background text-foreground`}>{children}</body>
+      <body className={`${fonte.variable} ${display.variable} min-h-full h-full font-sans antialiased bg-background text-foreground`}>{children}</body>
     </html>
   )
 }

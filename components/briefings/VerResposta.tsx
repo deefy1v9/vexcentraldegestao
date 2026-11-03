@@ -78,12 +78,12 @@ export default function VerResposta({ resposta: r, clientes }: { resposta: Respo
         <Link href="/briefings?aba=respostas" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="w-4 h-4" /> Respostas</Link>
 
         {r.alertas.length > 0 && (
-          <div className="rounded-[12px] border border-warning/40 bg-warning-suave p-4 space-y-1">
+          <div className="rounded-[20px] border border-warning/40 bg-warning-suave p-4 space-y-1">
             {r.alertas.map((a) => <p key={a} className="text-sm text-foreground flex gap-2"><AlertTriangle className="w-4 h-4 text-warning shrink-0 mt-0.5" /> {a}</p>)}
           </div>
         )}
 
-        <div className="rounded-[12px] border border-border bg-card divide-y divide-border">
+        <div className="rounded-[24px] border border-border bg-card divide-y divide-border overflow-hidden shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
           {r.perguntas.map((p) => {
             if (p.tipo === 'secao') return <p key={p.id} className="px-4 pt-4 pb-2 t-secao text-foreground bg-secondary/40">{p.titulo}</p>
             const v = r.respostas[p.id]
@@ -97,7 +97,7 @@ export default function VerResposta({ resposta: r, clientes }: { resposta: Respo
                   reveladas[p.id] !== undefined ? (
                     <p className="text-sm text-foreground font-mono break-all">{reveladas[p.id]}</p>
                   ) : (
-                    <button type="button" onClick={() => revelar(p.id)} className="mt-0.5 inline-flex items-center gap-1.5 text-sm text-link hover:underline">
+                    <button type="button" onClick={() => revelar(p.id)} className="mt-0.5 inline-flex items-center gap-1.5 text-sm text-marca-texto hover:underline">
                       <Lock className="w-3.5 h-3.5" /> •••••• <Eye className="w-3.5 h-3.5" /> ver
                     </button>
                   )
@@ -113,7 +113,7 @@ export default function VerResposta({ resposta: r, clientes }: { resposta: Respo
       </div>
 
       <aside className="space-y-4 xl:sticky xl:top-0">
-        <div className="rounded-[12px] border border-border bg-card p-4 space-y-3">
+        <div className="rounded-[24px] border border-border bg-card p-5 space-y-3 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
           <div>
             <p className="t-secao text-foreground">{r.briefing}</p>
             <p className="text-xs text-muted-foreground mt-0.5">Respondido em {dataHora(r.criadaEm)}</p>
@@ -124,7 +124,7 @@ export default function VerResposta({ resposta: r, clientes }: { resposta: Respo
           <div className="space-y-1">
             <p className="text-xs text-muted-foreground">Cliente</p>
             <SearchSelect options={clientes} value={clienteId} onChange={ligarCliente} placeholder="Ligar a um cliente" allLabel="Sem cliente" searchPlaceholder="Buscar cliente" shortLabel={false} />
-            {r.cliente && <Link href={`/clientes/${r.cliente.id}`} className="text-xs text-link hover:underline">Abrir cadastro de {r.cliente.name}</Link>}
+            {r.cliente && <Link href={`/clientes/${r.cliente.id}`} className="text-xs text-marca-texto hover:underline">Abrir cadastro de {r.cliente.name}</Link>}
           </div>
           <div className="flex flex-wrap gap-2 pt-1">
             <Button variant="outline" size="sm" onClick={copiarTudo}><Copy /> {copiado ? 'Copiado' : 'Copiar respostas'}</Button>
@@ -133,7 +133,7 @@ export default function VerResposta({ resposta: r, clientes }: { resposta: Respo
           </div>
         </div>
 
-        <div className="rounded-[12px] border border-border bg-card p-4 space-y-2">
+        <div className="rounded-[24px] border border-border bg-card p-5 space-y-2 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-ia" />
             <p className="t-secao text-foreground flex-1">Resumo</p>
@@ -144,7 +144,7 @@ export default function VerResposta({ resposta: r, clientes }: { resposta: Respo
           ) : (
             <p className="text-xs text-muted-foreground">A IA lê as respostas e resume o essencial para a equipe, com o que faltou perguntar. Senhas e CPF não vão para a IA.</p>
           )}
-          {erro && <p className="text-sm text-destructive">{erro}</p>}
+          {erro && <p className="text-sm text-destructive-texto">{erro}</p>}
         </div>
       </aside>
     </div>

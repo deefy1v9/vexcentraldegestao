@@ -26,11 +26,11 @@ export default function ClientLinkChips({ client, size = 'sm' }: { client: Clien
             target="_blank"
             rel="noopener noreferrer"
             title={`${l.label} · ${l.url}`}
-            className={`inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white text-gray-700 font-medium hover:border-[#030A8C] hover:text-[#030A8C] transition-colors ${cls}`}
+            className={`inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary/60 text-foreground font-medium hover:border-marca/40 hover:text-marca-texto transition-colors ${cls}`}
           >
             <Icon className="w-3.5 h-3.5" />
             {l.handle}
-            <ExternalLink className="w-3 h-3 text-gray-300" />
+            <ExternalLink className="w-3 h-3 text-subtle" />
           </a>
         )
       })}

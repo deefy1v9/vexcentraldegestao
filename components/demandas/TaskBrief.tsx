@@ -10,7 +10,7 @@ const ESTILO: Record<BriefKind, { icon: React.ElementType; cls: string; label: s
   hashtags: { icon: Hash, cls: 'border-border bg-card', label: 'Hashtags' },
   cta: { icon: MousePointerClick, cls: 'border-border bg-card', label: 'CTA' },
   imagem: { icon: ImageIcon, cls: 'border-border bg-secondary', label: 'Imagem' },
-  alerta: { icon: AlertTriangle, cls: 'border-orange-200 bg-orange-50', label: 'Atenção' },
+  alerta: { icon: AlertTriangle, cls: 'border-warning/30 bg-warning-suave', label: 'Atenção' },
   texto: { icon: MessageSquare, cls: 'border-border bg-card', label: 'Descrição' },
 }
 
@@ -79,7 +79,7 @@ export default function TaskBrief({ description }: { description: string | null 
                 ))}
               </div>
             ) : s.kind === 'alerta' ? (
-              <p className="text-sm text-orange-800 whitespace-pre-wrap">{s.body}</p>
+              <p className="text-sm text-warning whitespace-pre-wrap">{s.body}</p>
             ) : (
               <p className={`t-corpo text-foreground whitespace-pre-wrap leading-relaxed ${s.kind === 'copy' ? 'font-medium' : ''}`}>{comLinks(s.body)}</p>
             )}

@@ -165,58 +165,58 @@ export default function ProposalEditor({ id }: { id: string }) {
   }
 
   if (loading) {
-    return <div className="max-w-4xl space-y-3 animate-pulse">{[...Array(4)].map((_, i) => <div key={i} className="h-24 bg-gray-100 rounded-xl" />)}</div>
+    return <div className="max-w-4xl space-y-3 animate-pulse">{[...Array(4)].map((_, i) => <div key={i} className="h-24 bg-secondary rounded-[24px]" />)}</div>
   }
 
   return (
     <div className="max-w-4xl space-y-4 pb-28 lg:pb-6">
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <Link href={`/propostas/${id}`} className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900">
+        <Link href={`/propostas/${id}`} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="w-4 h-4" /> Voltar
         </Link>
-        <span className="text-xs font-semibold text-gray-500">{number}</span>
+        <span className="text-xs font-semibold text-muted-foreground">{number}</span>
       </div>
 
-      {error && <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
+      {error && <p className="text-xs text-destructive-texto bg-destructive-suave border border-destructive/20 rounded-lg px-3 py-2">{error}</p>}
 
-      <div className="bg-white border border-gray-200 rounded-xl p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="bg-card border border-border rounded-[24px] p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)] grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">Data da proposta</label>
+          <label className="block text-xs font-medium text-foreground mb-1">Data da proposta</label>
           <input type="date" value={meta.issueDate} onChange={(e) => setMeta((m) => ({ ...m, issueDate: e.target.value }))} className="input" />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">Validade</label>
+          <label className="block text-xs font-medium text-foreground mb-1">Validade</label>
           <input type="date" value={meta.validUntil} onChange={(e) => setMeta((m) => ({ ...m, validUntil: e.target.value }))} className="input" />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">Início previsto</label>
+          <label className="block text-xs font-medium text-foreground mb-1">Início previsto</label>
           <input type="date" value={meta.startDate} onChange={(e) => setMeta((m) => ({ ...m, startDate: e.target.value }))} className="input" />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">Dia de vencimento</label>
+          <label className="block text-xs font-medium text-foreground mb-1">Dia de vencimento</label>
           <input type="number" min={1} max={28} value={meta.paymentDay} onChange={(e) => setMeta((m) => ({ ...m, paymentDay: e.target.value }))} className="input" />
         </div>
         <div className="sm:col-span-2">
-          <label className="block text-xs font-medium text-gray-700 mb-1">Condições de pagamento</label>
+          <label className="block text-xs font-medium text-foreground mb-1">Condições de pagamento</label>
           <input value={meta.paymentTerms} onChange={(e) => setMeta((m) => ({ ...m, paymentTerms: e.target.value }))} className="input" />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">Desconto geral (R$)</label>
+          <label className="block text-xs font-medium text-foreground mb-1">Desconto geral (R$)</label>
           <input value={meta.discountValue} onChange={(e) => setMeta((m) => ({ ...m, discountValue: maskMoney(e.target.value) }))} className="input" inputMode="numeric" />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">Desconto geral (%)</label>
+          <label className="block text-xs font-medium text-foreground mb-1">Desconto geral (%)</label>
           <input type="number" min={0} max={100} step="0.01" value={meta.discountPercent} onChange={(e) => setMeta((m) => ({ ...m, discountPercent: e.target.value }))} className="input" />
         </div>
         <div className="sm:col-span-2">
-          <label className="block text-xs font-medium text-gray-700 mb-1">Observações</label>
+          <label className="block text-xs font-medium text-foreground mb-1">Observações</label>
           <textarea value={meta.notes} onChange={(e) => setMeta((m) => ({ ...m, notes: e.target.value }))} rows={3} className="input resize-none" />
         </div>
       </div>
 
       <div className="space-y-2">
         {items.map((item) => (
-          <div key={item.uid} className="bg-white border border-gray-200 rounded-xl p-3">
+          <div key={item.uid} className="bg-card border border-border rounded-2xl p-3.5 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
             <div className="flex items-start gap-2">
               <div className="flex-1 min-w-0 space-y-2">
                 <input value={item.name} onChange={(e) => update(item.uid, { name: e.target.value })} className="input font-medium" placeholder="Nome do serviço" />
@@ -233,7 +233,7 @@ export default function ProposalEditor({ id }: { id: string }) {
                   <input type="number" min={0} value={item.months} disabled={item.periodicity === 'UNICO'} onChange={(e) => update(item.uid, { months: Number(e.target.value) })} className="input text-xs disabled:opacity-50" placeholder="Meses" />
                   <input type="number" min={0} max={100} step="0.01" value={item.discountPercent} onChange={(e) => update(item.uid, { discountPercent: e.target.value })} className="input text-xs" placeholder="Desc. %" />
                 </div>
-                <button onClick={() => update(item.uid, { open: !item.open })} className="flex items-center gap-1 text-[11px] font-semibold text-gray-500 hover:text-[#030A8C]">
+                <button onClick={() => update(item.uid, { open: !item.open })} className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-marca-texto">
                   {item.open ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />} Mais opções
                 </button>
                 {item.open && (
@@ -260,8 +260,8 @@ export default function ProposalEditor({ id }: { id: string }) {
                 )}
               </div>
               <div className="flex flex-col gap-1 shrink-0">
-                <button onClick={() => setItems((prev) => [...prev, { ...item, uid: newUid() }])} aria-label="Duplicar" className="p-1 text-gray-300 hover:text-[#030A8C]"><Copy className="w-3.5 h-3.5" /></button>
-                <button onClick={() => setItems((prev) => prev.filter((i) => i.uid !== item.uid))} aria-label="Remover" className="p-1 text-gray-300 hover:text-red-600"><Trash2 className="w-3.5 h-3.5" /></button>
+                <button onClick={() => setItems((prev) => [...prev, { ...item, uid: newUid() }])} aria-label="Duplicar" className="p-1 text-subtle/70 hover:text-marca-texto"><Copy className="w-3.5 h-3.5" /></button>
+                <button onClick={() => setItems((prev) => prev.filter((i) => i.uid !== item.uid))} aria-label="Remover" className="p-1 text-subtle/70 hover:text-destructive-texto"><Trash2 className="w-3.5 h-3.5" /></button>
               </div>
             </div>
           </div>
@@ -272,23 +272,23 @@ export default function ProposalEditor({ id }: { id: string }) {
             monthlyValue: '', setupValue: '', discountValue: '', discountPercent: '', months: 12,
             periodicity: 'MENSAL', open: true, ...(kind === 'ADITIVO' ? { changeType: 'ADICIONA' } : {}),
           }])}
-          className="flex items-center gap-1.5 text-xs font-semibold text-[#030A8C] hover:underline"
+          className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
         >
           <Plus className="w-3.5 h-3.5" /> Adicionar serviço
         </button>
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 lg:static bg-white border-t lg:border border-gray-200 lg:rounded-xl p-3 lg:p-4 z-30 lg:z-auto">
+      <div className="fixed bottom-0 left-0 right-0 lg:static bg-card border-t lg:border border-border lg:rounded-[20px] p-3 lg:p-4 z-30 lg:z-auto">
         <div className="max-w-4xl mx-auto flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-4 text-xs">
-            <span className="text-gray-500">Mensal <b className="text-gray-900 block">{brl(totals.monthly)}</b></span>
-            {totals.setup > 0 && <span className="text-gray-500">Único <b className="text-gray-900 block">{brl(totals.setup)}</b></span>}
-            <span className="text-gray-500">Total <b className="text-[#030A8C] block">{brl(totals.total)}</b></span>
+            <span className="text-muted-foreground">Mensal <b className="text-foreground block">{brl(totals.monthly)}</b></span>
+            {totals.setup > 0 && <span className="text-muted-foreground">Único <b className="text-foreground block">{brl(totals.setup)}</b></span>}
+            <span className="text-muted-foreground">Total <b className="text-marca-texto block">{brl(totals.total)}</b></span>
           </div>
           <button
             onClick={save}
             disabled={saving || items.length === 0}
-            className="flex items-center gap-1.5 px-4 py-2 bg-[#030A8C] text-white rounded-lg text-xs font-semibold hover:bg-[#02077a] disabled:opacity-40 transition-colors"
+            className="flex items-center gap-1.5 h-9 px-4 bg-primary text-primary-foreground rounded-lg text-[13px] font-medium hover:bg-primary-hover disabled:opacity-40 transition-colors"
           >
             {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : saved ? <Check className="w-3.5 h-3.5" /> : null}
             {saving ? 'Salvando…' : saved ? 'Salvo' : 'Salvar alterações'}

@@ -5,7 +5,9 @@ import Link from 'next/link'
 import {
   Plus, Search, LayoutGrid, List, Copy, Pencil, Power, X, Loader2, Briefcase, Users, TrendingUp, Check,
 } from 'lucide-react'
-import TierBadge from '@/components/ui/TierBadge'
+import { Kpi } from '@/components/vex/vireo'
+import { GrupoCliente } from '@/components/clientes/ClienteVisual'
+import { campo, campoTexto } from '@/components/clientes/FormSecao'
 
 /* ---------------------------------- tipos ---------------------------------- */
 
@@ -54,9 +56,18 @@ const BILLING_LABEL: Record<string, string> = {
 }
 
 const STATUS_LABEL: Record<string, { label: string; cls: string }> = {
-  ATIVO: { label: 'Ativo', cls: 'bg-green-100 text-green-700' },
-  PAUSADO: { label: 'Pausado', cls: 'bg-orange-100 text-orange-700' },
-  ENCERRADO: { label: 'Encerrado', cls: 'bg-gray-100 text-gray-600' },
+  ATIVO: { label: 'Ativo', cls: 'bg-success-suave text-success' },
+  PAUSADO: { label: 'Pausado', cls: 'bg-warning-suave text-warning' },
+  ENCERRADO: { label: 'Encerrado', cls: 'bg-secondary text-muted-foreground' },
+}
+
+function StatusPill({ ativo }: { ativo: boolean }) {
+  return (
+    <span className={`inline-flex items-center gap-1.5 h-[22px] shrink-0 rounded-full px-2.5 text-[11.5px] font-semibold whitespace-nowrap ${ativo ? 'bg-success-suave text-success' : 'bg-secondary text-muted-foreground'}`}>
+      <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-current" />
+      {ativo ? 'Ativo' : 'Inativo'}
+    </span>
+  )
 }
 
 function brl(cents: number | null | undefined) {
@@ -178,125 +189,158 @@ export default function ServiceCatalogPanel() {
     } finally { setBusy(null) }
   }
 
+  // Números do topo, tirados do próprio catálogo carregado
+  const ativos = items.filter((i) => i.isActive).length
+  const contratacoes = items.reduce((a, i) => a + i.activeClients, 0)
+  const recorrente = items.reduce((a, i) => a + i.recurringCents, 0)
+
+  const selectFiltro = 'h-9 rounded-xl border border-border bg-input px-3 text-[13px] text-foreground hover:border-subtle focus:outline-none focus:border-marca focus:ring-2 focus:ring-marca/20 transition-colors'
+  const th = 'px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground whitespace-nowrap'
+
   return (
-    <div className="space-y-4">
-      {/* Barra de ações */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} placeholder="Pesquisar serviço" className="input" style={{ paddingLeft: '2.25rem' }} />
-        </div>
-        <select value={category} onChange={(e) => { setCategory(e.target.value); setPage(1) }} className="input text-xs w-auto">
-          <option value="">Todas as categorias</option>
-          {categories.map((c) => <option key={c} value={c}>{c}</option>)}
-        </select>
-        <select value={status} onChange={(e) => { setStatus(e.target.value as '' | 'ativo' | 'inativo'); setPage(1) }} className="input text-xs w-auto">
-          <option value="">Ativos e inativos</option>
-          <option value="ativo">Somente ativos</option>
-          <option value="inativo">Somente inativos</option>
-        </select>
-        <select value={sort} onChange={(e) => { setSort(e.target.value as 'name' | 'value' | 'clients'); setPage(1) }} className="input text-xs w-auto">
-          <option value="name">Ordenar por nome</option>
-          <option value="value">Ordenar por valor</option>
-          <option value="clients">Ordenar por clientes</option>
-        </select>
-        <div className="flex items-center gap-0.5 bg-gray-100 rounded-lg p-0.5">
-          <button onClick={() => setView('cards')} aria-label="Cards" className={`p-1.5 rounded-md ${view === 'cards' ? 'bg-white text-[#030A8C] shadow-sm' : 'text-gray-500'}`}><LayoutGrid className="w-4 h-4" /></button>
-          <button onClick={() => setView('table')} aria-label="Tabela" className={`p-1.5 rounded-md ${view === 'table' ? 'bg-white text-[#030A8C] shadow-sm' : 'text-gray-500'}`}><List className="w-4 h-4" /></button>
-        </div>
-        <button onClick={() => setEditing('new')} className="flex items-center gap-1.5 bg-[#030A8C] text-white px-3 py-2 rounded-lg text-xs font-semibold hover:bg-[#02077a] transition-colors">
-          <Plus className="w-3.5 h-3.5" /> Cadastrar serviço
-        </button>
+    <div className="space-y-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <Kpi icone={Briefcase} rotulo="Serviços no catálogo" valor={loading ? '—' : items.length} nota={`${categories.length} categoria(s)`} />
+        <Kpi icone={Check} tom="sucesso" rotulo="Ativos" valor={loading ? '—' : ativos} nota={`${items.length - ativos} inativo(s)`} />
+        <Kpi icone={Users} tom="info" rotulo="Contratações ativas" valor={loading ? '—' : contratacoes} nota="Somando todos os serviços" />
+        <Kpi icone={TrendingUp} tom="sucesso" rotulo="Receita recorrente" valor={loading ? '—' : <span className="text-[22px]">{brl(recorrente)}</span>} nota="Por mês, nos serviços ativos" />
       </div>
 
-      {msg && <p className="text-xs font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">{msg}</p>}
-      {error && <p className="text-xs font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
-
-      {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 animate-pulse">
-          {[...Array(6)].map((_, i) => <div key={i} className="h-40 bg-gray-100 rounded-xl" />)}
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="text-center py-14 bg-white border border-gray-200 rounded-xl">
-          <Briefcase className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-          <p className="text-sm text-gray-500">{items.length === 0 ? 'Nenhum serviço no catálogo ainda.' : 'Nenhum serviço com esses filtros.'}</p>
-          {items.length === 0 && (
-            <button onClick={() => setEditing('new')} className="text-xs font-semibold text-[#030A8C] hover:underline mt-1">Cadastrar o primeiro</button>
-          )}
-        </div>
-      ) : view === 'cards' ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {pageItems.map((item) => (
-            <div key={item.id} className={`bg-white border rounded-xl p-4 flex flex-col gap-2 ${item.isActive ? 'border-gray-200' : 'border-gray-200 opacity-70'}`}>
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <button onClick={() => openDetail(item)} className="text-sm font-bold text-gray-900 hover:text-[#030A8C] text-left truncate block max-w-full">{item.name}</button>
-                  <p className="text-[11px] text-gray-500">{item.category || 'Sem categoria'} · {BILLING_LABEL[item.billingType] ?? item.billingType}</p>
-                </div>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${item.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                  {item.isActive ? 'Ativo' : 'Inativo'}
-                </span>
-              </div>
-              <p className="text-xs text-gray-600 line-clamp-2 min-h-[2rem]">{item.summary || item.scope || 'Sem resumo cadastrado.'}</p>
-              <div className="flex items-center justify-between text-[11px] text-gray-500 mt-auto pt-2 border-t border-gray-100">
-                <span className="font-medium text-gray-900">{priceRange(item)}</span>
-                <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {item.activeClients}</span>
-              </div>
-              <div className="flex items-center gap-1 pt-1">
-                <button onClick={() => setEditing(item)} className="flex items-center gap-1 text-[11px] font-semibold text-gray-600 hover:text-[#030A8C] px-2 py-1 rounded-lg hover:bg-gray-100"><Pencil className="w-3 h-3" /> Editar</button>
-                <button onClick={() => duplicate(item)} disabled={busy === item.id} className="flex items-center gap-1 text-[11px] font-semibold text-gray-600 hover:text-[#030A8C] px-2 py-1 rounded-lg hover:bg-gray-100 disabled:opacity-50"><Copy className="w-3 h-3" /> Duplicar</button>
-                <button onClick={() => toggleActive(item)} disabled={busy === item.id} className={`flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-lg disabled:opacity-50 ${item.isActive ? 'text-gray-600 hover:text-red-600 hover:bg-red-50' : 'text-green-700 hover:bg-green-50'}`}><Power className="w-3 h-3" /> {item.isActive ? 'Inativar' : 'Ativar'}</button>
-              </div>
+      <section className="rounded-[24px] border border-border bg-card shadow-[0_1px_2px_rgba(16,24,40,0.04)] overflow-hidden">
+        {/* Cabeçalho do cartão: título, busca, filtros, visão e a ação (modelo Vireo) */}
+        <div className="px-6 pt-6 pb-4 space-y-4">
+          <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <h2 className="font-display text-[21px] font-semibold tracking-[-0.01em] text-foreground">Catálogo</h2>
+              <p className="t-legenda mt-0.5">{filtered.length} de {items.length} serviço(s)</p>
             </div>
-          ))}
-        </div>
-      ) : (
-        <div className="bg-white border border-gray-200 rounded-xl overflow-x-auto">
-          <table className="w-full text-sm min-w-[720px]">
-            <thead className="bg-gray-50 border-b border-gray-100">
-              <tr className="text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
-                <th className="px-4 py-2.5">Serviço</th>
-                <th className="px-4 py-2.5">Categoria</th>
-                <th className="px-4 py-2.5">Cobrança</th>
-                <th className="px-4 py-2.5">Faixa</th>
-                <th className="px-4 py-2.5">Clientes</th>
-                <th className="px-4 py-2.5">Receita rec.</th>
-                <th className="px-4 py-2.5">Status</th>
-                <th className="px-4 py-2.5" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {pageItems.map((item) => (
-                <tr key={item.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">
-                    <button onClick={() => openDetail(item)} className="font-semibold text-gray-900 hover:text-[#030A8C] text-left">{item.name}</button>
-                    <p className="text-[11px] text-gray-400 truncate max-w-[280px]">{item.summary}</p>
-                  </td>
-                  <td className="px-4 py-3 text-gray-600">{item.category || '—'}</td>
-                  <td className="px-4 py-3 text-gray-600">{BILLING_LABEL[item.billingType] ?? item.billingType}</td>
-                  <td className="px-4 py-3 text-gray-900">{priceRange(item)}</td>
-                  <td className="px-4 py-3 text-gray-900">{item.activeClients}</td>
-                  <td className="px-4 py-3 text-gray-900">{brl(item.recurringCents)}/mês</td>
-                  <td className="px-4 py-3"><span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${item.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{item.isActive ? 'Ativo' : 'Inativo'}</span></td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap">
-                    <button onClick={() => setEditing(item)} aria-label="Editar" className="p-1.5 text-gray-400 hover:text-[#030A8C]"><Pencil className="w-3.5 h-3.5" /></button>
-                    <button onClick={() => duplicate(item)} aria-label="Duplicar" disabled={busy === item.id} className="p-1.5 text-gray-400 hover:text-[#030A8C] disabled:opacity-50"><Copy className="w-3.5 h-3.5" /></button>
-                    <button onClick={() => toggleActive(item)} aria-label={item.isActive ? 'Inativar' : 'Ativar'} disabled={busy === item.id} className="p-1.5 text-gray-400 hover:text-red-600 disabled:opacity-50"><Power className="w-3.5 h-3.5" /></button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+            <button onClick={() => setEditing('new')} className="inline-flex items-center justify-center gap-1.5 h-9 px-3.5 rounded-lg bg-primary text-primary-foreground text-[13.5px] font-medium hover:bg-primary-hover transition-colors">
+              <Plus className="w-4 h-4" /> Cadastrar serviço
+            </button>
+          </div>
 
-      {pages > 1 && (
-        <div className="flex items-center justify-center gap-2 text-xs">
-          <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-3 py-1.5 border border-gray-200 rounded-lg disabled:opacity-40">Anterior</button>
-          <span className="text-gray-500">{currentPage} / {pages}</span>
-          <button onClick={() => setPage((p) => Math.min(pages, p + 1))} disabled={currentPage === pages} className="px-3 py-1.5 border border-gray-200 rounded-lg disabled:opacity-40">Próxima</button>
+          {/* Barra de ações */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative flex-1 min-w-[220px]">
+              <Search className="w-4 h-4 text-subtle absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} placeholder="Pesquisar serviço" className={`${campo} h-9 rounded-full`} style={{ paddingLeft: "2.25rem" }} />
+            </div>
+            <select value={category} onChange={(e) => { setCategory(e.target.value); setPage(1) }} className={selectFiltro} aria-label="Categoria">
+              <option value="">Todas as categorias</option>
+              {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <select value={status} onChange={(e) => { setStatus(e.target.value as '' | 'ativo' | 'inativo'); setPage(1) }} className={selectFiltro} aria-label="Status">
+              <option value="">Ativos e inativos</option>
+              <option value="ativo">Somente ativos</option>
+              <option value="inativo">Somente inativos</option>
+            </select>
+            <select value={sort} onChange={(e) => { setSort(e.target.value as 'name' | 'value' | 'clients'); setPage(1) }} className={selectFiltro} aria-label="Ordenação">
+              <option value="name">Ordenar por nome</option>
+              <option value="value">Ordenar por valor</option>
+              <option value="clients">Ordenar por clientes</option>
+            </select>
+            <div className="inline-flex rounded-xl border border-border bg-secondary/60 p-1" role="tablist" aria-label="Visão">
+              <button onClick={() => setView('cards')} aria-label="Cards" role="tab" aria-selected={view === 'cards'} className={`h-7 w-8 grid place-items-center rounded-lg transition-colors ${view === 'cards' ? 'bg-card text-marca-texto shadow-[0_0_0_1px_var(--border)]' : 'text-muted-foreground hover:text-foreground'}`}><LayoutGrid className="w-4 h-4" /></button>
+              <button onClick={() => setView('table')} aria-label="Tabela" role="tab" aria-selected={view === 'table'} className={`h-7 w-8 grid place-items-center rounded-lg transition-colors ${view === 'table' ? 'bg-card text-marca-texto shadow-[0_0_0_1px_var(--border)]' : 'text-muted-foreground hover:text-foreground'}`}><List className="w-4 h-4" /></button>
+            </div>
+          </div>
+
+          {msg && <p className="text-xs font-medium text-foreground bg-secondary/60 border border-border rounded-xl px-3 py-2">{msg}</p>}
+          {error && <p className="text-xs font-medium text-destructive-texto bg-destructive-suave border border-destructive/20 rounded-xl px-3 py-2">{error}</p>}
         </div>
-      )}
+
+        {loading ? (
+          <div className="px-6 pb-6 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 animate-pulse">
+            {[...Array(6)].map((_, i) => <div key={i} className="h-44 bg-secondary rounded-[20px]" />)}
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-14 border-t border-border">
+            <Briefcase className="w-8 h-8 text-subtle mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground">{items.length === 0 ? 'Nenhum serviço no catálogo ainda.' : 'Nenhum serviço com esses filtros.'}</p>
+            {items.length === 0 && (
+              <button onClick={() => setEditing('new')} className="text-xs font-semibold text-primary hover:underline mt-1">Cadastrar o primeiro</button>
+            )}
+          </div>
+        ) : view === 'cards' ? (
+          <div className="px-6 pb-6 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            {pageItems.map((item) => (
+              <div key={item.id} className={`bg-card border border-border rounded-[20px] p-5 flex flex-col gap-2.5 transition-colors hover:border-subtle/60 ${item.isActive ? '' : 'opacity-70'}`}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex items-start gap-3">
+                    <span className="w-9 h-9 shrink-0 rounded-xl grid place-items-center bg-secondary text-muted-foreground"><Briefcase className="w-[18px] h-[18px]" /></span>
+                    <div className="min-w-0">
+                      <button onClick={() => openDetail(item)} title={item.name} className="text-[14.5px] font-semibold leading-snug text-foreground hover:text-marca-texto text-left line-clamp-2">{item.name}</button>
+                      <p className="text-[11.5px] text-muted-foreground">{item.category || 'Sem categoria'} · {BILLING_LABEL[item.billingType] ?? item.billingType}</p>
+                    </div>
+                  </div>
+                  <StatusPill ativo={item.isActive} />
+                </div>
+                <p className="text-xs text-muted-foreground line-clamp-2 min-h-[2rem]">{item.summary || item.scope || 'Sem resumo cadastrado.'}</p>
+                <div className="flex items-end justify-between gap-2 mt-auto pt-3 border-t border-border">
+                  <div className="min-w-0">
+                    <p className="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Faixa</p>
+                    <p className="font-display text-[15px] font-semibold tabular text-foreground truncate">{priceRange(item)}</p>
+                  </div>
+                  <span className="flex items-center gap-1 text-[12px] font-medium text-muted-foreground" title="Clientes ativos"><Users className="w-3.5 h-3.5" /> {item.activeClients}</span>
+                </div>
+                <div className="flex items-center gap-1 -mx-1.5">
+                  <button onClick={() => setEditing(item)} className="flex items-center gap-1 text-[12px] font-semibold text-muted-foreground hover:text-foreground px-2 py-1 rounded-lg hover:bg-secondary"><Pencil className="w-3.5 h-3.5" /> Editar</button>
+                  <button onClick={() => duplicate(item)} disabled={busy === item.id} className="flex items-center gap-1 text-[12px] font-semibold text-muted-foreground hover:text-foreground px-2 py-1 rounded-lg hover:bg-secondary disabled:opacity-50"><Copy className="w-3.5 h-3.5" /> Duplicar</button>
+                  <button onClick={() => toggleActive(item)} disabled={busy === item.id} className={`flex items-center gap-1 text-[12px] font-semibold px-2 py-1 rounded-lg disabled:opacity-50 ${item.isActive ? 'text-muted-foreground hover:text-destructive-texto hover:bg-destructive-suave' : 'text-success hover:bg-success-suave'}`}><Power className="w-3.5 h-3.5" /> {item.isActive ? 'Inativar' : 'Ativar'}</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[760px]">
+              <thead className="bg-secondary/60 border-y border-border">
+                <tr>
+                  <th className={`${th} pl-6`}>Serviço</th>
+                  <th className={th}>Categoria</th>
+                  <th className={th}>Cobrança</th>
+                  <th className={th}>Faixa</th>
+                  <th className={`${th} text-right`}>Clientes</th>
+                  <th className={`${th} text-right`}>Receita rec.</th>
+                  <th className={th}>Status</th>
+                  <th className={`${th} pr-6`}><span className="sr-only">Ações</span></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {pageItems.map((item) => (
+                  <tr key={item.id} className="hover:bg-secondary/50 transition-colors">
+                    <td className="px-4 pl-6 py-3.5">
+                      <button onClick={() => openDetail(item)} className="font-semibold text-foreground hover:text-marca-texto text-left">{item.name}</button>
+                      <p className="text-[12px] text-muted-foreground truncate max-w-[280px]">{item.summary}</p>
+                    </td>
+                    <td className="px-4 py-3.5 text-muted-foreground">{item.category || '—'}</td>
+                    <td className="px-4 py-3.5 text-muted-foreground">{BILLING_LABEL[item.billingType] ?? item.billingType}</td>
+                    <td className="px-4 py-3.5 text-foreground tabular">{priceRange(item)}</td>
+                    <td className="px-4 py-3.5 text-foreground text-right tabular">{item.activeClients}</td>
+                    <td className="px-4 py-3.5 text-right whitespace-nowrap"><span className="font-display font-semibold tabular text-foreground">{brl(item.recurringCents)}</span><span className="text-[11px] text-muted-foreground">/mês</span></td>
+                    <td className="px-4 py-3.5"><StatusPill ativo={item.isActive} /></td>
+                    <td className="px-4 pr-6 py-3.5 text-right whitespace-nowrap">
+                      <button onClick={() => setEditing(item)} aria-label="Editar" title="Editar" className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary"><Pencil className="w-4 h-4" /></button>
+                      <button onClick={() => duplicate(item)} aria-label="Duplicar" title="Duplicar" disabled={busy === item.id} className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary disabled:opacity-50"><Copy className="w-4 h-4" /></button>
+                      <button onClick={() => toggleActive(item)} aria-label={item.isActive ? 'Inativar' : 'Ativar'} title={item.isActive ? 'Inativar' : 'Ativar'} disabled={busy === item.id} className="p-2 rounded-lg text-muted-foreground hover:text-destructive-texto hover:bg-destructive-suave disabled:opacity-50"><Power className="w-4 h-4" /></button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {pages > 1 && (
+          <div className="flex items-center justify-between gap-2 px-6 py-3 border-t border-border text-xs">
+            <span className="text-muted-foreground">Página {currentPage} de {pages}</span>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1} className="h-8 px-3 border border-border bg-card rounded-lg font-medium text-foreground hover:bg-accent disabled:opacity-40">Anterior</button>
+              <button onClick={() => setPage((p) => Math.min(pages, p + 1))} disabled={currentPage === pages} className="h-8 px-3 border border-border bg-card rounded-lg font-medium text-foreground hover:bg-accent disabled:opacity-40">Próxima</button>
+            </div>
+          </div>
+        )}
+      </section>
 
       {editing && (
         <CatalogForm
@@ -308,13 +352,13 @@ export default function ServiceCatalogPanel() {
 
       {detail && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center sm:justify-center sm:p-4" onClick={() => setDetail(null)}>
-          <div className="bg-white w-full sm:max-w-2xl rounded-t-2xl sm:rounded-2xl shadow-xl max-h-[92dvh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-start justify-between p-4 sm:p-5 border-b border-gray-100 sticky top-0 bg-white">
+          <div className="bg-card w-full sm:max-w-2xl rounded-t-[24px] sm:rounded-[24px] border border-border shadow-xl max-h-[92dvh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between p-4 sm:p-5 border-b border-border sticky top-0 bg-card">
               <div className="min-w-0">
-                <h3 className="font-bold text-gray-900">{detail.item.name}</h3>
-                <p className="text-xs text-gray-500">{detail.item.category || 'Sem categoria'} · {BILLING_LABEL[detail.item.billingType] ?? detail.item.billingType} · Faixa sugerida: {priceRange(detail.item)}</p>
+                <h3 className="font-display text-[18px] font-semibold tracking-[-0.01em] text-foreground">{detail.item.name}</h3>
+                <p className="text-xs text-muted-foreground">{detail.item.category || 'Sem categoria'} · {BILLING_LABEL[detail.item.billingType] ?? detail.item.billingType} · Faixa sugerida: {priceRange(detail.item)}</p>
               </div>
-              <button onClick={() => setDetail(null)} aria-label="Fechar" className="p-1.5 hover:bg-gray-100 rounded-lg"><X className="w-4 h-4 text-gray-400" /></button>
+              <button onClick={() => setDetail(null)} aria-label="Fechar" className="p-1.5 hover:bg-secondary rounded-lg"><X className="w-4 h-4 text-muted-foreground" /></button>
             </div>
             <div className="p-4 sm:p-5 space-y-4 text-sm">
               <div className="grid grid-cols-3 gap-2">
@@ -325,47 +369,47 @@ export default function ServiceCatalogPanel() {
                 ].map(([label, value, Icon]) => {
                   const I = Icon as React.ElementType
                   return (
-                    <div key={label as string} className="bg-gray-50 rounded-lg p-3">
-                      <p className="text-[10px] text-gray-500 flex items-center gap-1"><I className="w-3 h-3" /> {label as string}</p>
-                      <p className="text-sm font-bold text-gray-900 mt-0.5">{value as string}</p>
+                    <div key={label as string} className="bg-secondary/60 border border-border rounded-[16px] p-3.5">
+                      <p className="text-[10px] text-muted-foreground flex items-center gap-1"><I className="w-3 h-3" /> {label as string}</p>
+                      <p className="font-display text-[17px] font-semibold tabular text-foreground mt-1">{value as string}</p>
                     </div>
                   )
                 })}
               </div>
-              {detail.item.summary && <p className="text-gray-700">{detail.item.summary}</p>}
-              {detail.item.scope && (<div><p className="text-xs font-bold text-gray-900 mb-1">Escopo</p><p className="text-gray-600 whitespace-pre-line text-xs">{detail.item.scope}</p></div>)}
-              {detail.item.deliverables.length > 0 && (<div><p className="text-xs font-bold text-gray-900 mb-1">Entregáveis incluídos</p><ul className="list-disc list-inside text-xs text-gray-600">{detail.item.deliverables.map((d) => <li key={d}>{d}</li>)}</ul></div>)}
-              {detail.item.exclusions.length > 0 && (<div><p className="text-xs font-bold text-gray-900 mb-1">Não incluído</p><ul className="list-disc list-inside text-xs text-gray-600">{detail.item.exclusions.map((d) => <li key={d}>{d}</li>)}</ul></div>)}
+              {detail.item.summary && <p className="text-foreground">{detail.item.summary}</p>}
+              {detail.item.scope && (<div><p className="text-xs font-bold text-foreground mb-1">Escopo</p><p className="text-muted-foreground whitespace-pre-line text-xs">{detail.item.scope}</p></div>)}
+              {detail.item.deliverables.length > 0 && (<div><p className="text-xs font-bold text-foreground mb-1">Entregáveis incluídos</p><ul className="list-disc list-inside text-xs text-muted-foreground">{detail.item.deliverables.map((d) => <li key={d}>{d}</li>)}</ul></div>)}
+              {detail.item.exclusions.length > 0 && (<div><p className="text-xs font-bold text-foreground mb-1">Não incluído</p><ul className="list-disc list-inside text-xs text-muted-foreground">{detail.item.exclusions.map((d) => <li key={d}>{d}</li>)}</ul></div>)}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-                <div><p className="text-gray-400">Prazo médio</p><p className="text-gray-900 font-medium">{detail.item.leadTimeDays ? `${detail.item.leadTimeDays} dias` : '—'}</p></div>
-                <div><p className="text-gray-400">Periodicidade</p><p className="text-gray-900 font-medium">{detail.item.periodicity || '—'}</p></div>
-                <div><p className="text-gray-400">Criado em</p><p className="text-gray-900 font-medium">{new Date(detail.item.createdAt).toLocaleDateString('pt-BR')}</p></div>
-                <div><p className="text-gray-400">Atualizado em</p><p className="text-gray-900 font-medium">{new Date(detail.item.updatedAt).toLocaleDateString('pt-BR')}</p></div>
+                <div><p className="text-muted-foreground">Prazo médio</p><p className="text-foreground font-medium">{detail.item.leadTimeDays ? `${detail.item.leadTimeDays} dias` : '—'}</p></div>
+                <div><p className="text-muted-foreground">Periodicidade</p><p className="text-foreground font-medium">{detail.item.periodicity || '—'}</p></div>
+                <div><p className="text-muted-foreground">Criado em</p><p className="text-foreground font-medium">{new Date(detail.item.createdAt).toLocaleDateString('pt-BR')}</p></div>
+                <div><p className="text-muted-foreground">Atualizado em</p><p className="text-foreground font-medium">{new Date(detail.item.updatedAt).toLocaleDateString('pt-BR')}</p></div>
               </div>
-              {detail.item.internalNotes && <p className="text-[11px] text-gray-500 bg-gray-50 rounded-lg p-2">Interno: {detail.item.internalNotes}</p>}
+              {detail.item.internalNotes && <p className="text-[11px] text-muted-foreground bg-secondary/60 rounded-lg p-2">Interno: {detail.item.internalNotes}</p>}
 
               <div>
-                <p className="text-xs font-bold text-gray-900 mb-2">Clientes que contratam</p>
+                <p className="text-xs font-bold text-foreground mb-2">Clientes que contratam</p>
                 {detail.contracts.length === 0 ? (
-                  <p className="text-xs text-gray-400">Nenhum cliente contratou este serviço ainda.</p>
+                  <p className="text-xs text-muted-foreground">Nenhum cliente contratou este serviço ainda.</p>
                 ) : (
-                  <div className="divide-y divide-gray-100 border border-gray-100 rounded-lg">
+                  <div className="divide-y divide-border border border-border rounded-lg">
                     {detail.contracts.map((c) => {
-                      const st = STATUS_LABEL[c.status] ?? { label: c.status, cls: 'bg-gray-100 text-gray-600' }
+                      const st = STATUS_LABEL[c.status] ?? { label: c.status, cls: 'bg-secondary text-muted-foreground' }
                       return (
                         <div key={c.id} className="flex items-center justify-between gap-2 px-3 py-2">
                           <div className="min-w-0">
-                            <Link href={`/clientes/${c.clientId}`} className="text-sm font-medium text-gray-900 hover:text-[#030A8C] flex items-center gap-1.5">
-                              <span className="truncate">{c.clientName}</span> <TierBadge tier={c.clientTier} />
+                            <Link href={`/clientes/${c.clientId}`} className="text-sm font-medium text-foreground hover:text-marca-texto flex items-center gap-1.5">
+                              <span className="truncate">{c.clientName}</span> <GrupoCliente tier={c.clientTier} />
                             </Link>
-                            <p className="text-[11px] text-gray-400">
+                            <p className="text-[11px] text-muted-foreground">
                               {BILLING_LABEL[c.contractType] ?? c.contractType}
                               {c.competence ? ` · ${c.competence.split('-').reverse().join('/')}` : ''}
                               {c.startDate ? ` · desde ${new Date(c.startDate).toLocaleDateString('pt-BR')}` : ''}
                             </p>
                           </div>
                           <div className="text-right shrink-0">
-                            <p className="text-sm font-semibold text-gray-900">{brl(c.cents)}{c.contractType === 'AVULSO' ? '' : '/mês'}</p>
+                            <p className="text-sm font-semibold text-foreground">{brl(c.cents)}{c.contractType === 'AVULSO' ? '' : '/mês'}</p>
                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${st.cls}`}>{st.label}</span>
                           </div>
                         </div>
@@ -422,46 +466,46 @@ function CatalogForm({ item, onClose, onSaved }: { item: CatalogItem | null; onC
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center sm:justify-center sm:p-4" onClick={onClose}>
-      <div className="bg-white w-full sm:max-w-2xl rounded-t-2xl sm:rounded-2xl shadow-xl max-h-[92dvh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-gray-100 sticky top-0 bg-white">
-          <h3 className="font-bold text-gray-900">{item ? 'Editar serviço' : 'Cadastrar serviço'}</h3>
-          <button onClick={onClose} aria-label="Fechar" className="p-1.5 hover:bg-gray-100 rounded-lg"><X className="w-4 h-4 text-gray-400" /></button>
+      <div className="bg-card w-full sm:max-w-2xl rounded-t-[24px] sm:rounded-[24px] border border-border shadow-xl max-h-[92dvh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-border sticky top-0 bg-card">
+          <h3 className="font-display text-[18px] font-semibold tracking-[-0.01em] text-foreground">{item ? 'Editar serviço' : 'Cadastrar serviço'}</h3>
+          <button onClick={onClose} aria-label="Fechar" className="p-1.5 hover:bg-secondary rounded-lg"><X className="w-4 h-4 text-muted-foreground" /></button>
         </div>
         <div className="p-4 sm:p-5 space-y-3">
-          {error && <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
+          {error && <p className="text-xs text-destructive-texto bg-destructive-suave border border-destructive/20 rounded-lg px-3 py-2">{error}</p>}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="sm:col-span-2"><label className="block text-xs font-medium text-gray-700 mb-1">Nome *</label><input value={form.name} onChange={(e) => set('name', e.target.value)} className="input" /></div>
-            <div><label className="block text-xs font-medium text-gray-700 mb-1">Categoria</label><input value={form.category} onChange={(e) => set('category', e.target.value)} className="input" placeholder="Ex: Social Media, Tráfego, Site" /></div>
+            <div className="sm:col-span-2"><label className="block text-[13px] font-medium text-foreground mb-1.5">Nome *</label><input value={form.name} onChange={(e) => set('name', e.target.value)} className={campo} /></div>
+            <div><label className="block text-[13px] font-medium text-foreground mb-1.5">Categoria</label><input value={form.category} onChange={(e) => set('category', e.target.value)} className={campo} placeholder="Ex: Social Media, Tráfego, Site" /></div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Tipo de cobrança padrão</label>
-              <select value={form.billingType} onChange={(e) => set('billingType', e.target.value)} className="input">
+              <label className="block text-[13px] font-medium text-foreground mb-1.5">Tipo de cobrança padrão</label>
+              <select value={form.billingType} onChange={(e) => set('billingType', e.target.value)} className={campo}>
                 {Object.entries(BILLING_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
             </div>
-            <div className="sm:col-span-2"><label className="block text-xs font-medium text-gray-700 mb-1">Descrição resumida</label><input value={form.summary} onChange={(e) => set('summary', e.target.value)} className="input" maxLength={600} /></div>
-            <div className="sm:col-span-2"><label className="block text-xs font-medium text-gray-700 mb-1">Escopo completo</label><textarea value={form.scope} onChange={(e) => set('scope', e.target.value)} rows={4} className="input resize-none" /></div>
-            <div><label className="block text-xs font-medium text-gray-700 mb-1">Entregáveis incluídos (um por linha)</label><textarea value={form.deliverables} onChange={(e) => set('deliverables', e.target.value)} rows={4} className="input resize-none" /></div>
-            <div><label className="block text-xs font-medium text-gray-700 mb-1">Itens não incluídos (um por linha)</label><textarea value={form.exclusions} onChange={(e) => set('exclusions', e.target.value)} rows={4} className="input resize-none" /></div>
-            <div><label className="block text-xs font-medium text-gray-700 mb-1">Prazo médio (dias)</label><input type="number" min={0} value={form.leadTimeDays} onChange={(e) => set('leadTimeDays', e.target.value)} className="input" /></div>
+            <div className="sm:col-span-2"><label className="block text-[13px] font-medium text-foreground mb-1.5">Descrição resumida</label><input value={form.summary} onChange={(e) => set('summary', e.target.value)} className={campo} maxLength={600} /></div>
+            <div className="sm:col-span-2"><label className="block text-[13px] font-medium text-foreground mb-1.5">Escopo completo</label><textarea value={form.scope} onChange={(e) => set('scope', e.target.value)} rows={4} className={campoTexto} /></div>
+            <div><label className="block text-[13px] font-medium text-foreground mb-1.5">Entregáveis incluídos (um por linha)</label><textarea value={form.deliverables} onChange={(e) => set('deliverables', e.target.value)} rows={4} className={campoTexto} /></div>
+            <div><label className="block text-[13px] font-medium text-foreground mb-1.5">Itens não incluídos (um por linha)</label><textarea value={form.exclusions} onChange={(e) => set('exclusions', e.target.value)} rows={4} className={campoTexto} /></div>
+            <div><label className="block text-[13px] font-medium text-foreground mb-1.5">Prazo médio (dias)</label><input type="number" min={0} value={form.leadTimeDays} onChange={(e) => set('leadTimeDays', e.target.value)} className={campo} /></div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Periodicidade sugerida</label>
-              <select value={form.periodicity} onChange={(e) => set('periodicity', e.target.value)} className="input">
+              <label className="block text-[13px] font-medium text-foreground mb-1.5">Periodicidade sugerida</label>
+              <select value={form.periodicity} onChange={(e) => set('periodicity', e.target.value)} className={campo}>
                 <option value="MENSAL">Mensal</option>
                 <option value="UNICO">Único</option>
                 <option value="PROJETO">Projeto</option>
               </select>
             </div>
-            <div><label className="block text-xs font-medium text-gray-700 mb-1">Valor mínimo sugerido (R$)</label><input value={form.minValue} onChange={(e) => set('minValue', maskMoney(e.target.value))} className="input" inputMode="numeric" /></div>
-            <div><label className="block text-xs font-medium text-gray-700 mb-1">Valor máximo sugerido (R$)</label><input value={form.maxValue} onChange={(e) => set('maxValue', maskMoney(e.target.value))} className="input" inputMode="numeric" /></div>
-            <div><label className="block text-xs font-medium text-gray-700 mb-1">Valor padrão (opcional)</label><input value={form.defaultValue} onChange={(e) => set('defaultValue', maskMoney(e.target.value))} className="input" inputMode="numeric" /></div>
-            <label className="flex items-center gap-2 text-sm text-gray-700 mt-6"><input type="checkbox" checked={form.isActive} onChange={(e) => set('isActive', e.target.checked)} /> Serviço ativo</label>
-            <div className="sm:col-span-2"><label className="block text-xs font-medium text-gray-700 mb-1">Observações internas</label><textarea value={form.internalNotes} onChange={(e) => set('internalNotes', e.target.value)} rows={2} className="input resize-none" /></div>
+            <div><label className="block text-[13px] font-medium text-foreground mb-1.5">Valor mínimo sugerido (R$)</label><input value={form.minValue} onChange={(e) => set('minValue', maskMoney(e.target.value))} className={campo} inputMode="numeric" /></div>
+            <div><label className="block text-[13px] font-medium text-foreground mb-1.5">Valor máximo sugerido (R$)</label><input value={form.maxValue} onChange={(e) => set('maxValue', maskMoney(e.target.value))} className={campo} inputMode="numeric" /></div>
+            <div><label className="block text-[13px] font-medium text-foreground mb-1.5">Valor padrão (opcional)</label><input value={form.defaultValue} onChange={(e) => set('defaultValue', maskMoney(e.target.value))} className={campo} inputMode="numeric" /></div>
+            <label className="flex items-center gap-2 text-sm text-foreground mt-6"><input type="checkbox" checked={form.isActive} onChange={(e) => set('isActive', e.target.checked)} /> Serviço ativo</label>
+            <div className="sm:col-span-2"><label className="block text-[13px] font-medium text-foreground mb-1.5">Observações internas</label><textarea value={form.internalNotes} onChange={(e) => set('internalNotes', e.target.value)} rows={2} className={campoTexto} /></div>
           </div>
-          <p className="text-[11px] text-gray-400">A faixa é referência comercial: na contratação o valor negociado pode ser diferente (o sistema avisa, mas não bloqueia).</p>
+          <p className="text-[11px] text-muted-foreground">A faixa é referência comercial: na contratação o valor negociado pode ser diferente (o sistema avisa, mas não bloqueia).</p>
         </div>
-        <div className="flex justify-end gap-2 p-4 sm:p-5 border-t border-gray-100 sticky bottom-0 bg-white">
-          <button onClick={onClose} disabled={saving} className="px-3 py-2 text-xs font-medium text-gray-600 hover:text-gray-900 disabled:opacity-50">Cancelar</button>
-          <button onClick={save} disabled={saving || !form.name.trim()} className="flex items-center gap-1.5 px-4 py-2 bg-[#030A8C] text-white rounded-lg text-xs font-semibold hover:bg-[#02077a] disabled:opacity-40">
+        <div className="flex justify-end gap-2 p-4 sm:p-5 border-t border-border sticky bottom-0 bg-card">
+          <button onClick={onClose} disabled={saving} className="h-9 px-3 rounded-lg text-[13.5px] font-medium text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-50">Cancelar</button>
+          <button onClick={save} disabled={saving || !form.name.trim()} className="inline-flex items-center gap-1.5 h-9 px-4 bg-primary text-primary-foreground rounded-lg text-[13.5px] font-medium hover:bg-primary-hover disabled:opacity-40">
             {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null} {saving ? 'Salvando…' : 'Salvar'}
           </button>
         </div>

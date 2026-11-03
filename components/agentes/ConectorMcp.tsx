@@ -1,7 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Check, Copy, Loader2, Plug, Unplug } from 'lucide-react'
+import { AlertTriangle, Bot, Check, CheckCircle2, ChevronDown, Copy, Loader2, Plug, Unplug } from 'lucide-react'
+import { Chip, Numero, Painel, Sobretitulo } from '@/components/vex/vireo'
 
 interface Conexao {
   id: string
@@ -66,60 +67,61 @@ export default function ConectorMcp() {
     setDesligando('')
   }
 
-  if (!dados) return <div className="card p-5 text-sm text-gray-400 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Carregando o conector…</div>
+  if (!dados) return <div className="rounded-[24px] border border-border bg-card p-6 t-corpo text-muted-foreground flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Carregando o conector…</div>
 
   const ativas = dados.conexoes.filter((c) => !c.revokedAt)
+  const comErro = dados.consultas.filter((q) => q.error)
+  const ultimoUso = ativas.map((c) => c.lastUsedAt).filter((d): d is string => !!d).sort().at(-1) ?? null
   const comandos = [
     { chave: 'claude', rotulo: 'Claude Code', cmd: `claude mcp add --transport http vex-central ${dados.endereco}` },
     { chave: 'codex', rotulo: 'Codex', cmd: `codex mcp add vex-central --url ${dados.endereco}` },
   ]
 
   return (
-    <div className="card p-5 space-y-5">
-      <div>
-        <p className="text-sm font-bold text-gray-900 flex items-center gap-2"><Plug className="w-4 h-4 text-[#030A8C]" /> Conector de IA (MCP)</p>
-        <p className="text-xs text-gray-500 mt-1 leading-snug">
-          Liga a Central ao Claude Code e ao Codex (os agentes do Habblaud) e ao Claude. Eles leem clientes, demandas, financeiro e risco de churn. Com <strong>ações</strong>, o agente também lê o grupo do cliente e trabalha nas demandas da
-          <strong> Fila do agente de IA</strong> até entregar para você validar; aprovar e avisar o cliente continua com você. A conexão é um login de administrador, sem chave colada.
-          Para dar ações a uma conexão só de leitura, desconecte e conecte de novo.
-        </p>
-      </div>
-
-      <div className="space-y-2">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Endereço do conector</p>
-        <div className="flex items-center gap-2">
-          <code className="flex-1 min-w-0 truncate text-xs bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">{dados.endereco}</code>
-          <button onClick={() => copiar(dados.endereco, 'url')} className="h-8 px-3 rounded-lg border border-gray-200 text-xs font-medium hover:bg-gray-50 inline-flex items-center gap-1">
-            {copiado === 'url' ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />} Copiar
-          </button>
+    <Painel
+      rotulo="Integração"
+      titulo={<span className="flex items-center gap-2.5"><Chip icone={Plug} tom="ia" tamanho="sm" /> Conector de IA (MCP)</span>}
+      sub="Liga a Central ao Claude Code, ao Codex e ao Claude, só com login de administrador."
+    >
+      {/* Situação em destaque: quem está ligado, uso e falhas */}
+      <dl className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+        <div className="rounded-xl bg-secondary/60 px-4 py-3">
+          <dt className="t-meta">Conexões ativas</dt>
+          <dd><Numero className="text-[20px]">{ativas.length}</Numero></dd>
         </div>
-        {comandos.map((c) => (
-          <div key={c.chave} className="flex items-center gap-2">
-            <span className="text-xs text-gray-500 w-24 shrink-0">{c.rotulo}</span>
-            <code className="flex-1 min-w-0 truncate text-[11px] bg-gray-900 text-gray-100 rounded-lg px-3 py-2">{c.cmd}</code>
-            <button onClick={() => copiar(c.cmd, c.chave)} className="h-8 px-2.5 rounded-lg border border-gray-200 text-xs hover:bg-gray-50" aria-label={`Copiar comando do ${c.rotulo}`}>
-              {copiado === c.chave ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
-            </button>
-          </div>
-        ))}
-        <p className="text-[11px] text-gray-400">No Claude (claude.ai): Configurações › Conectores › Adicionar conector personalizado, com o endereço acima. Depois de adicionar, o assistente abre o login da Central: entre e clique em Autorizar. No Codex, o login abre com <code>codex mcp login vex-central</code>.</p>
-      </div>
+        <div className="rounded-xl bg-secondary/60 px-4 py-3">
+          <dt className="t-meta">Último uso</dt>
+          <dd className="t-corpo font-semibold text-foreground mt-1">{quando(ultimoUso)}</dd>
+        </div>
+        <div className="rounded-xl bg-secondary/60 px-4 py-3">
+          <dt className="t-meta">Últimas consultas</dt>
+          <dd><Numero className="text-[20px]">{dados.consultas.length}</Numero></dd>
+        </div>
+        <div className={`rounded-xl px-4 py-3 ${comErro.length > 0 ? 'bg-destructive-suave' : 'bg-success-suave'}`}>
+          <dt className={`t-meta flex items-center gap-1 ${comErro.length > 0 ? 'text-destructive-texto' : 'text-success'}`}>
+            {comErro.length > 0 ? <AlertTriangle className="w-3 h-3" /> : <CheckCircle2 className="w-3 h-3" />} Consultas com falha
+          </dt>
+          <dd><Numero className="text-[20px]" alerta={comErro.length > 0}>{comErro.length}</Numero></dd>
+        </div>
+      </dl>
 
-      <div className="space-y-2">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Quem conectou ({ativas.length} ativa{ativas.length === 1 ? '' : 's'})</p>
-        {dados.conexoes.length === 0 && <p className="text-xs text-gray-400">Nenhum assistente conectado ainda.</p>}
+      {/* Quem conectou */}
+      <div className="mt-5 space-y-2">
+        <Sobretitulo>Quem conectou ({ativas.length} ativa{ativas.length === 1 ? '' : 's'})</Sobretitulo>
+        {dados.conexoes.length === 0 && <p className="t-legenda">Nenhum assistente conectado ainda.</p>}
         {dados.conexoes.map((c) => (
-          <div key={c.id} className={`flex items-center gap-3 rounded-lg border px-3 py-2 ${c.revokedAt ? 'border-gray-100 opacity-60' : 'border-gray-200'}`}>
+          <div key={c.id} className={`flex items-center gap-3 rounded-2xl border border-border px-4 py-3 ${c.revokedAt ? 'opacity-60' : ''}`}>
+            <Chip icone={Bot} tom={c.revokedAt ? 'neutro' : 'ia'} tamanho="sm" />
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-gray-900 truncate">{c.appName} <span className="text-gray-400 font-normal">· {c.user.name}</span>
-                <span className={`ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${c.scope.includes('central.acoes') ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-600'}`}>{c.scope.includes('central.acoes') ? 'leitura + ações' : 'só leitura'}</span></p>
-              <p className="text-[11px] text-gray-500">
+              <p className="t-corpo font-medium text-foreground truncate">{c.appName} <span className="text-muted-foreground font-normal">· {c.user.name}</span>
+                <span className={`ml-2 text-[11px] font-semibold px-2 py-0.5 rounded-md ${c.scope.includes('central.acoes') ? 'bg-warning-suave text-warning' : 'bg-secondary text-muted-foreground'}`}>{c.scope.includes('central.acoes') ? 'leitura + ações' : 'só leitura'}</span></p>
+              <p className="t-legenda">
                 Conectado {quando(c.createdAt)} · {c.queryCount} consulta(s) · último uso {quando(c.lastUsedAt)}
                 {c.revokedAt && ` · desconectado ${quando(c.revokedAt)}${c.revokedReason ? ` (${c.revokedReason})` : ''}`}
               </p>
             </div>
             {!c.revokedAt && (
-              <button onClick={() => desconectar(c.id)} disabled={desligando === c.id} className="h-8 px-3 rounded-lg border border-red-200 text-red-600 text-xs font-medium hover:bg-red-50 inline-flex items-center gap-1">
+              <button onClick={() => desconectar(c.id)} disabled={desligando === c.id} className="h-8 px-3 rounded-lg border border-destructive/30 text-destructive-texto text-xs font-medium hover:bg-destructive-suave inline-flex items-center gap-1">
                 {desligando === c.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Unplug className="w-3.5 h-3.5" />} Desconectar
               </button>
             )}
@@ -127,22 +129,63 @@ export default function ConectorMcp() {
         ))}
       </div>
 
-      <div className="space-y-2">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Últimas consultas</p>
-        {dados.consultas.length === 0 && <p className="text-xs text-gray-400">Nenhuma consulta ainda.</p>}
-        <ul className="divide-y divide-gray-100">
-          {dados.consultas.map((q) => (
-            <li key={q.id} className="py-1.5 flex items-center gap-2 text-xs">
-              <span className="text-gray-400 w-24 shrink-0">{quando(q.createdAt)}</span>
-              <span className="font-mono text-[#030A8C]">{q.tool}</span>
-              <span className="text-gray-500 truncate flex-1">{Object.entries(q.args ?? {}).map(([k, v]) => `${k}=${String(v)}`).join(' · ')}</span>
-              <span className="text-gray-400 shrink-0">{q.connection.appName} · {q.connection.user.name}</span>
-              {q.error && <span className="text-red-600 shrink-0" title={q.error}>erro</span>}
-            </li>
+      {/* Como conectar: recolhido, abre quando precisar */}
+      <details className="group mt-5 rounded-2xl border border-border">
+        <summary className="flex items-center justify-between gap-3 px-4 py-3 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+          <span className="t-corpo font-semibold text-foreground">Como conectar <span className="t-legenda font-normal">· endereço, comandos e permissões</span></span>
+          <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform group-open:rotate-180" />
+        </summary>
+        <div className="px-4 pb-4 pt-1 space-y-3 border-t border-border">
+          <p className="t-legenda leading-snug pt-3">
+            Liga a Central ao Claude Code e ao Codex (os agentes do Habblaud) e ao Claude. Eles leem clientes, demandas, financeiro e risco de churn. Com <strong>ações</strong>, o agente também lê o grupo do cliente e trabalha nas demandas da
+            <strong> Fila do agente de IA</strong> até entregar para você validar; aprovar e avisar o cliente continua com você. A conexão é um login de administrador, sem chave colada.
+            Para dar ações a uma conexão só de leitura, desconecte e conecte de novo.
+          </p>
+          <Sobretitulo>Endereço do conector</Sobretitulo>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 min-w-0 truncate text-xs bg-secondary/60 border border-border rounded-lg px-3 py-2">{dados.endereco}</code>
+            <button onClick={() => copiar(dados.endereco, 'url')} className="h-8 px-3 rounded-lg border border-border text-xs font-medium hover:bg-secondary/60 inline-flex items-center gap-1">
+              {copiado === 'url' ? <Check className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />} Copiar
+            </button>
+          </div>
+          {comandos.map((c) => (
+            <div key={c.chave} className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground w-24 shrink-0">{c.rotulo}</span>
+              <code className="flex-1 min-w-0 truncate text-[11px] bg-foreground text-background rounded-lg px-3 py-2">{c.cmd}</code>
+              <button onClick={() => copiar(c.cmd, c.chave)} className="h-8 px-2.5 rounded-lg border border-border text-xs hover:bg-secondary/60" aria-label={`Copiar comando do ${c.rotulo}`}>
+                {copiado === c.chave ? <Check className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />}
+              </button>
+            </div>
           ))}
-        </ul>
-      </div>
-      {erro && <p className="text-xs text-red-600">{erro}</p>}
-    </div>
+          <p className="text-[11px] text-muted-foreground">No Claude (claude.ai): Configurações › Conectores › Adicionar conector personalizado, com o endereço acima. Depois de adicionar, o assistente abre o login da Central: entre e clique em Autorizar. No Codex, o login abre com <code>codex mcp login vex-central</code>.</p>
+        </div>
+      </details>
+
+      {/* Últimas consultas: recolhido, com as falhas no rótulo */}
+      <details className="group mt-3 rounded-2xl border border-border">
+        <summary className="flex items-center justify-between gap-3 px-4 py-3 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+          <span className="t-corpo font-semibold text-foreground">
+            Últimas consultas <span className="t-legenda font-normal">· {dados.consultas.length}</span>
+            {comErro.length > 0 && <span className="ml-2 text-[11px] font-semibold px-2 py-0.5 rounded-md bg-destructive-suave text-destructive-texto">{comErro.length} com erro</span>}
+          </span>
+          <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform group-open:rotate-180" />
+        </summary>
+        <div className="px-4 pb-3 border-t border-border">
+          {dados.consultas.length === 0 && <p className="t-legenda pt-3">Nenhuma consulta ainda.</p>}
+          <ul className="divide-y divide-border">
+            {dados.consultas.map((q) => (
+              <li key={q.id} className="py-2 flex items-center gap-2 text-xs">
+                <span className="text-muted-foreground w-24 shrink-0 tabular">{quando(q.createdAt)}</span>
+                <span className="font-mono text-foreground">{q.tool}</span>
+                <span className="text-muted-foreground truncate flex-1">{Object.entries(q.args ?? {}).map(([k, v]) => `${k}=${String(v)}`).join(' · ')}</span>
+                <span className="text-muted-foreground shrink-0">{q.connection.appName} · {q.connection.user.name}</span>
+                {q.error && <span className="text-destructive-texto font-semibold shrink-0" title={q.error}>erro</span>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </details>
+      {erro && <p className="t-rotulo text-destructive-texto mt-3">{erro}</p>}
+    </Painel>
   )
 }

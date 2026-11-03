@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { normalizarPrazos, prazoAtual, prazosDasEtapas, type StageLike } from '../../lib/processos'
+import { normalizarPrazos, prazoAtual, prazosAposRemarcar, prazosDasEtapas, type StageLike } from '../../lib/processos'
 
 // Datas locais, como a tela calcula
 const d = (dia: number, h = 12) => new Date(2026, 9, dia, h, 0)
@@ -107,4 +107,16 @@ test('validação dos prazos: só etapas do processo, data válida, vazio volta 
 test('prazo marcado: na etapa final não vale; data gravada inválida cai na regra', () => {
   assert.deepEqual(prazoAtual(FIM, { stageId: 'fim', dueDate: d(30, 18), stageDeadlines: { fim: d(25, 18).toISOString() } }, AGORA), d(30, 18))
   assert.deepEqual(prazoAtual(DEV, { stageId: 'dev', stageEnteredAt: d(22, 9), dueDate: d(30, 18), stageDeadlines: { dev: 'lixo' } }, AGORA), d(29, 9))
+})
+
+test('remarcar a data final: prazo de etapa vencido ou depois da nova data cai; o resto fica', () => {
+  const agora = new Date('2026-11-03T15:00:00Z')
+  const novaFinal = new Date('2026-11-10T12:00:00Z')
+  const r = prazosAposRemarcar({ dev: '2026-10-28T12:00:00.000Z', apres: '2026-11-07T12:00:00.000Z', pub: '2026-11-20T12:00:00.000Z' }, novaFinal, agora)
+  assert.deepEqual(r, { prazos: { apres: '2026-11-07T12:00:00.000Z' }, mudou: true })
+  // prazo de hoje ainda vale (vence hoje, não está atrasado)
+  assert.deepEqual(prazosAposRemarcar({ dev: '2026-11-03T12:00:00.000Z' }, novaFinal, agora), { prazos: { dev: '2026-11-03T12:00:00.000Z' }, mudou: false })
+  // tudo vencido: volta a seguir o processo
+  assert.deepEqual(prazosAposRemarcar({ dev: '2026-10-28T12:00:00.000Z' }, novaFinal, agora), { prazos: null, mudou: true })
+  assert.deepEqual(prazosAposRemarcar(null, novaFinal, agora), { prazos: null, mudou: false })
 })

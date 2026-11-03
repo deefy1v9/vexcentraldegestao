@@ -2,11 +2,15 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, Plus } from 'lucide-react'
+import { Loader2, Plus, X } from 'lucide-react'
 import { Button } from '@/components/vex/button'
 import { Input } from '@/components/vex/input'
 
-/** Cria um briefing novo, do zero ou copiando as perguntas de outro. */
+/**
+ * Cria um briefing novo, do zero ou copiando as perguntas de outro. O botão
+ * fica no cabeçalho da página (a ação principal) e o formulário abre num
+ * quadro por cima, para não empurrar a lista.
+ */
 export default function NovoBriefing({ modelos }: { modelos: Array<{ id: string; name: string }> }) {
   const router = useRouter()
   const [aberto, setAberto] = useState(false)
@@ -26,23 +30,41 @@ export default function NovoBriefing({ modelos }: { modelos: Array<{ id: string;
     router.push(`/briefings/${data.id}`)
   }
 
-  if (!aberto) return <Button onClick={() => setAberto(true)}><Plus /> Novo briefing</Button>
   return (
-    <form onSubmit={criar} className="w-full rounded-[12px] border border-border bg-card p-4 flex flex-col sm:flex-row gap-2 sm:items-end">
-      <label className="flex-1 text-xs text-muted-foreground">Nome
-        <Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Onboarding · SEO" autoFocus className="mt-1" />
-      </label>
-      <label className="sm:w-64 text-xs text-muted-foreground">Começar com as perguntas de
-        <select value={copiarDe} onChange={(e) => setCopiarDe(e.target.value)} className="mt-1 h-9 w-full rounded-lg border border-border bg-input px-2 text-[13.5px]">
-          <option value="">Nenhum (do zero)</option>
-          {modelos.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-        </select>
-      </label>
-      <div className="flex gap-2">
-        <Button type="button" variant="ghost" onClick={() => setAberto(false)}>Cancelar</Button>
-        <Button type="submit" disabled={salvando || !nome.trim()}>{salvando && <Loader2 className="animate-spin" />} Criar</Button>
-      </div>
-      {erro && <p className="text-sm text-destructive sm:basis-full">{erro}</p>}
-    </form>
+    <>
+      <Button onClick={() => setAberto(true)}><Plus /> Novo briefing</Button>
+      {aberto && (
+        <div className="fixed inset-0 z-50 bg-veu flex items-end sm:items-center sm:justify-center sm:p-4" onClick={() => setAberto(false)}>
+          <form
+            onSubmit={criar}
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-label="Novo briefing"
+            className="w-full sm:max-w-md rounded-t-[24px] sm:rounded-[24px] border border-border bg-card shadow-xl"
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+              <h3 className="font-display text-[19px] font-semibold tracking-[-0.01em] text-foreground">Novo briefing</h3>
+              <button type="button" onClick={() => setAberto(false)} aria-label="Fechar" className="p-1.5 hover:bg-secondary rounded-lg"><X className="w-4 h-4 text-subtle" /></button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <label className="block text-xs text-muted-foreground">Nome
+                <Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Onboarding · SEO" autoFocus className="mt-1" />
+              </label>
+              <label className="block text-xs text-muted-foreground">Começar com as perguntas de
+                <select value={copiarDe} onChange={(e) => setCopiarDe(e.target.value)} className="mt-1 h-9 w-full rounded-lg border border-border bg-input px-2 text-[13.5px] text-foreground">
+                  <option value="">Nenhum (do zero)</option>
+                  {modelos.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                </select>
+              </label>
+              {erro && <p className="text-sm text-destructive-texto">{erro}</p>}
+            </div>
+            <div className="flex justify-end gap-2 px-6 py-4 border-t border-border">
+              <Button type="button" variant="ghost" onClick={() => setAberto(false)}>Cancelar</Button>
+              <Button type="submit" disabled={salvando || !nome.trim()}>{salvando && <Loader2 className="animate-spin" />} Criar</Button>
+            </div>
+          </form>
+        </div>
+      )}
+    </>
   )
 }

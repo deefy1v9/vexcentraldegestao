@@ -11,7 +11,7 @@ export default async function EditarPropostaPage({ params }: { params: Promise<{
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <Header title="Editar proposta" subtitle="Valores, prazos e serviços" />
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-8 pb-8 pt-2">
         <ProposalEditor id={id} />
       </div>
     </div>

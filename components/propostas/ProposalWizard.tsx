@@ -360,18 +360,18 @@ export default function ProposalWizard({
             <button
               onClick={() => i < step && setStep(i)}
               className={`text-[11px] font-semibold px-2.5 py-1 rounded-full whitespace-nowrap ${
-                i === step ? 'bg-[#030A8C] text-white' : i < step ? 'bg-[#030A8C]/10 text-[#030A8C]' : 'bg-gray-100 text-gray-400'
+                i === step ? 'bg-marca text-white' : i < step ? 'bg-marca-suave text-marca-texto' : 'bg-secondary text-subtle'
               }`}
             >
               {i + 1}. {label}
             </button>
-            {i < steps.length - 1 && <span className="w-4 h-px bg-gray-200" />}
+            {i < steps.length - 1 && <span className="w-4 h-px bg-border" />}
           </div>
         ))}
       </div>
 
       {error && (
-        <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 flex items-start gap-2">
+        <p className="text-xs text-destructive-texto bg-destructive-suave border border-destructive/20 rounded-lg px-3 py-2 flex items-start gap-2">
           <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" /> {error}
         </p>
       )}
@@ -385,7 +385,7 @@ export default function ProposalWizard({
                 key={key}
                 onClick={() => setMode(key)}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-semibold transition-colors ${
-                  mode === key ? 'border-[#030A8C] text-[#030A8C] bg-[#030A8C]/5' : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                  mode === key ? 'border-marca text-marca-texto bg-marca-suave' : 'border-border text-muted-foreground hover:border-subtle/60'
                 }`}
               >
                 <Icon className="w-3.5 h-3.5" /> {label}
@@ -394,21 +394,21 @@ export default function ProposalWizard({
           </div>
 
           {mode === 'cliente' ? (
-            <div className="bg-white border border-gray-200 rounded-xl p-4">
-              <label className="block text-xs font-medium text-gray-700 mb-1">Cliente *</label>
+            <div className="bg-card border border-border rounded-[24px] p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+              <label className="block text-xs font-medium text-foreground mb-1">Cliente *</label>
               <select value={clientId} onChange={(e) => setClientId(e.target.value)} className="input">
                 <option value="">Selecione</option>
                 {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
-              <p className="text-[11px] text-gray-400 mt-2">
+              <p className="text-[11px] text-subtle mt-2">
                 Nome, documento, e-mail, telefone e endereço vêm do cadastro — nada precisa ser redigitado.
               </p>
             </div>
           ) : (
-            <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
+            <div className="bg-card border border-border rounded-[24px] p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)] space-y-3">
               <div className="flex items-center gap-3">
                 {(['PJ', 'PF'] as const).map((t) => (
-                  <label key={t} className="flex items-center gap-1.5 text-xs text-gray-700">
+                  <label key={t} className="flex items-center gap-1.5 text-xs text-foreground">
                     <input
                       type="radio"
                       checked={prospect.personType === t}
@@ -420,7 +420,7 @@ export default function ProposalWizard({
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">{prospect.personType === 'PJ' ? 'CNPJ' : 'CPF'} *</label>
+                  <label className="block text-xs font-medium text-foreground mb-1">{prospect.personType === 'PJ' ? 'CNPJ' : 'CPF'} *</label>
                   <input
                     value={prospect.document}
                     onChange={(e) => setProspect((p) => ({ ...p, document: maskDoc(e.target.value, p.personType) }))}
@@ -428,77 +428,77 @@ export default function ProposalWizard({
                     placeholder={prospect.personType === 'PJ' ? '00.000.000/0000-00' : '000.000.000-00'}
                     inputMode="numeric"
                   />
-                  {docCheck?.valid === false && <p className="text-[11px] text-red-600 mt-1">CPF/CNPJ inválido — confira os dígitos.</p>}
+                  {docCheck?.valid === false && <p className="text-[11px] text-destructive-texto mt-1">CPF/CNPJ inválido — confira os dígitos.</p>}
                   {docCheck?.clientId && (
-                    <p className="text-[11px] text-orange-700 mt-1">
+                    <p className="text-[11px] text-warning mt-1">
                       Já existe um cliente com este documento.{' '}
                       <button
                         type="button"
                         onClick={() => { setMode('cliente'); setClientId(docCheck.clientId!) }}
-                        className="font-semibold text-[#030A8C] hover:underline"
+                        className="font-semibold text-marca-texto hover:underline"
                       >
                         Usar cliente existente
                       </button>
                     </p>
                   )}
                   {docCheck?.prospectId && !docCheck.clientId && (
-                    <p className="text-[11px] text-gray-500 mt-1">Prospect já cadastrado — será reaproveitado.</p>
+                    <p className="text-[11px] text-muted-foreground mt-1">Prospect já cadastrado — será reaproveitado.</p>
                   )}
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">{prospect.personType === 'PJ' ? 'Razão social' : 'Nome completo'} *</label>
+                  <label className="block text-xs font-medium text-foreground mb-1">{prospect.personType === 'PJ' ? 'Razão social' : 'Nome completo'} *</label>
                   <input value={prospect.name} onChange={(e) => setProspect((p) => ({ ...p, name: e.target.value }))} className="input" />
                 </div>
                 {prospect.personType === 'PJ' && (
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Nome fantasia</label>
+                    <label className="block text-xs font-medium text-foreground mb-1">Nome fantasia</label>
                     <input value={prospect.tradeName} onChange={(e) => setProspect((p) => ({ ...p, tradeName: e.target.value }))} className="input" />
                   </div>
                 )}
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Responsável</label>
+                  <label className="block text-xs font-medium text-foreground mb-1">Responsável</label>
                   <input value={prospect.contactName} onChange={(e) => setProspect((p) => ({ ...p, contactName: e.target.value }))} className="input" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">E-mail</label>
+                  <label className="block text-xs font-medium text-foreground mb-1">E-mail</label>
                   <input type="email" value={prospect.email} onChange={(e) => setProspect((p) => ({ ...p, email: e.target.value }))} className="input" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Telefone</label>
+                  <label className="block text-xs font-medium text-foreground mb-1">Telefone</label>
                   <input value={prospect.phone} onChange={(e) => setProspect((p) => ({ ...p, phone: maskPhone(e.target.value) }))} className="input" inputMode="numeric" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">CEP</label>
+                  <label className="block text-xs font-medium text-foreground mb-1">CEP</label>
                   <input value={prospect.zipCode} onChange={(e) => setProspect((p) => ({ ...p, zipCode: maskZip(e.target.value) }))} className="input" inputMode="numeric" />
                 </div>
                 <div className="sm:col-span-2 grid grid-cols-3 gap-3">
                   <div className="col-span-2">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Logradouro</label>
+                    <label className="block text-xs font-medium text-foreground mb-1">Logradouro</label>
                     <input value={prospect.street} onChange={(e) => setProspect((p) => ({ ...p, street: e.target.value }))} className="input" />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Número</label>
+                    <label className="block text-xs font-medium text-foreground mb-1">Número</label>
                     <input value={prospect.addressNumber} onChange={(e) => setProspect((p) => ({ ...p, addressNumber: e.target.value }))} className="input" />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Complemento</label>
+                  <label className="block text-xs font-medium text-foreground mb-1">Complemento</label>
                   <input value={prospect.complement} onChange={(e) => setProspect((p) => ({ ...p, complement: e.target.value }))} className="input" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Bairro</label>
+                  <label className="block text-xs font-medium text-foreground mb-1">Bairro</label>
                   <input value={prospect.district} onChange={(e) => setProspect((p) => ({ ...p, district: e.target.value }))} className="input" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Cidade</label>
+                  <label className="block text-xs font-medium text-foreground mb-1">Cidade</label>
                   <input value={prospect.city} onChange={(e) => setProspect((p) => ({ ...p, city: e.target.value }))} className="input" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">UF</label>
+                  <label className="block text-xs font-medium text-foreground mb-1">UF</label>
                   <input value={prospect.state} onChange={(e) => setProspect((p) => ({ ...p, state: e.target.value.toUpperCase().slice(0, 2) }))} className="input" />
                 </div>
               </div>
-              <p className="text-[11px] text-gray-400">
+              <p className="text-[11px] text-subtle">
                 Cadastrar um prospect não cria cliente. A conversão é oferecida depois que a proposta for aprovada.
               </p>
             </div>
@@ -509,9 +509,9 @@ export default function ProposalWizard({
       {/* ETAPA 2 */}
       {step === 1 && (
         <div className="space-y-4">
-          <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
+          <div className="bg-card border border-border rounded-[24px] p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)] space-y-3">
             <div className="relative">
-              <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <Search className="w-4 h-4 text-subtle absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -521,41 +521,41 @@ export default function ProposalWizard({
               />
             </div>
             {search && (
-              <div className="border border-gray-100 rounded-lg divide-y divide-gray-100 max-h-52 overflow-y-auto">
+              <div className="border border-border rounded-lg divide-y divide-border max-h-52 overflow-y-auto">
                 {filteredCatalog.length === 0 ? (
-                  <p className="text-xs text-gray-400 px-3 py-2">Nenhum serviço encontrado no catálogo.</p>
+                  <p className="text-xs text-subtle px-3 py-2">Nenhum serviço encontrado no catálogo.</p>
                 ) : filteredCatalog.map((c) => (
                   <button
                     key={c.key}
                     onClick={() => addFromCatalog(c)}
-                    className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors"
+                    className="w-full text-left px-3 py-2 hover:bg-secondary/60 transition-colors"
                   >
-                    <p className="text-sm text-gray-900">{c.name}</p>
-                    <p className="text-[11px] text-gray-400">
+                    <p className="text-sm text-foreground">{c.name}</p>
+                    <p className="text-[11px] text-subtle">
                       {c.monthlyCents > 0 ? `${brl(c.monthlyCents)}/mês` : c.setupCents > 0 ? `${brl(c.setupCents)} único` : 'sem valor padrão'}
                     </p>
                   </button>
                 ))}
               </div>
             )}
-            <button onClick={addBlank} className="flex items-center gap-1.5 text-xs font-semibold text-[#030A8C] hover:underline">
+            <button onClick={addBlank} className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline">
               <Plus className="w-3.5 h-3.5" /> Adicionar serviço manualmente
             </button>
           </div>
 
           {items.length > 0 && (
             <div className="flex items-center gap-3 flex-wrap text-[11px]">
-              <span className="text-gray-500">Ações rápidas:</span>
-              <button onClick={() => applyMonths(6)} className="font-semibold text-[#030A8C] hover:underline">6 meses para todos</button>
-              <button onClick={() => applyMonths(12)} className="font-semibold text-[#030A8C] hover:underline">12 meses para todos</button>
-              <button onClick={() => applyDiscount('10')} className="font-semibold text-[#030A8C] hover:underline">10% em todos</button>
-              <button onClick={() => applyDiscount('')} className="font-semibold text-gray-500 hover:underline">limpar descontos</button>
+              <span className="text-muted-foreground">Ações rápidas:</span>
+              <button onClick={() => applyMonths(6)} className="font-semibold text-marca-texto hover:underline">6 meses para todos</button>
+              <button onClick={() => applyMonths(12)} className="font-semibold text-marca-texto hover:underline">12 meses para todos</button>
+              <button onClick={() => applyDiscount('10')} className="font-semibold text-marca-texto hover:underline">10% em todos</button>
+              <button onClick={() => applyDiscount('')} className="font-semibold text-muted-foreground hover:underline">limpar descontos</button>
             </div>
           )}
 
           <div className="space-y-2">
             {items.map((item, index) => (
-              <div key={item.uid} className="bg-white border border-gray-200 rounded-xl p-3">
+              <div key={item.uid} className="bg-card border border-border rounded-2xl p-3.5 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
                 <div className="flex items-start gap-2">
                   <div className="flex-1 min-w-0 space-y-2">
                     <input
@@ -566,7 +566,7 @@ export default function ProposalWizard({
                     />
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       <div>
-                        <label className="block text-[10px] font-medium text-gray-500 mb-1">Cobrança</label>
+                        <label className="block text-[10px] font-medium text-muted-foreground mb-1">Cobrança</label>
                         <select
                           value={item.periodicity}
                           onChange={(e) => update(item.uid, { periodicity: e.target.value as 'MENSAL' | 'UNICO' })}
@@ -577,7 +577,7 @@ export default function ProposalWizard({
                         </select>
                       </div>
                       <div>
-                        <label className="block text-[10px] font-medium text-gray-500 mb-1">
+                        <label className="block text-[10px] font-medium text-muted-foreground mb-1">
                           {item.periodicity === 'UNICO' ? 'Valor único' : 'Valor mensal'}
                         </label>
                         <input
@@ -591,7 +591,7 @@ export default function ProposalWizard({
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-medium text-gray-500 mb-1">Meses</label>
+                        <label className="block text-[10px] font-medium text-muted-foreground mb-1">Meses</label>
                         <input
                           type="number" min={0} max={120}
                           value={item.periodicity === 'UNICO' ? 0 : item.months}
@@ -601,7 +601,7 @@ export default function ProposalWizard({
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-medium text-gray-500 mb-1">Desconto %</label>
+                        <label className="block text-[10px] font-medium text-muted-foreground mb-1">Desconto %</label>
                         <input
                           type="number" min={0} max={100} step="0.01"
                           value={item.discountPercent}
@@ -613,7 +613,7 @@ export default function ProposalWizard({
 
                     <button
                       onClick={() => update(item.uid, { open: !item.open })}
-                      className="flex items-center gap-1 text-[11px] font-semibold text-gray-500 hover:text-[#030A8C]"
+                      className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-marca-texto"
                     >
                       {item.open ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />} Mais opções
                     </button>
@@ -634,21 +634,21 @@ export default function ProposalWizard({
                         />
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                           <div>
-                            <label className="block text-[10px] font-medium text-gray-500 mb-1">Quantidade</label>
+                            <label className="block text-[10px] font-medium text-muted-foreground mb-1">Quantidade</label>
                             <input type="number" min={1} value={item.quantity} onChange={(e) => update(item.uid, { quantity: Number(e.target.value) })} className="input text-xs" />
                           </div>
                           <div>
-                            <label className="block text-[10px] font-medium text-gray-500 mb-1">Setup (R$)</label>
+                            <label className="block text-[10px] font-medium text-muted-foreground mb-1">Setup (R$)</label>
                             <input value={item.setupValue} onChange={(e) => update(item.uid, { setupValue: maskMoney(e.target.value) })} className="input text-xs" inputMode="numeric" />
                           </div>
                           <div>
-                            <label className="block text-[10px] font-medium text-gray-500 mb-1">Desconto (R$)</label>
+                            <label className="block text-[10px] font-medium text-muted-foreground mb-1">Desconto (R$)</label>
                             <input value={item.discountValue} onChange={(e) => update(item.uid, { discountValue: maskMoney(e.target.value) })} className="input text-xs" inputMode="numeric" />
                           </div>
                           {kind === 'ADITIVO' && (
                             <>
                               <div>
-                                <label className="block text-[10px] font-medium text-gray-500 mb-1">Alteração</label>
+                                <label className="block text-[10px] font-medium text-muted-foreground mb-1">Alteração</label>
                                 <select value={item.changeType} onChange={(e) => update(item.uid, { changeType: e.target.value })} className="input text-xs">
                                   <option value="ADICIONA">Inclusão</option>
                                   <option value="ALTERA">Alteração</option>
@@ -657,13 +657,13 @@ export default function ProposalWizard({
                                 </select>
                               </div>
                               <div>
-                                <label className="block text-[10px] font-medium text-gray-500 mb-1">Valor anterior</label>
+                                <label className="block text-[10px] font-medium text-muted-foreground mb-1">Valor anterior</label>
                                 <input value={item.previousMonthlyValue ?? ''} onChange={(e) => update(item.uid, { previousMonthlyValue: maskMoney(e.target.value) })} className="input text-xs" inputMode="numeric" />
                               </div>
                             </>
                           )}
                         </div>
-                        <button onClick={() => restoreDefaults(item.uid)} className="flex items-center gap-1 text-[11px] font-medium text-gray-500 hover:text-[#030A8C]">
+                        <button onClick={() => restoreDefaults(item.uid)} className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-marca-texto">
                           <RotateCcw className="w-3 h-3" /> Restaurar valor padrão
                         </button>
                       </div>
@@ -671,10 +671,10 @@ export default function ProposalWizard({
                   </div>
 
                   <div className="flex flex-col items-center gap-1 shrink-0">
-                    <button onClick={() => move(item.uid, -1)} disabled={index === 0} aria-label="Subir" className="p-1 text-gray-300 hover:text-gray-600 disabled:opacity-30"><ChevronUp className="w-3.5 h-3.5" /></button>
-                    <button onClick={() => move(item.uid, 1)} disabled={index === items.length - 1} aria-label="Descer" className="p-1 text-gray-300 hover:text-gray-600 disabled:opacity-30"><ChevronDown className="w-3.5 h-3.5" /></button>
-                    <button onClick={() => duplicate(item.uid)} aria-label="Duplicar" className="p-1 text-gray-300 hover:text-[#030A8C]"><Copy className="w-3.5 h-3.5" /></button>
-                    <button onClick={() => remove(item.uid)} aria-label="Remover" className="p-1 text-gray-300 hover:text-red-600"><Trash2 className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => move(item.uid, -1)} disabled={index === 0} aria-label="Subir" className="p-1 text-subtle/70 hover:text-muted-foreground disabled:opacity-30"><ChevronUp className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => move(item.uid, 1)} disabled={index === items.length - 1} aria-label="Descer" className="p-1 text-subtle/70 hover:text-muted-foreground disabled:opacity-30"><ChevronDown className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => duplicate(item.uid)} aria-label="Duplicar" className="p-1 text-subtle/70 hover:text-marca-texto"><Copy className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => remove(item.uid)} aria-label="Remover" className="p-1 text-subtle/70 hover:text-destructive-texto"><Trash2 className="w-3.5 h-3.5" /></button>
                   </div>
                 </div>
               </div>
@@ -682,7 +682,7 @@ export default function ProposalWizard({
           </div>
 
           {items.length === 0 && (
-            <p className="text-sm text-gray-400 text-center py-6">Nenhum serviço adicionado ainda.</p>
+            <p className="text-sm text-subtle text-center py-6">Nenhum serviço adicionado ainda.</p>
           )}
         </div>
       )}
@@ -690,48 +690,48 @@ export default function ProposalWizard({
       {/* ETAPA 3 */}
       {step === 2 && (
         <div className="space-y-4">
-          <div className="bg-white border border-gray-200 rounded-xl p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="bg-card border border-border rounded-[24px] p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)] grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Data da proposta *</label>
+              <label className="block text-xs font-medium text-foreground mb-1">Data da proposta *</label>
               <input type="date" value={meta.issueDate} onChange={(e) => setMeta((m) => ({ ...m, issueDate: e.target.value }))} className="input" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Validade *</label>
+              <label className="block text-xs font-medium text-foreground mb-1">Validade *</label>
               <input type="date" value={meta.validUntil} onChange={(e) => setMeta((m) => ({ ...m, validUntil: e.target.value }))} className="input" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Início previsto</label>
+              <label className="block text-xs font-medium text-foreground mb-1">Início previsto</label>
               <input type="date" value={meta.startDate} onChange={(e) => setMeta((m) => ({ ...m, startDate: e.target.value }))} className="input" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Dia de vencimento</label>
+              <label className="block text-xs font-medium text-foreground mb-1">Dia de vencimento</label>
               <input type="number" min={1} max={28} value={meta.paymentDay} onChange={(e) => setMeta((m) => ({ ...m, paymentDay: e.target.value }))} className="input" />
             </div>
             <div className="sm:col-span-2">
-              <label className="block text-xs font-medium text-gray-700 mb-1">Condições de pagamento</label>
+              <label className="block text-xs font-medium text-foreground mb-1">Condições de pagamento</label>
               <input value={meta.paymentTerms} onChange={(e) => setMeta((m) => ({ ...m, paymentTerms: e.target.value }))} className="input" placeholder="Ex: Parcelado em 3x no cartão de crédito" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Desconto geral (R$)</label>
+              <label className="block text-xs font-medium text-foreground mb-1">Desconto geral (R$)</label>
               <input value={meta.discountValue} onChange={(e) => setMeta((m) => ({ ...m, discountValue: maskMoney(e.target.value) }))} className="input" inputMode="numeric" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Desconto geral (%)</label>
+              <label className="block text-xs font-medium text-foreground mb-1">Desconto geral (%)</label>
               <input type="number" min={0} max={100} step="0.01" value={meta.discountPercent} onChange={(e) => setMeta((m) => ({ ...m, discountPercent: e.target.value }))} className="input" />
             </div>
             <div className="sm:col-span-2">
-              <label className="block text-xs font-medium text-gray-700 mb-1">Observações</label>
+              <label className="block text-xs font-medium text-foreground mb-1">Observações</label>
               <textarea value={meta.notes} onChange={(e) => setMeta((m) => ({ ...m, notes: e.target.value }))} rows={3} className="input resize-none" />
             </div>
           </div>
 
-          <div className="bg-white border border-gray-200 rounded-xl p-4">
-            <p className="text-xs font-bold text-gray-900 mb-2">Serviços</p>
+          <div className="bg-card border border-border rounded-[24px] p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+            <p className="font-display text-[16px] font-semibold text-foreground mb-2.5">Serviços</p>
             <div className="space-y-1.5">
               {items.map((i) => (
                 <div key={i.uid} className="flex items-center justify-between gap-2 text-xs">
-                  <span className="text-gray-700 truncate">{i.name || 'Sem nome'}</span>
-                  <span className="text-gray-900 font-medium shrink-0">
+                  <span className="text-foreground truncate">{i.name || 'Sem nome'}</span>
+                  <span className="text-foreground font-medium shrink-0">
                     {i.periodicity === 'UNICO'
                       ? `${brl(toCents(i.setupValue))} único`
                       : `${brl(toCents(i.monthlyValue))}/mês × ${i.months}m`}
@@ -744,17 +744,17 @@ export default function ProposalWizard({
       )}
 
       {/* Resumo financeiro fixo no mobile, inline no desktop */}
-      <div className="fixed bottom-0 left-0 right-0 lg:static bg-white border-t lg:border border-gray-200 lg:rounded-xl p-3 lg:p-4 z-30 lg:z-auto">
+      <div className="fixed bottom-0 left-0 right-0 lg:static bg-card border-t lg:border border-border lg:rounded-[20px] p-3 lg:p-4 z-30 lg:z-auto">
         <div className="max-w-4xl mx-auto flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-4 text-xs">
-            <span className="text-gray-500">Mensal <b className="text-gray-900 block">{brl(totals.monthly)}</b></span>
-            {totals.setup > 0 && <span className="text-gray-500">Único <b className="text-gray-900 block">{brl(totals.setup)}</b></span>}
-            <span className="text-gray-500">Total <b className="text-[#030A8C] block">{brl(totals.total)}</b></span>
-            {totals.months > 0 && <span className="text-gray-500 hidden sm:block">{totals.months} meses</span>}
+            <span className="text-muted-foreground">Mensal <b className="text-foreground block">{brl(totals.monthly)}</b></span>
+            {totals.setup > 0 && <span className="text-muted-foreground">Único <b className="text-foreground block">{brl(totals.setup)}</b></span>}
+            <span className="text-muted-foreground">Total <b className="text-marca-texto block">{brl(totals.total)}</b></span>
+            {totals.months > 0 && <span className="text-muted-foreground hidden sm:block">{totals.months} meses</span>}
           </div>
           <div className="flex items-center gap-2">
             {step > 0 && (
-              <button onClick={() => setStep((s) => s - 1)} className="flex items-center gap-1 px-3 py-2 text-xs font-medium text-gray-600 hover:text-gray-900">
+              <button onClick={() => setStep((s) => s - 1)} className="flex items-center gap-1 px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground">
                 <ArrowLeft className="w-3.5 h-3.5" /> Voltar
               </button>
             )}
@@ -762,7 +762,7 @@ export default function ProposalWizard({
               <button
                 onClick={() => setStep((s) => s + 1)}
                 disabled={step === 0 ? !canAdvanceStep0 : items.length === 0}
-                className="flex items-center gap-1.5 px-4 py-2 bg-[#030A8C] text-white rounded-lg text-xs font-semibold hover:bg-[#02077a] disabled:opacity-40 transition-colors"
+                className="flex items-center gap-1.5 h-9 px-4 bg-primary text-primary-foreground rounded-lg text-[13px] font-medium hover:bg-primary-hover disabled:opacity-40 transition-colors"
               >
                 Continuar <ArrowRight className="w-3.5 h-3.5" />
               </button>
@@ -770,7 +770,7 @@ export default function ProposalWizard({
               <button
                 onClick={submit}
                 disabled={busy || items.length === 0}
-                className="flex items-center gap-1.5 px-4 py-2 bg-[#030A8C] text-white rounded-lg text-xs font-semibold hover:bg-[#02077a] disabled:opacity-40 transition-colors"
+                className="flex items-center gap-1.5 h-9 px-4 bg-primary text-primary-foreground rounded-lg text-[13px] font-medium hover:bg-primary-hover disabled:opacity-40 transition-colors"
               >
                 {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
                 Salvar rascunho

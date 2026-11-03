@@ -48,7 +48,7 @@ export default function SearchSelect({
         aria-haspopup="listbox"
         aria-expanded={open}
         className={`h-9 px-3 inline-flex items-center gap-1.5 rounded-lg border text-xs font-medium transition-colors max-w-[180px] ${
-          selecionado ? 'border-[#030A8C] text-[#030A8C] bg-[#030A8C]/5' : 'border-gray-200 text-gray-600 bg-white hover:border-gray-300'
+          selecionado ? 'border-marca text-marca-texto bg-marca/5' : 'border-gray-200 text-gray-600 bg-white hover:border-gray-300'
         }`}
       >
         <span className="truncate">{selecionado ? (shortLabel ? selecionado.name.split(' ')[0] : selecionado.name) : placeholder}</span>
@@ -65,25 +65,25 @@ export default function SearchSelect({
                 onChange={(e) => setBusca(e.target.value)}
                 placeholder={searchPlaceholder}
                 autoFocus
-                className="w-full h-8 pl-8 pr-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-[#030A8C]"
+                className="w-full h-8 pl-8 pr-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-marca"
               />
             </div>
           </div>
           <div className="max-h-64 overflow-y-auto py-1">
             <button type="button" onClick={() => { onChange(''); setOpen(false) }} className="w-full flex items-center justify-between px-3 py-2 text-xs text-gray-600 hover:bg-gray-50">
               {allLabel}
-              {!value && <Check className="w-3.5 h-3.5 text-[#030A8C]" />}
+              {!value && <Check className="w-3.5 h-3.5 text-marca-texto" />}
             </button>
             {extras.map((o) => (
               <button key={o.id} type="button" onClick={() => { onChange(o.id); setOpen(false) }} className="w-full flex items-center justify-between px-3 py-2 text-xs text-gray-500 italic hover:bg-gray-50">
                 <span className="truncate">{o.name}</span>
-                {value === o.id && <Check className="w-3.5 h-3.5 text-[#030A8C] shrink-0" />}
+                {value === o.id && <Check className="w-3.5 h-3.5 text-marca-texto shrink-0" />}
               </button>
             ))}
             {lista.map((o) => (
               <button key={o.id} type="button" onClick={() => { onChange(o.id); setOpen(false) }} className="w-full flex items-center justify-between px-3 py-2 text-xs text-gray-700 hover:bg-gray-50">
                 <span className="truncate">{o.name}</span>
-                {value === o.id && <Check className="w-3.5 h-3.5 text-[#030A8C] shrink-0" />}
+                {value === o.id && <Check className="w-3.5 h-3.5 text-marca-texto shrink-0" />}
               </button>
             ))}
             {lista.length === 0 && extras.length === 0 && <p className="px-3 py-3 text-[11px] text-gray-400">Nada com esse nome.</p>}
