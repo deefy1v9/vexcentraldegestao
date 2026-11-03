@@ -90,40 +90,40 @@ export default function PlannerConfigPanel({ onCapacity }: { onCapacity?: (n: nu
       <button
         onClick={() => setOpen(true)}
         aria-label="Configuração do planejamento"
-        className="flex items-center gap-1.5 px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs font-medium text-gray-500 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors"
+        className="inline-flex items-center gap-1.5 h-8 px-3 border border-border rounded-lg text-xs font-semibold text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
       >
         <Settings2 className="w-3.5 h-3.5" />
         <span className="hidden lg:inline">Planejamento</span>
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center sm:justify-center sm:p-4" onClick={() => setOpen(false)}>
+        <div className="fixed inset-0 z-50 bg-veu flex items-end sm:items-center sm:justify-center sm:p-4" onClick={() => setOpen(false)}>
           <div
-            className="bg-white w-full sm:max-w-2xl rounded-t-2xl sm:rounded-2xl shadow-xl max-h-[92dvh] overflow-y-auto"
+            className="bg-card w-full sm:max-w-2xl rounded-t-[24px] sm:rounded-[24px] shadow-xl max-h-[92dvh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between p-4 sm:p-5 border-b border-gray-100 sticky top-0 bg-white z-10">
+            <div className="flex items-center justify-between p-4 sm:p-5 border-b border-border sticky top-0 bg-card z-10">
               <div>
-                <h3 className="font-bold text-gray-900 text-sm">Configuração do planejamento</h3>
-                <p className="text-[11px] text-gray-500 mt-0.5">Vale para as próximas propostas da IA.</p>
+                <h3 className="font-bold text-foreground text-sm">Configuração do planejamento</h3>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Vale para as próximas propostas da IA.</p>
               </div>
-              <button onClick={() => setOpen(false)} aria-label="Fechar" className="p-1.5 hover:bg-gray-100 rounded-lg">
-                <X className="w-4 h-4 text-gray-400" />
+              <button onClick={() => setOpen(false)} aria-label="Fechar" className="p-1.5 hover:bg-secondary rounded-lg">
+                <X className="w-4 h-4 text-muted-foreground" />
               </button>
             </div>
 
             {!cfg ? (
               <div className="p-5 space-y-3 animate-pulse">
-                {[...Array(4)].map((_, i) => <div key={i} className="h-12 bg-gray-100 rounded-xl" />)}
+                {[...Array(4)].map((_, i) => <div key={i} className="h-12 bg-secondary rounded-xl" />)}
               </div>
             ) : (
               <div className="p-4 sm:p-5 space-y-5">
                 {/* Grupos */}
                 <div className="space-y-3">
-                  <p className="text-xs font-bold text-gray-900">Dias de publicação por grupo</p>
+                  <p className="text-xs font-bold text-foreground">Dias de publicação por grupo</p>
                   {(['groupADays', 'groupBDays'] as const).map((group) => (
                     <div key={group}>
-                      <p className="text-[11px] font-medium text-gray-600 mb-1.5">
+                      <p className="text-[11px] font-medium text-muted-foreground mb-1.5">
                         Grupo {group === 'groupADays' ? 'A' : 'B'}
                       </p>
                       <div className="flex flex-wrap gap-1.5">
@@ -137,8 +137,8 @@ export default function PlannerConfigPanel({ onCapacity }: { onCapacity?: (n: nu
                               onClick={() => toggleDay(group, d.value)}
                               className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors ${
                                 active
-                                  ? 'bg-[#030A8C] text-white border-[#030A8C]'
-                                  : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
+                                  ? 'bg-marca text-white border-marca'
+                                  : 'bg-card text-muted-foreground border-border hover:border-subtle'
                               } ${blocked && active ? 'opacity-50' : ''}`}
                               title={blocked ? 'Dia desativado nas regras abaixo' : undefined}
                             >
@@ -150,11 +150,11 @@ export default function PlannerConfigPanel({ onCapacity }: { onCapacity?: (n: nu
                     </div>
                   ))}
                   <div className="flex flex-wrap gap-4">
-                    <label className="flex items-center gap-2 text-xs text-gray-700">
+                    <label className="flex items-center gap-2 text-xs text-foreground">
                       <input type="checkbox" checked={cfg.allowSaturday} onChange={(e) => set('allowSaturday', e.target.checked)} />
                       Permitir sábado
                     </label>
-                    <label className="flex items-center gap-2 text-xs text-gray-700">
+                    <label className="flex items-center gap-2 text-xs text-foreground">
                       <input type="checkbox" checked={cfg.allowSunday} onChange={(e) => set('allowSunday', e.target.checked)} />
                       Permitir domingo
                     </label>
@@ -163,15 +163,15 @@ export default function PlannerConfigPanel({ onCapacity }: { onCapacity?: (n: nu
 
                 {/* Capacidade */}
                 <div className="space-y-2">
-                  <p className="text-xs font-bold text-gray-900">Capacidade</p>
+                  <p className="text-xs font-bold text-foreground">Capacidade</p>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[11px] font-medium text-gray-600 mb-1">Entregas por dia</label>
+                      <label className="block text-[11px] font-medium text-muted-foreground mb-1">Entregas por dia</label>
                       <input type="number" min={1} max={100} value={cfg.capacityPerDay}
                         onChange={(e) => set('capacityPerDay', Number(e.target.value))} className="input" />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-medium text-gray-600 mb-1">Por colaborador/dia</label>
+                      <label className="block text-[11px] font-medium text-muted-foreground mb-1">Por colaborador/dia</label>
                       <input type="number" min={1} max={50} value={cfg.capacityPerUser}
                         onChange={(e) => set('capacityPerUser', Number(e.target.value))} className="input" />
                     </div>
@@ -180,7 +180,7 @@ export default function PlannerConfigPanel({ onCapacity }: { onCapacity?: (n: nu
 
                 {/* Antecedências */}
                 <div className="space-y-2">
-                  <p className="text-xs font-bold text-gray-900">Antecedência (dias antes da publicação)</p>
+                  <p className="text-xs font-bold text-foreground">Antecedência (dias antes da publicação)</p>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {([
                       ['leadProduction', 'Produção'],
@@ -189,30 +189,30 @@ export default function PlannerConfigPanel({ onCapacity }: { onCapacity?: (n: nu
                       ['leadSchedule', 'Agendamento'],
                     ] as const).map(([key, label]) => (
                       <div key={key}>
-                        <label className="block text-[11px] font-medium text-gray-600 mb-1">{label}</label>
+                        <label className="block text-[11px] font-medium text-muted-foreground mb-1">{label}</label>
                         <input type="number" min={0} max={30} value={cfg[key]}
                           onChange={(e) => set(key, Number(e.target.value))} className="input" />
                       </div>
                     ))}
                   </div>
-                  <p className="text-[11px] text-gray-400">
+                  <p className="text-[11px] text-muted-foreground">
                     A produção precisa ter antecedência maior ou igual à revisão — é o fluxo já usado nas demandas.
                   </p>
                 </div>
 
                 {/* Feriados */}
                 <div className="space-y-2">
-                  <p className="text-xs font-bold text-gray-900">Feriados</p>
+                  <p className="text-xs font-bold text-foreground">Feriados</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[11px] font-medium text-gray-600 mb-1">Tratamento</label>
+                      <label className="block text-[11px] font-medium text-muted-foreground mb-1">Tratamento</label>
                       <select value={cfg.holidayMode} onChange={(e) => set('holidayMode', e.target.value as 'skip' | 'allow')} className="input">
                         <option value="skip">Não publicar em feriado</option>
                         <option value="allow">Permitir publicar em feriado</option>
                       </select>
                     </div>
                     <div>
-                      <label className="block text-[11px] font-medium text-gray-600 mb-1">Datas extras (AAAA-MM-DD)</label>
+                      <label className="block text-[11px] font-medium text-muted-foreground mb-1">Datas extras (AAAA-MM-DD)</label>
                       <input
                         value={cfg.extraHolidays.join(', ')}
                         onChange={(e) => set('extraHolidays', e.target.value.split(',').map((s) => s.trim()).filter(Boolean))}
@@ -221,18 +221,18 @@ export default function PlannerConfigPanel({ onCapacity }: { onCapacity?: (n: nu
                       />
                     </div>
                   </div>
-                  <p className="text-[11px] text-gray-400">
+                  <p className="text-[11px] text-muted-foreground">
                     Feriados nacionais (incluindo Carnaval, Páscoa e Corpus Christi) são calculados automaticamente.
                   </p>
                 </div>
 
                 {/* Duração por tipo */}
                 <div className="space-y-2">
-                  <p className="text-xs font-bold text-gray-900">Duração estimada por tipo (minutos)</p>
+                  <p className="text-xs font-bold text-foreground">Duração estimada por tipo (minutos)</p>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {Object.entries(cfg.durationByType).map(([type, minutes]) => (
                       <div key={type}>
-                        <label className="block text-[11px] font-medium text-gray-600 mb-1 capitalize">{type}</label>
+                        <label className="block text-[11px] font-medium text-muted-foreground mb-1 capitalize">{type}</label>
                         <input
                           type="number" min={5} max={2000} value={minutes}
                           onChange={(e) => set('durationByType', { ...cfg.durationByType, [type]: Number(e.target.value) })}
@@ -243,18 +243,18 @@ export default function PlannerConfigPanel({ onCapacity }: { onCapacity?: (n: nu
                   </div>
                 </div>
 
-                {error && <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
+                {error && <p className="text-xs text-destructive-texto bg-destructive-suave border border-destructive/30 rounded-lg px-3 py-2">{error}</p>}
               </div>
             )}
 
-            <div className="flex justify-end gap-2 p-4 sm:p-5 border-t border-gray-100 sticky bottom-0 bg-white">
-              <button onClick={() => setOpen(false)} className="px-3 py-2 text-xs font-medium text-gray-600 hover:text-gray-900">
+            <div className="flex justify-end gap-2 p-4 sm:p-5 border-t border-border sticky bottom-0 bg-card">
+              <button onClick={() => setOpen(false)} className="px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground">
                 Fechar
               </button>
               <button
                 onClick={save}
                 disabled={saving || !cfg}
-                className="flex items-center gap-1.5 px-4 py-2 bg-[#030A8C] text-white rounded-lg text-xs font-semibold hover:bg-[#02077a] disabled:opacity-40 transition-colors"
+                className="flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-xs font-semibold hover:bg-primary-hover disabled:opacity-40 transition-colors"
               >
                 {saved ? <Check className="w-3.5 h-3.5" /> : null}
                 {saving ? 'Salvando…' : saved ? 'Salvo' : 'Salvar configuração'}

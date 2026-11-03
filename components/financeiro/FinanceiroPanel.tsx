@@ -2,6 +2,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Download, Plus, RefreshCw, Settings2 } from 'lucide-react'
+import Header from '@/components/layout/Header'
+import { Button } from '@/components/vex/button'
 import { parseCompetence } from '@/lib/billing-core'
 import AddEntryModal from '@/components/financeiro/AddEntryModal'
 import FinanceKpis, { type MonthSummary, type TileKey } from '@/components/financeiro/FinanceKpis'
@@ -264,164 +266,174 @@ export default function FinanceiroPanel() {
     URL.revokeObjectURL(a.href)
   }
 
+  const ehLista = tab === 'recebiveis' || tab === 'atrasados' || tab === 'custos' || tab === 'salarios'
+
+  async function gerarCobrancas() {
+    setRunningJob(true)
+    try {
+      const res = await fetch('/api/asaas/cobrancas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ runJob: true }) })
+      const r = await res.json().catch(() => ({}))
+      setFlash(res.ok
+        ? `Cobranças: ${r.created ?? 0} criada(s), ${r.skipped ?? 0} já existente(s) ou fora da janela, ${r.errors ?? 0} erro(s).`
+        : r.error || 'Falha ao gerar cobranças.')
+      if (res.ok) reload()
+    } finally { setRunningJob(false) }
+  }
+
+  const esqueleto = (
+    <div className="space-y-3 animate-pulse py-2">
+      {[...Array(5)].map((_, i) => <div key={i} className="h-14 bg-secondary/60 rounded-xl" />)}
+    </div>
+  )
+
   return (
     <div className="flex-1 flex flex-col">
-      <div className="px-4 sm:px-6 pt-4 pb-3 space-y-3">
-        {/* Período e ações do mês */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <MonthPicker period={period} isCurrent={isCurrentMonth} onChange={(p) => push({ period: p })} onToday={() => push({ period: currentPeriod() })} />
-          <div className="ml-auto flex items-center gap-2">
-            <a href="/financeiro/fiscal" className="h-9 px-3 inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white text-xs font-semibold text-gray-700 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors" title="Configuração fiscal e diagnóstico">
-              <Settings2 className="w-3.5 h-3.5" /><span className="hidden md:inline">Fiscal</span>
-            </a>
-            <button type="button" onClick={exportCsv} className="h-9 px-3 inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white text-xs font-semibold text-gray-700 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors">
-              <Download className="w-3.5 h-3.5" /><span className="hidden md:inline">Exportar</span>
-            </button>
-            <button
-              type="button"
-              disabled={runningJob}
-              onClick={async () => {
-                setRunningJob(true)
-                try {
-                  const res = await fetch('/api/asaas/cobrancas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ runJob: true }) })
-                  const r = await res.json().catch(() => ({}))
-                  setFlash(res.ok
-                    ? `Cobranças: ${r.created ?? 0} criada(s), ${r.skipped ?? 0} já existente(s) ou fora da janela, ${r.errors ?? 0} erro(s).`
-                    : r.error || 'Falha ao gerar cobranças.')
-                  if (res.ok) reload()
-                } finally { setRunningJob(false) }
-              }}
-              className="h-9 px-3 inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white text-xs font-semibold text-gray-700 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors disabled:opacity-50"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${runningJob ? 'animate-spin' : ''}`} />
+      {/* Cabeçalho da página com o período e as ações do mês à direita (modelo Vireo) */}
+      <Header
+        title="Financeiro"
+        subtitle="Controle financeiro por mês"
+        acoes={
+          <>
+            <MonthPicker period={period} isCurrent={isCurrentMonth} onChange={(p) => push({ period: p })} onToday={() => push({ period: currentPeriod() })} />
+            <Button variant="outline" asChild className="h-10 rounded-xl">
+              <a href="/financeiro/fiscal" title="Configuração fiscal e diagnóstico"><Settings2 /><span className="hidden md:inline">Fiscal</span></a>
+            </Button>
+            <Button variant="outline" type="button" onClick={exportCsv} className="h-10 rounded-xl">
+              <Download /><span className="hidden md:inline">Exportar</span>
+            </Button>
+            <Button variant="outline" type="button" disabled={runningJob} onClick={gerarCobrancas} className="h-10 rounded-xl">
+              <RefreshCw className={runningJob ? 'animate-spin' : ''} />
               <span className="hidden md:inline">{runningJob ? 'Gerando…' : 'Gerar cobranças'}</span>
-            </button>
-            <button type="button" onClick={() => setShowAdd(true)} className="h-9 px-3 inline-flex items-center gap-1.5 rounded-lg bg-[#030A8C] text-white text-xs font-semibold hover:bg-[#02077a] transition-colors">
-              <Plus className="w-4 h-4" /><span className="hidden sm:inline">Novo lançamento</span>
-            </button>
-          </div>
-        </div>
+            </Button>
+            <Button type="button" onClick={() => setShowAdd(true)} className="h-10 rounded-xl shadow-[0_6px_16px_-6px_var(--primary)]">
+              <Plus /><span className="hidden sm:inline">Novo lançamento</span>
+            </Button>
+          </>
+        }
+      />
 
-        {flash && <p className="text-xs font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5">{flash}</p>}
-        {error && <p className="text-sm font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-3 text-center">{error}</p>}
+      <div className="px-4 sm:px-8 pt-2 pb-4 space-y-4">
+        {flash && <p className="text-[13px] font-medium text-foreground bg-info-suave border border-info/20 rounded-2xl px-4 py-3">{flash}</p>}
+        {error && <p className="text-[13.5px] font-medium text-destructive-texto bg-destructive-suave border border-destructive/20 rounded-2xl px-4 py-3 text-center">{error}</p>}
 
         <FinanceTabs active={tab} counts={counts} onChange={(t) => push({ tab: t })} />
         {/* Nas listas, os números do mês funcionam como filtro; o BPO, a
             Conciliação e o Caixa têm o próprio topo. Saldo e sócios ficam no BPO. */}
-        {['recebiveis', 'atrasados', 'custos', 'salarios'].includes(tab) && (
+        {ehLista && (
           // O grid dos indicadores usa h-full: o bloco em volta dá a ele a altura do próprio conteúdo
           <div><FinanceKpis s={data?.summary ?? null} loading={loading} active={activeTile} onToggle={toggleTile} /></div>
         )}
 
         {tab === 'caixa' && <CaixaPanel />}
-
-        {tab !== 'caixa' && tab !== 'bpo' && tab !== 'conciliacao' && (
-          <>
-            <FinanceFilterRow
-              filters={filters}
-              onChange={push}
-              sort={sort}
-              onSort={(s) => push({ sort: s })}
-              categories={tab === 'custos' ? COST_CATEGORIES : []}
-              showKind={tab !== 'salarios'}
-              addLabel={tab === 'custos' ? 'Novo custo' : tab === 'salarios' ? 'Novo salário' : undefined}
-              onAdd={tab === 'custos' ? () => setShowNewCost(true) : tab === 'salarios' ? () => setShowNewSalary(true) : undefined}
-              placeholder={tab === 'salarios' ? 'Buscar colaborador' : tab === 'custos' ? 'Buscar custo ou categoria' : 'Buscar cliente ou serviço'}
-            />
-            <FinanceChips
-              filters={filters}
-              onRemove={(k) => push({ [k]: '' } as Partial<FinFilters>)}
-              onClear={() => push({ ...EMPTY_FIN_FILTERS })}
-            />
-          </>
-        )}
       </div>
 
-      <div className="flex flex-col px-4 sm:px-6 pb-6">
-        {loading ? (
-          <div className="space-y-3 animate-pulse py-2">
-            {[...Array(5)].map((_, i) => <div key={i} className="h-14 bg-white border border-gray-200 rounded-xl" />)}
-          </div>
-        ) : tab === 'conciliacao' ? (
-          <ConciliacaoTab />
-        ) : tab === 'bpo' ? (
-          <BpoTab competencia={`${period.year}-${String(period.month).padStart(2, '0')}`} />
-        ) : tab === 'caixa' ? null : (
-          <>
-            {tab === 'custos' ? (
-              <EntriesTable
-                entries={costRows.slice(from, to)}
-                kind="custo"
-                onTogglePaid={toggleEntryPaid}
-                onEdit={(e) => setEditing(editing?.id === e.id ? null : e)}
-                onDelete={(e) => {
-                  if (e.recurringCostId) setScopeAction({ entry: e, action: 'delete' })
-                  else if (confirm(`Excluir o custo "${e.name || e.description}"?`)) deleteCost(e, 'only')
-                }}
-                deleteLabel="Excluir custo"
-                editingId={editing?.id ?? null}
-                editor={editing ? (
-                  <CostEditForm
-                    entry={editing}
-                    onCancel={() => setEditing(null)}
-                    onSave={(fields) => {
-                      if (editing.recurringCostId) setScopeAction({ entry: editing, action: 'edit', fields })
-                      else applyCostEdit(editing, fields, 'only')
+      <div className="flex flex-col px-4 sm:px-8 pb-8">
+        {ehLista ? (
+          // A lista no padrão de tabela do Vireo: busca e filtros no topo do cartão, tabela e paginação dentro dele
+          <section className="rounded-[24px] border border-border bg-card shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+            <div className="px-4 sm:px-6 py-4 space-y-3">
+              <FinanceFilterRow
+                filters={filters}
+                onChange={push}
+                sort={sort}
+                onSort={(s) => push({ sort: s })}
+                categories={tab === 'custos' ? COST_CATEGORIES : []}
+                showKind={tab !== 'salarios'}
+                addLabel={tab === 'custos' ? 'Novo custo' : tab === 'salarios' ? 'Novo salário' : undefined}
+                onAdd={tab === 'custos' ? () => setShowNewCost(true) : tab === 'salarios' ? () => setShowNewSalary(true) : undefined}
+                placeholder={tab === 'salarios' ? 'Buscar colaborador' : tab === 'custos' ? 'Buscar custo ou categoria' : 'Buscar cliente ou serviço'}
+              />
+              <FinanceChips
+                filters={filters}
+                onRemove={(k) => push({ [k]: '' } as Partial<FinFilters>)}
+                onClear={() => push({ ...EMPTY_FIN_FILTERS })}
+              />
+            </div>
+
+            {loading ? <div className="px-6 pb-4 border-t border-border">{esqueleto}</div> : (
+              <>
+                {tab === 'custos' ? (
+                  <EntriesTable
+                    entries={costRows.slice(from, to)}
+                    kind="custo"
+                    onTogglePaid={toggleEntryPaid}
+                    onEdit={(e) => setEditing(editing?.id === e.id ? null : e)}
+                    onDelete={(e) => {
+                      if (e.recurringCostId) setScopeAction({ entry: e, action: 'delete' })
+                      else if (confirm(`Excluir o custo "${e.name || e.description}"?`)) deleteCost(e, 'only')
+                    }}
+                    deleteLabel="Excluir custo"
+                    editingId={editing?.id ?? null}
+                    editor={editing ? (
+                      <CostEditForm
+                        entry={editing}
+                        onCancel={() => setEditing(null)}
+                        onSave={(fields) => {
+                          if (editing.recurringCostId) setScopeAction({ entry: editing, action: 'edit', fields })
+                          else applyCostEdit(editing, fields, 'only')
+                        }}
+                      />
+                    ) : null}
+                  />
+                ) : tab === 'salarios' ? (
+                  <EntriesTable
+                    entries={salaryRows.slice(from, to)}
+                    kind="salario"
+                    onTogglePaid={toggleEntryPaid}
+                    onEdit={(e) => { setEditing(editing?.id === e.id ? null : e); setEditAmount(e.amount) }}
+                    onDelete={stopSalary}
+                    deleteLabel="Interromper próximos"
+                    editingId={editing?.id ?? null}
+                    editor={editing ? (
+                      <SalaryEditForm
+                        value={editAmount}
+                        onChange={setEditAmount}
+                        onCancel={() => setEditing(null)}
+                        onSave={() => setScopeAction({ entry: editing, action: 'edit' })}
+                      />
+                    ) : null}
+                  />
+                ) : (
+                  <ReceivablesTable
+                    rows={receivableRows.slice(from, to)}
+                    actions={{
+                      busyKey,
+                      fiscalReady: fiscal == null || fiscal.ready,
+                      fiscalMissing: fiscal?.missing ?? [],
+                      onTogglePaid: (r) => r.payment && togglePayments([r.payment.id], r.payment.status === 'PAGO' ? 'PENDENTE' : 'PAGO'),
+                      onChangeDue: (r) => r.payment && setDueDialog({ ids: [r.payment.id], label: `${r.client.name} · ${r.label}`, current: r.dueDate.slice(0, 10) }),
+                      onCancel: (r) => {
+                        if (!r.payment) return
+                        const reason = prompt('Motivo do cancelamento (opcional):') ?? undefined
+                        paymentAction({ paymentIds: [r.payment.id], action: 'cancelar', reason }, 'Parcela cancelada.')
+                      },
+                      onResend: (r) => r.payment && paymentAction({ paymentIds: [r.payment.id], action: 'reenviar' }, 'Fatura reenviada por e-mail.'),
+                      onGenerateCharge: (clientId) => chargeAction(
+                        () => fetch('/api/asaas/cobrancas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientId, year: period.year, month: period.month }) }),
+                        `gen-${clientId}`, 'Cobrança gerada no Asaas.',
+                      ),
+                      onSyncCharge: (chargeId) => chargeAction(
+                        () => fetch('/api/asaas/cobrancas', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chargeId }) }),
+                        `sync-${chargeId}`,
+                      ),
+                      onNfse: (chargeId, action) => chargeAction(
+                        () => fetch(`/api/nfse/${chargeId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action }) }),
+                        `${action}-${chargeId}`,
+                        action === 'emit' ? 'NFS-e enviada para processamento.' : undefined,
+                      ),
                     }}
                   />
-                ) : null}
-              />
-            ) : tab === 'salarios' ? (
-              <EntriesTable
-                entries={salaryRows.slice(from, to)}
-                kind="salario"
-                onTogglePaid={toggleEntryPaid}
-                onEdit={(e) => { setEditing(editing?.id === e.id ? null : e); setEditAmount(e.amount) }}
-                onDelete={stopSalary}
-                deleteLabel="Interromper próximos"
-                editingId={editing?.id ?? null}
-                editor={editing ? (
-                  <SalaryEditForm
-                    value={editAmount}
-                    onChange={setEditAmount}
-                    onCancel={() => setEditing(null)}
-                    onSave={() => setScopeAction({ entry: editing, action: 'edit' })}
-                  />
-                ) : null}
-              />
-            ) : (
-              <ReceivablesTable
-                rows={receivableRows.slice(from, to)}
-                actions={{
-                  busyKey,
-                  fiscalReady: fiscal == null || fiscal.ready,
-                  fiscalMissing: fiscal?.missing ?? [],
-                  onTogglePaid: (r) => r.payment && togglePayments([r.payment.id], r.payment.status === 'PAGO' ? 'PENDENTE' : 'PAGO'),
-                  onChangeDue: (r) => r.payment && setDueDialog({ ids: [r.payment.id], label: `${r.client.name} · ${r.label}`, current: r.dueDate.slice(0, 10) }),
-                  onCancel: (r) => {
-                    if (!r.payment) return
-                    const reason = prompt('Motivo do cancelamento (opcional):') ?? undefined
-                    paymentAction({ paymentIds: [r.payment.id], action: 'cancelar', reason }, 'Parcela cancelada.')
-                  },
-                  onResend: (r) => r.payment && paymentAction({ paymentIds: [r.payment.id], action: 'reenviar' }, 'Fatura reenviada por e-mail.'),
-                  onGenerateCharge: (clientId) => chargeAction(
-                    () => fetch('/api/asaas/cobrancas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientId, year: period.year, month: period.month }) }),
-                    `gen-${clientId}`, 'Cobrança gerada no Asaas.',
-                  ),
-                  onSyncCharge: (chargeId) => chargeAction(
-                    () => fetch('/api/asaas/cobrancas', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chargeId }) }),
-                    `sync-${chargeId}`,
-                  ),
-                  onNfse: (chargeId, action) => chargeAction(
-                    () => fetch(`/api/nfse/${chargeId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action }) }),
-                    `${action}-${chargeId}`,
-                    action === 'emit' ? 'NFS-e enviada para processamento.' : undefined,
-                  ),
-                }}
-              />
+                )}
+                <div className="px-4 sm:px-6 py-3.5 border-t border-border">
+                  <Pagination page={pageSafe} pages={pages} total={lista.length} shown={shown} onPage={setPage} />
+                </div>
+              </>
             )}
-            <Pagination page={pageSafe} pages={pages} total={lista.length} shown={shown} onPage={setPage} />
-          </>
+          </section>
+        ) : tab === 'caixa' ? null : loading ? esqueleto : tab === 'conciliacao' ? (
+          <ConciliacaoTab />
+        ) : (
+          <BpoTab competencia={`${period.year}-${String(period.month).padStart(2, '0')}`} />
         )}
       </div>
 

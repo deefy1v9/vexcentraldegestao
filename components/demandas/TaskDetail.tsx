@@ -29,7 +29,7 @@ function fileSize(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-const INPUT = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 outline-none focus:border-[#030A8C]'
+const INPUT = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 outline-none focus:border-marca'
 
 /* ------------------------------ passo a passo ------------------------------ */
 
@@ -196,7 +196,7 @@ export default function TaskDetail({
   return (
     <div className="flex-1 min-h-0 overflow-y-auto">
       <div className="w-full p-4 sm:p-6">
-      <Link href="/demandas" className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-[#030A8C] mb-3">
+      <Link href="/demandas" className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-marca-texto mb-3">
         <ArrowLeft className="w-3.5 h-3.5" /> Voltar para demandas
       </Link>
       <div className="bg-white rounded-2xl border border-gray-200 flex flex-col overflow-hidden">
@@ -214,14 +214,14 @@ export default function TaskDetail({
           <div className="flex items-center gap-2 shrink-0">
             {!editMode ? (
               isAdmin && (
-                <button onClick={() => setEditMode(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#030A8C] bg-[#030A8C]/10 rounded-lg hover:bg-[#030A8C] hover:text-white transition-colors">
+                <button onClick={() => setEditMode(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-marca-texto bg-marca/10 rounded-lg hover:bg-marca hover:text-white transition-colors">
                   <Pencil className="w-3.5 h-3.5" /> Editar
                 </button>
               )
             ) : (
               <>
                 <button onClick={() => setEditMode(false)} className="px-3 py-1.5 text-xs font-medium text-gray-500 hover:bg-gray-100 rounded-lg">Cancelar</button>
-                <button onClick={saveTask} disabled={saving || !editForm.title.trim()} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-[#030A8C] text-white rounded-lg hover:bg-[#02077a] disabled:opacity-50">
+                <button onClick={saveTask} disabled={saving || !editForm.title.trim()} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary-hover disabled:opacity-50">
                   <Save className="w-3.5 h-3.5" /> {saving ? 'Salvando…' : 'Salvar'}
                 </button>
               </>
@@ -253,8 +253,8 @@ export default function TaskDetail({
 
               {/* Ação da etapa, no topo: é o que a pessoa veio fazer */}
               {canProduce && (
-                <div className="border border-[#030A8C]/30 bg-[#030A8C]/[0.03] rounded-xl p-4 space-y-3">
-                  <p className="text-sm font-bold text-gray-900 flex items-center gap-2"><Send className="w-4 h-4 text-[#030A8C]" /> Entregar produção</p>
+                <div className="border border-marca/30 bg-marca/[0.03] rounded-xl p-4 space-y-3">
+                  <p className="text-sm font-bold text-gray-900 flex items-center gap-2"><Send className="w-4 h-4 text-marca-texto" /> Entregar produção</p>
                   <div>
                     <label className="text-xs font-medium text-gray-600 mb-1 block">Link do Google Drive *</label>
                     <input value={driveLinkInput} onChange={(e) => setDriveLinkInput(e.target.value)} placeholder="https://drive.google.com/..." className={INPUT} />
@@ -266,7 +266,7 @@ export default function TaskDetail({
                   <button
                     onClick={() => flowAction(`/api/demandas/${task.id}/enviar-revisao`, { driveLink: driveLinkInput, note: reviewNoteInput })}
                     disabled={flowBusy || !driveLinkInput.trim()}
-                    className="w-full py-2 bg-[#030A8C] text-white rounded-lg text-sm font-semibold hover:bg-[#02077a] disabled:opacity-50"
+                    className="w-full py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:bg-primary-hover disabled:opacity-50"
                   >
                     {flowBusy ? 'Enviando…' : 'Enviar para revisão'}
                   </button>
@@ -274,8 +274,8 @@ export default function TaskDetail({
               )}
 
               {canReview && (
-                <div className="border border-purple-200 bg-purple-50/40 rounded-xl p-4 space-y-3">
-                  <p className="text-sm font-bold text-gray-900 flex items-center gap-2"><Eye className="w-4 h-4 text-purple-600" /> Revisão</p>
+                <div className="border border-marca/20 bg-marca-suave/40 rounded-xl p-4 space-y-3">
+                  <p className="text-sm font-bold text-gray-900 flex items-center gap-2"><Eye className="w-4 h-4 text-marca-texto" /> Revisão</p>
                   {!showAdjustForm ? (
                     <>
                       <div>
@@ -286,7 +286,7 @@ export default function TaskDetail({
                         <button onClick={() => flowAction(`/api/demandas/${task.id}/revisar`, { action: 'aprovar', note: reviewNoteInput })} disabled={flowBusy} className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-teal-600 text-white rounded-lg text-sm font-semibold hover:bg-teal-700 disabled:opacity-50">
                           <CheckCircle2 className="w-4 h-4" /> Aprovar
                         </button>
-                        <button onClick={() => setShowAdjustForm(true)} disabled={flowBusy} className="flex-1 py-2 border border-orange-300 text-orange-700 bg-orange-50 rounded-lg text-sm font-semibold hover:bg-orange-100 disabled:opacity-50">
+                        <button onClick={() => setShowAdjustForm(true)} disabled={flowBusy} className="flex-1 py-2 border border-warning/30 text-warning bg-warning-suave rounded-lg text-sm font-semibold hover:bg-warning-suave/70 disabled:opacity-50">
                           Solicitar ajustes
                         </button>
                       </div>
@@ -299,7 +299,7 @@ export default function TaskDetail({
                       </div>
                       <div className="flex gap-2">
                         <button onClick={() => { setShowAdjustForm(false); setAdjustNote('') }} className="px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
-                        <button onClick={() => flowAction(`/api/demandas/${task.id}/revisar`, { action: 'ajustes', note: adjustNote })} disabled={flowBusy || !adjustNote.trim()} className="flex-1 py-2 bg-orange-600 text-white rounded-lg text-sm font-semibold hover:bg-orange-700 disabled:opacity-50">
+                        <button onClick={() => flowAction(`/api/demandas/${task.id}/revisar`, { action: 'ajustes', note: adjustNote })} disabled={flowBusy || !adjustNote.trim()} className="flex-1 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:bg-primary-hover disabled:opacity-50">
                           {flowBusy ? 'Enviando…' : 'Devolver para ajustes'}
                         </button>
                       </div>
@@ -385,7 +385,7 @@ export default function TaskDetail({
               )}
 
               {task.driveLink && (
-                <a href={task.driveLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 bg-[#030A8C]/5 border border-[#030A8C]/20 rounded-xl px-3 py-2.5 text-sm text-[#030A8C] font-medium hover:bg-[#030A8C]/10">
+                <a href={task.driveLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 bg-marca/5 border border-marca/20 rounded-xl px-3 py-2.5 text-sm text-marca-texto font-medium hover:bg-marca/10">
                   <Link2 className="w-4 h-4 shrink-0" /><span className="truncate">Abrir material no Google Drive</span>
                 </a>
               )}
@@ -426,14 +426,14 @@ export default function TaskDetail({
 
               {/* Histórico */}
               <div>
-                <button onClick={() => setShowHistory((v) => !v)} className="flex items-center gap-1.5 text-sm font-bold text-gray-900 hover:text-[#030A8C]">
+                <button onClick={() => setShowHistory((v) => !v)} className="flex items-center gap-1.5 text-sm font-bold text-gray-900 hover:text-marca-texto">
                   <History className="w-4 h-4" /> Histórico {events.length > 0 && <span className="text-gray-400 font-normal">({events.length})</span>}
                 </button>
                 {showHistory && (
                   <div className="mt-3 border-l-2 border-gray-100 ml-2">
                     {events.length === 0 ? <p className="text-xs text-gray-400 pl-4 py-2">Nenhum registro ainda</p> : events.map((ev) => (
                       <div key={ev.id} className="relative pl-4 pb-3">
-                        <span className="absolute -left-[5px] top-1.5 w-2 h-2 rounded-full bg-[#030A8C]" />
+                        <span className="absolute -left-[5px] top-1.5 w-2 h-2 rounded-full bg-marca" />
                         <p className="text-xs text-gray-700">{ev.detail}</p>
                         <p className="text-[10px] text-gray-400">{new Date(ev.createdAt).toLocaleString('pt-BR')}</p>
                       </div>
@@ -521,7 +521,7 @@ export default function TaskDetail({
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-bold text-gray-900">Anexos {attachments.length > 0 && <span className="text-gray-400 font-normal">({attachments.length})</span>}</h3>
-                <button onClick={() => fileInputRef.current?.click()} disabled={uploading} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-[#030A8C] bg-[#030A8C]/10 rounded-lg hover:bg-[#030A8C] hover:text-white disabled:opacity-50">
+                <button onClick={() => fileInputRef.current?.click()} disabled={uploading} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-marca-texto bg-marca/10 rounded-lg hover:bg-marca hover:text-white disabled:opacity-50">
                   <Paperclip className="w-3 h-3" /> {uploading ? 'Enviando…' : 'Anexar arquivo'}
                 </button>
                 <input ref={fileInputRef} type="file" className="hidden" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip" onChange={uploadFile} />
@@ -538,7 +538,7 @@ export default function TaskDetail({
                             <img src={att.fileUrl} alt={att.fileName} className="w-full h-full object-cover" />
                           </a>
                         ) : (
-                          <div className="w-10 h-10 bg-[#030A8C]/10 rounded-lg flex items-center justify-center shrink-0"><Icon className="w-5 h-5 text-[#030A8C]" /></div>
+                          <div className="w-10 h-10 bg-marca/10 rounded-lg flex items-center justify-center shrink-0"><Icon className="w-5 h-5 text-marca-texto" /></div>
                         )}
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-medium text-gray-900 truncate">{att.fileName}</p>
@@ -564,7 +564,7 @@ export default function TaskDetail({
                 {comments.map((c) => (
                   <div key={c.id} className="bg-gray-50 rounded-xl p-3">
                     <div className="flex items-center gap-2 mb-1">
-                      <div className="w-6 h-6 bg-[#030A8C] rounded-full flex items-center justify-center"><span className="text-white text-[10px] font-bold">{c.user.name.charAt(0)}</span></div>
+                      <div className="w-6 h-6 bg-marca rounded-full flex items-center justify-center"><span className="text-white text-[10px] font-bold">{c.user.name.charAt(0)}</span></div>
                       <span className="text-xs font-semibold text-gray-900">{c.user.name}</span>
                       <span className="text-[10px] text-gray-400 ml-auto">{new Date(c.createdAt).toLocaleString('pt-BR')}</span>
                     </div>
@@ -575,7 +575,7 @@ export default function TaskDetail({
               </div>
               <div className="flex gap-2">
                 <input value={newComment} onChange={(e) => setNewComment(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && sendComment()} placeholder="Adicionar comentário..." className={`${INPUT} flex-1`} />
-                <button onClick={sendComment} disabled={!newComment.trim()} className="px-3 py-2 bg-[#030A8C] text-white rounded-lg text-sm font-medium hover:bg-[#02077a] disabled:opacity-40">Enviar</button>
+                <button onClick={sendComment} disabled={!newComment.trim()} className="px-3 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary-hover disabled:opacity-40">Enviar</button>
               </div>
             </div>
           )}

@@ -10,12 +10,17 @@ export default async function FinanceiroPage() {
   if (!user || user.role !== 'ADMIN') redirect('/dashboard')
 
   // Os dados são carregados pelo painel via /api/financeiro conforme o mês
-  // selecionado — a navegação de período não recarrega a página.
+  // selecionado — a navegação de período não recarrega a página. O cabeçalho
+  // fica dentro do painel, porque o período e as ações do mês ficam nele.
   return (
     <div className="flex flex-col min-h-full">
-      <Header title="Financeiro" subtitle="Controle financeiro por mês" />
       {/* O painel lê a competência da URL (useSearchParams) */}
-      <Suspense fallback={<div className="flex-1 p-6 text-sm text-gray-400">Carregando financeiro…</div>}>
+      <Suspense fallback={(
+        <>
+          <Header title="Financeiro" subtitle="Controle financeiro por mês" />
+          <div className="flex-1 px-4 sm:px-8 py-6 text-sm text-muted-foreground">Carregando financeiro…</div>
+        </>
+      )}>
         <FinanceiroPanel />
       </Suspense>
     </div>

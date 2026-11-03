@@ -158,6 +158,9 @@ export async function GET(req: NextRequest) {
       projecoes,
       atrasadosReceberCents,
       serie: serieSaldoDiaria({ saldoCents, hoje, receber, pagar, dias: 90 }),
+      // O saldo só é "confirmado" com o banco conciliado até ontem; senão a
+      // projeção é estimativa e a tela avisa
+      conferido: sit ? { conta: sit.conta, ate: sit.conciliadoAte, pendentes: sit.pendentes, emDia: !!sit.conciliadoAte && sit.conciliadoAte >= addDays(hoje, -1) } : null,
     },
     pagar: {
       vencidas: pagar.filter((p) => p.vence < hoje),

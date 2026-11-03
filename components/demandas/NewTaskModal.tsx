@@ -62,7 +62,7 @@ export default function NewTaskModal({
     setBusy(false)
   }
 
-  const input = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 outline-none focus:border-[#030A8C]'
+  const input = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white text-gray-900 outline-none focus:border-marca'
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 sm:p-4" onClick={onClose}>
@@ -153,11 +153,11 @@ export default function NewTaskModal({
           {error && <p className="text-xs font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
         </div>
         <div className="px-5 py-4 border-t border-gray-100 flex items-center gap-2">
-          <button type="button" onClick={() => fileRef.current?.click()} className="p-2 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-[#030A8C]" title="Anexar arquivo"><Paperclip className="w-4 h-4" /></button>
+          <button type="button" onClick={() => fileRef.current?.click()} className="p-2 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-marca-texto" title="Anexar arquivo"><Paperclip className="w-4 h-4" /></button>
           <input ref={fileRef} type="file" multiple className="hidden" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip" onChange={(e) => { setFiles((p) => [...p, ...Array.from(e.target.files || [])]); e.target.value = '' }} />
           <div className="flex-1" />
           <button type="button" onClick={onClose} className="px-3 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded-lg">Cancelar</button>
-          <button type="button" onClick={create} disabled={!title.trim() || !due || busy} className="px-4 py-2 bg-[#030A8C] text-white text-sm font-semibold rounded-lg hover:bg-[#02077a] disabled:opacity-40">
+          <button type="button" onClick={create} disabled={!title.trim() || !due || busy} className="px-4 py-2 bg-primary text-primary-foreground text-sm font-semibold rounded-lg hover:bg-primary-hover disabled:opacity-40">
             {busy ? 'Criando…' : 'Criar demanda'}
           </button>
         </div>

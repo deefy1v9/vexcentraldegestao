@@ -130,7 +130,7 @@ export default function RubricaTelaCheia({ onPronta, onFechar }: { onPronta: (pn
           <p className="flex-1 text-sm font-medium">Desenhe a sua rubrica com o dedo</p>
           <button type="button" onClick={limpar} className="h-9 px-3 rounded-lg text-sm text-gray-700 hover:bg-gray-100">Limpar</button>
           <button type="button" onClick={onFechar} className="h-9 px-3 rounded-lg text-sm text-gray-700 hover:bg-gray-100">Cancelar</button>
-          <button type="button" onClick={usar} disabled={!rabiscou} className="h-9 px-4 rounded-lg text-sm font-medium bg-[#030A8C] text-white disabled:opacity-40">Usar rubrica</button>
+          <button type="button" onClick={usar} disabled={!rabiscou} className="h-9 px-4 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-40">Usar rubrica</button>
         </div>
         <div className="relative flex-1 m-3 rounded-xl border-2 border-dashed border-gray-300">
           <canvas ref={tela} className="absolute inset-0 w-full h-full touch-none" />

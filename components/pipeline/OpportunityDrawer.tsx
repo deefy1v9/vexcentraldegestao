@@ -145,79 +145,79 @@ export default function OpportunityDrawer({
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center sm:justify-center sm:p-4" onClick={onClose}>
-      <div className="bg-white w-full sm:max-w-3xl rounded-t-2xl sm:rounded-2xl shadow-xl max-h-[94dvh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 bg-veu flex items-end sm:items-center sm:justify-center sm:p-4" onClick={onClose}>
+      <div className="bg-card w-full sm:max-w-3xl rounded-t-[24px] sm:rounded-[24px] border border-border shadow-xl max-h-[94dvh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         {!opp ? (
-          <div className="p-10 text-center text-sm text-gray-400">
+          <div className="p-10 text-center text-sm text-subtle">
             {error ?? <span className="inline-flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Carregando…</span>}
           </div>
         ) : (
           <>
-            <div className="flex items-start justify-between gap-2 p-4 sm:p-5 border-b border-gray-100 sticky top-0 bg-white z-10">
+            <div className="flex items-start justify-between gap-2 p-4 sm:p-5 border-b border-border sticky top-0 bg-card z-10">
               <div className="min-w-0">
-                <h3 className="font-bold text-gray-900 truncate">{opp.title}</h3>
-                <p className="text-xs text-gray-500 flex items-center gap-1.5 flex-wrap">
+                <h3 className="font-display text-[20px] font-semibold tracking-[-0.01em] text-foreground truncate">{opp.title}</h3>
+                <p className="text-xs text-muted-foreground flex items-center gap-1.5 flex-wrap">
                   {opp.client ? (
-                    <Link href={`/clientes/${opp.client.id}`} className="text-[#030A8C] hover:underline">{opp.client.name}</Link>
+                    <Link href={`/clientes/${opp.client.id}`} className="text-marca-texto hover:underline">{opp.client.name}</Link>
                   ) : (opp.prospect?.tradeName ?? opp.prospect?.name ?? 'Lead sem nome')}
                   {opp.client && <TierBadge tier={opp.client.tier} />}
-                  {opp.source && <span className="text-gray-400">· {opp.source}</span>}
+                  {opp.source && <span className="text-subtle">· {opp.source}</span>}
                 </p>
                 {/* Serviços que o lead pediu, antes de existir orçamento */}
                 {(opp.prospect?.interestServices?.length ?? 0) > 0 && (
                   <div className="flex flex-wrap gap-1 mt-1.5">
-                    <span className="text-[10px] text-gray-400 mr-0.5">Interesse:</span>
+                    <span className="text-[10px] text-subtle mr-0.5">Interesse:</span>
                     {opp.prospect!.interestServices!.map((s) => (
-                      <span key={s} className="text-[10px] font-medium text-[#030A8C] bg-[#030A8C]/5 border border-[#030A8C]/15 rounded-full px-2 py-0.5">
+                      <span key={s} className="text-[10px] font-medium text-marca-texto bg-marca/5 border border-marca/15 rounded-full px-2 py-0.5">
                         {s}
                       </span>
                     ))}
                   </div>
                 )}
               </div>
-              <button onClick={onClose} aria-label="Fechar" className="p-1.5 hover:bg-gray-100 rounded-lg shrink-0"><X className="w-4 h-4 text-gray-400" /></button>
+              <button onClick={onClose} aria-label="Fechar" className="p-1.5 hover:bg-secondary rounded-lg shrink-0"><X className="w-4 h-4 text-subtle" /></button>
             </div>
 
             {/* Valores: recorrente, avulso e projeto sempre separados */}
-            <div className="px-4 sm:px-5 py-3 border-b border-gray-100 grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="px-4 sm:px-5 py-3 border-b border-border grid grid-cols-2 sm:grid-cols-4 gap-2">
               {totals?.usandoEstimativa ? (
                 <div className="col-span-2">
-                  <p className="text-[10px] text-gray-500 uppercase tracking-wide">Valor estimado</p>
-                  <p className="text-lg font-bold text-gray-900">{brl(totals.totalContratoCents)}</p>
-                  <p className="text-[10px] text-amber-700">Estimativa. Detalhe os serviços antes de fechar.</p>
+                  <p className="text-[10.5px] font-semibold text-muted-foreground uppercase tracking-[0.1em]">Valor estimado</p>
+                  <p className="font-display text-[20px] font-semibold tabular text-foreground">{brl(totals.totalContratoCents)}</p>
+                  <p className="text-[10px] text-warning">Estimativa. Detalhe os serviços antes de fechar.</p>
                 </div>
               ) : (
                 <>
                   <div>
-                    <p className="text-[10px] text-gray-500 uppercase tracking-wide">Recorrente orçado</p>
-                    <p className="text-lg font-bold text-[#030A8C]">{brl(totals?.recorrenteCents ?? 0)}<span className="text-[10px] text-gray-400 font-normal">/mês</span></p>
+                    <p className="text-[10.5px] font-semibold text-muted-foreground uppercase tracking-[0.1em]">Recorrente orçado</p>
+                    <p className="font-display text-[20px] font-semibold tabular text-marca-texto">{brl(totals?.recorrenteCents ?? 0)}<span className="text-[10px] text-subtle font-normal">/mês</span></p>
                   </div>
                   <div>
-                    <p className="text-[10px] text-gray-500 uppercase tracking-wide">Avulso orçado</p>
-                    <p className="text-lg font-bold text-purple-700">{brl(totals?.avulsoCents ?? 0)}</p>
+                    <p className="text-[10.5px] font-semibold text-muted-foreground uppercase tracking-[0.1em]">Avulso orçado</p>
+                    <p className="font-display text-[20px] font-semibold tabular text-foreground">{brl(totals?.avulsoCents ?? 0)}</p>
                   </div>
                   {(totals?.projetoMensalCents ?? 0) > 0 && (
                     <div>
-                      <p className="text-[10px] text-gray-500 uppercase tracking-wide">Projeto</p>
-                      <p className="text-lg font-bold text-amber-700">{brl(totals?.projetoMensalCents ?? 0)}<span className="text-[10px] text-gray-400 font-normal">/mês</span></p>
+                      <p className="text-[10.5px] font-semibold text-muted-foreground uppercase tracking-[0.1em]">Projeto</p>
+                      <p className="font-display text-[20px] font-semibold tabular text-warning">{brl(totals?.projetoMensalCents ?? 0)}<span className="text-[10px] text-subtle font-normal">/mês</span></p>
                     </div>
                   )}
                   <div>
-                    <p className="text-[10px] text-gray-500 uppercase tracking-wide">Total do contrato</p>
-                    <p className="text-sm font-bold text-gray-900">{brl(totals?.totalContratoCents ?? 0)}</p>
-                    <p className="text-[10px] text-gray-400">{basis ?? 'sem prazo definido'}</p>
+                    <p className="text-[10.5px] font-semibold text-muted-foreground uppercase tracking-[0.1em]">Total do contrato</p>
+                    <p className="text-sm font-bold text-foreground">{brl(totals?.totalContratoCents ?? 0)}</p>
+                    <p className="text-[10px] text-subtle">{basis ?? 'sem prazo definido'}</p>
                   </div>
                 </>
               )}
             </div>
 
             {projected?.tier && !convertida && (
-              <p className="mx-4 sm:mx-5 mt-3 text-[11px] text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+              <p className="mx-4 sm:mx-5 mt-3 text-[11px] text-muted-foreground bg-secondary/60 border border-border rounded-lg px-3 py-2">
                 Grupo previsto se fechar: <span className="font-semibold">{projected.tier}</span> com ticket de {brl(projected.ticketCents)}. Indicação apenas; não altera a classificação atual.
               </p>
             )}
-            {error && <p className="mx-4 sm:mx-5 mt-3 text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
-            {msg && <p className="mx-4 sm:mx-5 mt-3 text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">{msg}</p>}
+            {error && <p className="mx-4 sm:mx-5 mt-3 text-xs text-destructive-texto bg-destructive-suave border border-destructive/20 rounded-lg px-3 py-2">{error}</p>}
+            {msg && <p className="mx-4 sm:mx-5 mt-3 text-xs text-foreground bg-secondary/60 border border-border rounded-lg px-3 py-2">{msg}</p>}
 
             {/* Etapa */}
             <div className="px-4 sm:px-5 pt-3 flex flex-wrap items-center gap-2">
@@ -231,29 +231,29 @@ export default function OpportunityDrawer({
                 {STAGES.map((s) => <option key={s} value={s}>{STAGE_LABEL[s]}</option>)}
               </select>
               {!convertida && opp.stage !== 'PERDIDO' && (
-                <button onClick={() => setShowClose(true)} disabled={saving} className="px-3 py-2 rounded-lg bg-green-600 text-white text-xs font-semibold hover:bg-green-700 disabled:opacity-50">
+                <button onClick={() => setShowClose(true)} disabled={saving} className="px-3 py-2 rounded-lg bg-success text-white text-xs font-semibold hover:brightness-95 disabled:opacity-50">
                   Fechar como ganho
                 </button>
               )}
               {convertida && (
                 <>
-                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-700"><CheckCircle2 className="w-3.5 h-3.5" /> Convertida em cliente</span>
-                  <Link href={`/clientes/${opp.convertedClientId}`} className="inline-flex items-center gap-1 text-xs font-semibold text-[#030A8C] hover:underline">
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-success"><CheckCircle2 className="w-3.5 h-3.5" /> Convertida em cliente</span>
+                  <Link href={`/clientes/${opp.convertedClientId}`} className="inline-flex items-center gap-1 text-xs font-semibold text-marca-texto hover:underline">
                     Abrir cliente <ExternalLink className="w-3 h-3" />
                   </Link>
-                  {isAdmin && <button onClick={() => setReopen(true)} className="text-xs text-gray-500 hover:text-gray-900">Reabrir</button>}
+                  {isAdmin && <button onClick={() => setReopen(true)} className="text-xs text-muted-foreground hover:text-foreground">Reabrir</button>}
                 </>
               )}
               {opp.stage === 'PERDIDO' && opp.lossReason && (
-                <span className="text-xs text-red-600">Perdida: {opp.lossReason}</span>
+                <span className="text-xs text-destructive-texto">Perdida: {opp.lossReason}</span>
               )}
             </div>
 
             {/* Abas */}
-            <div className="flex border-b border-gray-100 mt-3 px-4 sm:px-5">
+            <div className="flex border-b border-border mt-3 px-4 sm:px-5">
               {([['negociacao', 'Negociação'], ['servicos', `Serviços orçados (${opp.items.length})`], ['historico', 'Histórico']] as const).map(([k, l]) => (
                 <button key={k} onClick={() => setTab(k)}
-                  className={`px-3 py-2 text-xs font-semibold ${tab === k ? 'text-[#030A8C] border-b-2 border-[#030A8C]' : 'text-gray-500 hover:text-gray-900'}`}>
+                  className={`px-3 py-2 text-xs font-semibold ${tab === k ? 'text-marca-texto border-b-2 border-marca' : 'text-muted-foreground hover:text-foreground'}`}>
                   {l}
                 </button>
               ))}
@@ -318,36 +318,36 @@ function NegotiationTab({
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="sm:col-span-2"><label className="text-xs font-medium text-gray-600 mb-1 block">Título</label><input value={form.title} onChange={(e) => set('title', e.target.value)} className="input text-sm" /></div>
+        <div className="sm:col-span-2"><label className="text-xs font-medium text-muted-foreground mb-1 block">Título</label><input value={form.title} onChange={(e) => set('title', e.target.value)} className="input text-sm" /></div>
         <div>
-          <label className="text-xs font-medium text-gray-600 mb-1 block">Responsável</label>
+          <label className="text-xs font-medium text-muted-foreground mb-1 block">Responsável</label>
           <select value={form.ownerId} onChange={(e) => set('ownerId', e.target.value)} className="input text-sm">
             {owners.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
           </select>
         </div>
-        <div><label className="text-xs font-medium text-gray-600 mb-1 block">Origem</label><input value={form.source} onChange={(e) => set('source', e.target.value)} className="input text-sm" /></div>
-        <div><label className="text-xs font-medium text-gray-600 mb-1 block">Previsão de fechamento</label><input type="date" value={form.expectedCloseDate} onChange={(e) => set('expectedCloseDate', e.target.value)} className="input text-sm" /></div>
-        <div><label className="text-xs font-medium text-gray-600 mb-1 block">Data real do fechamento</label><input type="date" value={opp.closedAt?.slice(0, 10) ?? ''} className="input text-sm bg-gray-50" readOnly /></div>
-        <div><label className="text-xs font-medium text-gray-600 mb-1 block">Próxima ação</label><input value={form.nextAction} onChange={(e) => set('nextAction', e.target.value)} className="input text-sm" /></div>
-        <div><label className="text-xs font-medium text-gray-600 mb-1 block">Prazo da próxima ação</label><input type="date" value={form.nextActionAt} onChange={(e) => set('nextActionAt', e.target.value)} className="input text-sm" /></div>
+        <div><label className="text-xs font-medium text-muted-foreground mb-1 block">Origem</label><input value={form.source} onChange={(e) => set('source', e.target.value)} className="input text-sm" /></div>
+        <div><label className="text-xs font-medium text-muted-foreground mb-1 block">Previsão de fechamento</label><input type="date" value={form.expectedCloseDate} onChange={(e) => set('expectedCloseDate', e.target.value)} className="input text-sm" /></div>
+        <div><label className="text-xs font-medium text-muted-foreground mb-1 block">Data real do fechamento</label><input type="date" value={opp.closedAt?.slice(0, 10) ?? ''} className="input text-sm bg-secondary/60" readOnly /></div>
+        <div><label className="text-xs font-medium text-muted-foreground mb-1 block">Próxima ação</label><input value={form.nextAction} onChange={(e) => set('nextAction', e.target.value)} className="input text-sm" /></div>
+        <div><label className="text-xs font-medium text-muted-foreground mb-1 block">Prazo da próxima ação</label><input type="date" value={form.nextActionAt} onChange={(e) => set('nextActionAt', e.target.value)} className="input text-sm" /></div>
         {opp.items.length === 0 && (
           <>
-            <div><label className="text-xs font-medium text-gray-600 mb-1 block">Valor estimado</label><CurrencyInput value={estimate} onChange={setEstimate} className="input text-sm" ariaLabel="Valor estimado" /></div>
-            <div><label className="text-xs font-medium text-gray-600 mb-1 block">Base da estimativa</label><input value={form.estimateNote} onChange={(e) => set('estimateNote', e.target.value)} className="input text-sm" placeholder="Ex: conversa inicial" /></div>
+            <div><label className="text-xs font-medium text-muted-foreground mb-1 block">Valor estimado</label><CurrencyInput value={estimate} onChange={setEstimate} className="input text-sm" ariaLabel="Valor estimado" /></div>
+            <div><label className="text-xs font-medium text-muted-foreground mb-1 block">Base da estimativa</label><input value={form.estimateNote} onChange={(e) => set('estimateNote', e.target.value)} className="input text-sm" placeholder="Ex: conversa inicial" /></div>
           </>
         )}
-        <div className="sm:col-span-2"><label className="text-xs font-medium text-gray-600 mb-1 block">Observações comerciais</label><textarea value={form.notes} onChange={(e) => set('notes', e.target.value)} rows={3} className="input text-sm resize-none" /></div>
+        <div className="sm:col-span-2"><label className="text-xs font-medium text-muted-foreground mb-1 block">Observações comerciais</label><textarea value={form.notes} onChange={(e) => set('notes', e.target.value)} rows={3} className="input text-sm resize-none" /></div>
       </div>
       {opp.proposal && (
-        <p className="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-          Proposta vigente <Link href={`/propostas/${opp.proposal.id}`} className="text-[#030A8C] font-semibold hover:underline">{opp.proposal.number}</Link> · {opp.proposal.status} · mensal {brl(opp.proposal.monthlyCents)}. Os valores da negociação são os dos serviços orçados; a proposta não soma em dobro.
+        <p className="text-xs text-muted-foreground bg-secondary/60 border border-border rounded-lg px-3 py-2">
+          Proposta vigente <Link href={`/propostas/${opp.proposal.id}`} className="text-marca-texto font-semibold hover:underline">{opp.proposal.number}</Link> · {opp.proposal.status} · mensal {brl(opp.proposal.monthlyCents)}. Os valores da negociação são os dos serviços orçados; a proposta não soma em dobro.
         </p>
       )}
       <div className="flex justify-end">
         <button
           onClick={() => onSave({ ...form, estimateCents: estimate != null ? Math.round(estimate * 100) : 0 }, 'Negociação atualizada.')}
           disabled={saving}
-          className="px-4 py-2 bg-[#030A8C] text-white rounded-lg text-xs font-semibold hover:bg-[#02077a] disabled:opacity-40"
+          className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-xs font-semibold hover:bg-primary-hover disabled:opacity-40"
         >
           Salvar
         </button>
@@ -421,30 +421,30 @@ function ItemsTab({
   return (
     <div className="space-y-3">
       {opp.items.length === 0 ? (
-        <p className="text-xs text-gray-400 text-center py-4">Nenhum serviço orçado. Enquanto não houver itens, vale o valor estimado.</p>
+        <p className="text-xs text-subtle text-center py-4">Nenhum serviço orçado. Enquanto não houver itens, vale o valor estimado.</p>
       ) : (
-        <div className="divide-y divide-gray-100 border border-gray-100 rounded-lg">
+        <div className="divide-y divide-border border border-border rounded-lg">
           {opp.items.map((i) => {
             const cents = Math.max(0, i.unitCents * Math.max(1, i.quantity) - i.discountCents)
             const fora = i.catalog && ((i.catalog.minCents != null && i.unitCents < i.catalog.minCents) || (i.catalog.maxCents != null && i.unitCents > i.catalog.maxCents))
             return (
               <div key={i.id} className="flex items-start justify-between gap-2 px-3 py-2.5">
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-gray-900">{i.name}</p>
-                  <p className="text-[11px] text-gray-500">
+                  <p className="text-sm font-medium text-foreground">{i.name}</p>
+                  <p className="text-[11px] text-muted-foreground">
                     {TYPE_LABEL[i.contractType] ?? i.contractType}
                     {i.quantity > 1 ? ` · ${i.quantity}×` : ''}
                     {i.competence ? ` · ${i.competence.split('-').reverse().join('/')}` : ''}
                     {i.months ? ` · ${i.months} meses` : ''}
                     {i.startDate ? ` · início ${formatDate(i.startDate)}` : ''}
                   </p>
-                  {fora && <p className="text-[11px] text-orange-700 flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> fora da faixa do catálogo</p>}
-                  {i.clientServiceId && <p className="text-[11px] text-green-700">virou serviço contratado</p>}
+                  {fora && <p className="text-[11px] text-warning flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> fora da faixa do catálogo</p>}
+                  {i.clientServiceId && <p className="text-[11px] text-success">virou serviço contratado</p>}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-sm font-semibold text-gray-900">{brl(cents)}</span>
+                  <span className="text-sm font-semibold text-foreground">{brl(cents)}</span>
                   {!readOnly && (
-                    <button onClick={() => remove(i.id)} aria-label="Remover" className="p-1 text-gray-400 hover:text-red-600"><Trash2 className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => remove(i.id)} aria-label="Remover" className="p-1 text-subtle hover:text-destructive-texto"><Trash2 className="w-3.5 h-3.5" /></button>
                   )}
                 </div>
               </div>
@@ -454,49 +454,49 @@ function ItemsTab({
       )}
 
       {readOnly ? (
-        <p className="text-[11px] text-gray-500">Negociação convertida: os serviços agora são editados no cadastro do cliente.</p>
+        <p className="text-[11px] text-muted-foreground">Negociação convertida: os serviços agora são editados no cadastro do cliente.</p>
       ) : showForm ? (
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-3">
+        <div className="bg-secondary/60 border border-border rounded-lg p-3 space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="sm:col-span-2">
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Serviço do catálogo</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Serviço do catálogo</label>
               <select value={form.catalogId} onChange={(e) => pick(e.target.value)} className="input text-sm">
                 <option value="">Sem catálogo (descrever)</option>
                 {catalog.map((c) => <option key={c.id} value={c.id}>{c.name}{c.category ? ` · ${c.category}` : ''}</option>)}
               </select>
               {item && (item.minCents != null || item.maxCents != null) && (
-                <p className="text-[11px] text-gray-400 mt-1">
+                <p className="text-[11px] text-subtle mt-1">
                   Faixa de referência: {item.minCents != null ? brl(item.minCents) : '—'} a {item.maxCents != null ? brl(item.maxCents) : '—'}
                 </p>
               )}
             </div>
-            <div className="sm:col-span-2"><label className="text-xs font-medium text-gray-600 mb-1 block">Nome *</label><input value={form.name} onChange={(e) => set('name', e.target.value)} className="input text-sm" /></div>
+            <div className="sm:col-span-2"><label className="text-xs font-medium text-muted-foreground mb-1 block">Nome *</label><input value={form.name} onChange={(e) => set('name', e.target.value)} className="input text-sm" /></div>
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Tipo de contratação</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Tipo de contratação</label>
               <select value={form.contractType} onChange={(e) => set('contractType', e.target.value)} className="input text-sm">
                 {Object.entries(TYPE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
             </div>
-            <div><label className="text-xs font-medium text-gray-600 mb-1 block">Valor negociado *</label><CurrencyInput value={unit} onChange={setUnit} className="input text-sm" ariaLabel="Valor negociado" /></div>
-            <div><label className="text-xs font-medium text-gray-600 mb-1 block">Quantidade</label><input type="number" min={1} value={form.quantity} onChange={(e) => set('quantity', e.target.value)} className="input text-sm" /></div>
-            <div><label className="text-xs font-medium text-gray-600 mb-1 block">Desconto</label><CurrencyInput value={discount} onChange={setDiscount} className="input text-sm" ariaLabel="Desconto" /></div>
+            <div><label className="text-xs font-medium text-muted-foreground mb-1 block">Valor negociado *</label><CurrencyInput value={unit} onChange={setUnit} className="input text-sm" ariaLabel="Valor negociado" /></div>
+            <div><label className="text-xs font-medium text-muted-foreground mb-1 block">Quantidade</label><input type="number" min={1} value={form.quantity} onChange={(e) => set('quantity', e.target.value)} className="input text-sm" /></div>
+            <div><label className="text-xs font-medium text-muted-foreground mb-1 block">Desconto</label><CurrencyInput value={discount} onChange={setDiscount} className="input text-sm" ariaLabel="Desconto" /></div>
             {form.contractType === 'AVULSO' ? (
-              <div><label className="text-xs font-medium text-gray-600 mb-1 block">Competência prevista *</label><input type="month" value={form.competence} onChange={(e) => set('competence', e.target.value)} className="input text-sm" /></div>
+              <div><label className="text-xs font-medium text-muted-foreground mb-1 block">Competência prevista *</label><input type="month" value={form.competence} onChange={(e) => set('competence', e.target.value)} className="input text-sm" /></div>
             ) : (
-              <div><label className="text-xs font-medium text-gray-600 mb-1 block">Início previsto</label><input type="date" value={form.startDate} onChange={(e) => set('startDate', e.target.value)} className="input text-sm" /></div>
+              <div><label className="text-xs font-medium text-muted-foreground mb-1 block">Início previsto</label><input type="date" value={form.startDate} onChange={(e) => set('startDate', e.target.value)} className="input text-sm" /></div>
             )}
-            <div><label className="text-xs font-medium text-gray-600 mb-1 block">Prazo contratual (meses)</label><input type="number" min={0} value={form.months} onChange={(e) => set('months', e.target.value)} className="input text-sm" /></div>
-            <div className="sm:col-span-2"><label className="text-xs font-medium text-gray-600 mb-1 block">Escopo negociado</label><textarea value={form.scope} onChange={(e) => set('scope', e.target.value)} rows={2} className="input text-sm resize-none" /></div>
+            <div><label className="text-xs font-medium text-muted-foreground mb-1 block">Prazo contratual (meses)</label><input type="number" min={0} value={form.months} onChange={(e) => set('months', e.target.value)} className="input text-sm" /></div>
+            <div className="sm:col-span-2"><label className="text-xs font-medium text-muted-foreground mb-1 block">Escopo negociado</label><textarea value={form.scope} onChange={(e) => set('scope', e.target.value)} rows={2} className="input text-sm resize-none" /></div>
           </div>
           <div className="flex justify-end gap-2">
-            <button onClick={() => setShowForm(false)} className="px-3 py-2 text-xs text-gray-600">Cancelar</button>
-            <button onClick={add} disabled={saving || !form.name.trim() || unit == null} className="px-4 py-2 bg-[#030A8C] text-white rounded-lg text-xs font-semibold disabled:opacity-40">
+            <button onClick={() => setShowForm(false)} className="px-3 py-2 text-xs text-muted-foreground">Cancelar</button>
+            <button onClick={add} disabled={saving || !form.name.trim() || unit == null} className="px-4 py-2 bg-primary hover:bg-primary-hover text-primary-foreground rounded-lg text-xs font-semibold disabled:opacity-40">
               {saving ? 'Salvando…' : 'Adicionar'}
             </button>
           </div>
         </div>
       ) : (
-        <button onClick={() => setShowForm(true)} className="flex items-center gap-1.5 text-xs font-semibold text-[#030A8C] hover:underline">
+        <button onClick={() => setShowForm(true)} className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline">
           <Plus className="w-3.5 h-3.5" /> Adicionar serviço orçado
         </button>
       )}
@@ -508,16 +508,16 @@ function ItemsTab({
 
 function HistoryTab({ opp }: { opp: Opportunity }) {
   if (!opp.events || opp.events.length === 0) {
-    return <p className="text-xs text-gray-400 text-center py-4">Sem histórico registrado.</p>
+    return <p className="text-xs text-subtle text-center py-4">Sem histórico registrado.</p>
   }
   return (
     <div className="space-y-2">
       {opp.events.map((e) => (
         <div key={e.id} className="flex items-start gap-2 text-xs">
-          <History className="w-3 h-3 text-gray-300 mt-0.5 shrink-0" />
+          <History className="w-3 h-3 text-subtle/70 mt-0.5 shrink-0" />
           <div>
-            <p className="text-gray-700">{e.message}</p>
-            <p className="text-[10px] text-gray-400">
+            <p className="text-foreground">{e.message}</p>
+            <p className="text-[10px] text-subtle">
               {e.type} · {new Date(e.createdAt).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
               {e.user?.name ? ` · ${e.user.name}` : ''}
             </p>
@@ -601,17 +601,17 @@ function CloseWonModal({ opp, onClose, onDone }: { opp: Opportunity; onClose: ()
 
   if (done) {
     return (
-      <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-xl w-full max-w-sm p-5 shadow-xl text-center">
-          <CheckCircle2 className="w-10 h-10 text-green-600 mx-auto mb-2" />
-          <p className="font-bold text-gray-900">Negociação ganha</p>
-          <p className="text-xs text-gray-500 mt-1">
+      <div className="fixed inset-0 z-[60] bg-veu flex items-center justify-center p-4">
+        <div className="bg-card rounded-[24px] border border-border w-full max-w-sm p-6 shadow-xl text-center">
+          <CheckCircle2 className="w-10 h-10 text-success mx-auto mb-2" />
+          <p className="font-bold text-foreground">Negociação ganha</p>
+          <p className="text-xs text-muted-foreground mt-1">
             {done.created ? 'Cliente criado' : 'Cliente vinculado'}: {done.clientName}. Serviços contratados e classificação atualizados.
           </p>
-          <p className="text-[11px] text-gray-400 mt-2">Nenhuma cobrança foi emitida e nenhum pagamento foi registrado.</p>
+          <p className="text-[11px] text-subtle mt-2">Nenhuma cobrança foi emitida e nenhum pagamento foi registrado.</p>
           <div className="flex gap-2 mt-4">
-            <button onClick={() => onDone('Negociação convertida em cliente.')} className="flex-1 px-3 py-2 text-xs font-medium text-gray-600 border border-gray-200 rounded-lg">Ficar no pipeline</button>
-            <Link href={`/clientes/${done.clientId}`} className="flex-1 px-3 py-2 bg-[#030A8C] text-white rounded-lg text-xs font-semibold text-center">Abrir cliente</Link>
+            <button onClick={() => onDone('Negociação convertida em cliente.')} className="flex-1 px-3 py-2 text-xs font-medium text-muted-foreground border border-border rounded-lg">Ficar no pipeline</button>
+            <Link href={`/clientes/${done.clientId}`} className="flex-1 px-3 py-2 bg-primary hover:bg-primary-hover text-primary-foreground rounded-lg text-xs font-semibold text-center">Abrir cliente</Link>
           </div>
         </div>
       </div>
@@ -619,59 +619,59 @@ function CloseWonModal({ opp, onClose, onDone }: { opp: Opportunity; onClose: ()
   }
 
   return (
-    <div className="fixed inset-0 z-[60] bg-black/50 flex items-end sm:items-center sm:justify-center sm:p-4" onClick={onClose}>
-      <div className="bg-white w-full sm:max-w-2xl rounded-t-2xl sm:rounded-2xl shadow-xl max-h-[94dvh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-gray-100 sticky top-0 bg-white z-10">
+    <div className="fixed inset-0 z-[60] bg-veu flex items-end sm:items-center sm:justify-center sm:p-4" onClick={onClose}>
+      <div className="bg-card w-full sm:max-w-2xl rounded-t-[24px] sm:rounded-[24px] border border-border shadow-xl max-h-[94dvh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-border sticky top-0 bg-card z-10">
           <div>
-            <h3 className="font-bold text-gray-900">Conferência de fechamento</h3>
-            <p className="text-xs text-gray-500">Confirme os dados antes de criar a contratação.</p>
+            <h3 className="font-display text-[19px] font-semibold text-foreground">Conferência de fechamento</h3>
+            <p className="text-xs text-muted-foreground">Confirme os dados antes de criar a contratação.</p>
           </div>
-          <button onClick={onClose} aria-label="Fechar" className="p-1.5 hover:bg-gray-100 rounded-lg"><X className="w-4 h-4 text-gray-400" /></button>
+          <button onClick={onClose} aria-label="Fechar" className="p-1.5 hover:bg-secondary rounded-lg"><X className="w-4 h-4 text-subtle" /></button>
         </div>
 
         <div className="p-4 sm:p-5 space-y-4">
-          {error && <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
+          {error && <p className="text-xs text-destructive-texto bg-destructive-suave border border-destructive/20 rounded-lg px-3 py-2">{error}</p>}
           {erros.length > 0 && (
-            <p className="text-xs text-orange-700 bg-orange-50 border border-orange-100 rounded-lg px-3 py-2">{erros.join(' ')}</p>
+            <p className="text-xs text-warning bg-warning-suave border border-warning/20 rounded-lg px-3 py-2">{erros.join(' ')}</p>
           )}
 
           {/* Cliente */}
           <div>
-            <p className="text-xs font-bold text-gray-900 mb-2">Cliente</p>
+            <p className="text-xs font-bold text-foreground mb-2">Cliente</p>
             {clientId ? (
-              <p className="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+              <p className="text-xs text-muted-foreground bg-secondary/60 border border-border rounded-lg px-3 py-2">
                 Vinculado ao cliente já cadastrado. Só os serviços desta negociação serão adicionados.
-                <button onClick={() => setClientId(null)} className="ml-2 text-[#030A8C] font-semibold">trocar</button>
+                <button onClick={() => setClientId(null)} className="ml-2 text-marca-texto font-semibold">trocar</button>
               </p>
             ) : (
               <>
                 {matches?.exact && (
-                  <div className="text-xs text-blue-800 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 mb-2">
+                  <div className="text-xs text-info bg-info-suave border border-info/20 rounded-lg px-3 py-2 mb-2">
                     Já existe cliente com este CPF/CNPJ: <span className="font-semibold">{matches.exact.name}</span>.
                     <button onClick={() => setClientId(matches.exact!.id)} className="ml-2 font-semibold underline">usar este cadastro</button>
                   </div>
                 )}
                 {(matches?.suggestions.length ?? 0) > 0 && (
-                  <div className="text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 mb-2 space-y-1">
+                  <div className="text-xs text-foreground bg-secondary/60 border border-border rounded-lg px-3 py-2 mb-2 space-y-1">
                     <p className="font-semibold">Pode ser um destes cadastros:</p>
                     {matches!.suggestions.map((s) => (
                       <p key={s.id}>
-                        {s.name} <span className="text-gray-400">({s.reason})</span>
-                        <button onClick={() => setClientId(s.id)} className="ml-2 text-[#030A8C] font-semibold">usar</button>
+                        {s.name} <span className="text-subtle">({s.reason})</span>
+                        <button onClick={() => setClientId(s.id)} className="ml-2 text-marca-texto font-semibold">usar</button>
                       </p>
                     ))}
-                    <p className="text-[11px] text-gray-400">Nada é fundido automaticamente.</p>
+                    <p className="text-[11px] text-subtle">Nada é fundido automaticamente.</p>
                   </div>
                 )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div><label className="text-xs font-medium text-gray-600 mb-1 block">Nome *</label><input value={clientName} onChange={(e) => setClientName(e.target.value)} className="input text-sm" /></div>
-                  <div><label className="text-xs font-medium text-gray-600 mb-1 block">Razão social</label><input value={legalName} onChange={(e) => setLegalName(e.target.value)} className="input text-sm" /></div>
-                  <div><label className="text-xs font-medium text-gray-600 mb-1 block">CPF/CNPJ</label><input value={document} onChange={(e) => setDocument(e.target.value)} className="input text-sm" /></div>
-                  <div><label className="text-xs font-medium text-gray-600 mb-1 block">E-mail</label><input value={email} onChange={(e) => setEmail(e.target.value)} className="input text-sm" /></div>
-                  <div><label className="text-xs font-medium text-gray-600 mb-1 block">Telefone</label><input value={phone} onChange={(e) => setPhone(e.target.value)} className="input text-sm" /></div>
-                  <div><label className="text-xs font-medium text-gray-600 mb-1 block">Dia de vencimento</label><input type="number" min={1} max={31} value={paymentDay} onChange={(e) => setPaymentDay(e.target.value)} className="input text-sm" /></div>
-                  <div><label className="text-xs font-medium text-gray-600 mb-1 block">Início da prestação</label><input type="date" value={contractStart} onChange={(e) => setContractStart(e.target.value)} className="input text-sm" /></div>
-                  <div><label className="text-xs font-medium text-gray-600 mb-1 block">Duração (meses)</label><input type="number" min={0} value={contractMonths} onChange={(e) => setContractMonths(e.target.value)} className="input text-sm" /></div>
+                  <div><label className="text-xs font-medium text-muted-foreground mb-1 block">Nome *</label><input value={clientName} onChange={(e) => setClientName(e.target.value)} className="input text-sm" /></div>
+                  <div><label className="text-xs font-medium text-muted-foreground mb-1 block">Razão social</label><input value={legalName} onChange={(e) => setLegalName(e.target.value)} className="input text-sm" /></div>
+                  <div><label className="text-xs font-medium text-muted-foreground mb-1 block">CPF/CNPJ</label><input value={document} onChange={(e) => setDocument(e.target.value)} className="input text-sm" /></div>
+                  <div><label className="text-xs font-medium text-muted-foreground mb-1 block">E-mail</label><input value={email} onChange={(e) => setEmail(e.target.value)} className="input text-sm" /></div>
+                  <div><label className="text-xs font-medium text-muted-foreground mb-1 block">Telefone</label><input value={phone} onChange={(e) => setPhone(e.target.value)} className="input text-sm" /></div>
+                  <div><label className="text-xs font-medium text-muted-foreground mb-1 block">Dia de vencimento</label><input type="number" min={1} max={31} value={paymentDay} onChange={(e) => setPaymentDay(e.target.value)} className="input text-sm" /></div>
+                  <div><label className="text-xs font-medium text-muted-foreground mb-1 block">Início da prestação</label><input type="date" value={contractStart} onChange={(e) => setContractStart(e.target.value)} className="input text-sm" /></div>
+                  <div><label className="text-xs font-medium text-muted-foreground mb-1 block">Duração (meses)</label><input type="number" min={0} value={contractMonths} onChange={(e) => setContractMonths(e.target.value)} className="input text-sm" /></div>
                 </div>
               </>
             )}
@@ -679,56 +679,56 @@ function CloseWonModal({ opp, onClose, onDone }: { opp: Opportunity; onClose: ()
 
           {/* Serviços finais */}
           <div>
-            <p className="text-xs font-bold text-gray-900 mb-2">Serviços contratados</p>
+            <p className="text-xs font-bold text-foreground mb-2">Serviços contratados</p>
             <div className="space-y-2">
               {items.map((i, idx) => (
-                <div key={i.id} className="border border-gray-200 rounded-lg p-3 space-y-2">
+                <div key={i.id} className="border border-border rounded-lg p-3 space-y-2">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-medium text-gray-900">{i.name}</p>
-                    <span className="text-sm font-semibold text-gray-900">{brl(Math.max(0, i.unitCents * Math.max(1, i.quantity) - i.discountCents))}</span>
+                    <p className="text-sm font-medium text-foreground">{i.name}</p>
+                    <span className="text-sm font-semibold text-foreground">{brl(Math.max(0, i.unitCents * Math.max(1, i.quantity) - i.discountCents))}</span>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     <div>
-                      <label className="text-[10px] text-gray-500 block">Tipo</label>
+                      <label className="text-[10px] text-muted-foreground block">Tipo</label>
                       <select value={i.contractType} onChange={(e) => setItems((p) => p.map((x, k) => (k === idx ? { ...x, contractType: e.target.value } : x)))} className="input text-xs">
                         {Object.entries(TYPE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                       </select>
                     </div>
                     {i.contractType === 'AVULSO' ? (
                       <div>
-                        <label className="text-[10px] text-gray-500 block">Competência</label>
+                        <label className="text-[10px] text-muted-foreground block">Competência</label>
                         <input type="month" value={i.competence} onChange={(e) => setItems((p) => p.map((x, k) => (k === idx ? { ...x, competence: e.target.value } : x)))} className="input text-xs" />
                       </div>
                     ) : (
                       <div>
-                        <label className="text-[10px] text-gray-500 block">Início</label>
+                        <label className="text-[10px] text-muted-foreground block">Início</label>
                         <input type="date" value={i.startDate} onChange={(e) => setItems((p) => p.map((x, k) => (k === idx ? { ...x, startDate: e.target.value } : x)))} className="input text-xs" />
                       </div>
                     )}
                     <div>
-                      <label className="text-[10px] text-gray-500 block">Vencimento</label>
+                      <label className="text-[10px] text-muted-foreground block">Vencimento</label>
                       <input type="number" min={1} max={31} value={i.dueDay} onChange={(e) => setItems((p) => p.map((x, k) => (k === idx ? { ...x, dueDay: e.target.value } : x)))} className="input text-xs" placeholder="cliente" />
                     </div>
                     <div>
-                      <label className="text-[10px] text-gray-500 block">Meses</label>
+                      <label className="text-[10px] text-muted-foreground block">Meses</label>
                       <input type="number" min={0} value={i.months ?? ''} onChange={(e) => setItems((p) => p.map((x, k) => (k === idx ? { ...x, months: e.target.value ? Number(e.target.value) : null } : x)))} className="input text-xs" />
                     </div>
                   </div>
                 </div>
               ))}
-              {items.length === 0 && <p className="text-xs text-orange-700">Sem serviços: detalhe o orçamento antes de fechar.</p>}
+              {items.length === 0 && <p className="text-xs text-warning">Sem serviços: detalhe o orçamento antes de fechar.</p>}
             </div>
           </div>
 
-          <p className="text-[11px] text-gray-400">
+          <p className="text-[11px] text-subtle">
             Ao confirmar: o cliente é criado ou vinculado, os serviços entram com as regras financeiras atuais e a classificação é recalculada.
             Nenhuma cobrança é emitida, nenhuma nota é gerada e nenhum pagamento é registrado.
           </p>
         </div>
 
-        <div className="flex justify-end gap-2 p-4 sm:p-5 border-t border-gray-100 sticky bottom-0 bg-white">
-          <button onClick={onClose} disabled={saving} className="px-3 py-2 text-xs font-medium text-gray-600">Cancelar</button>
-          <button onClick={confirm} disabled={saving || erros.length > 0 || items.length === 0} className="flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700 disabled:opacity-40">
+        <div className="flex justify-end gap-2 p-4 sm:p-5 border-t border-border sticky bottom-0 bg-card">
+          <button onClick={onClose} disabled={saving} className="px-3 py-2 text-xs font-medium text-muted-foreground">Cancelar</button>
+          <button onClick={confirm} disabled={saving || erros.length > 0 || items.length === 0} className="flex items-center gap-1.5 px-4 py-2 bg-success text-white rounded-lg text-xs font-semibold hover:brightness-95 disabled:opacity-40">
             {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Confirmar fechamento
           </button>
         </div>
@@ -757,15 +757,15 @@ function ReopenModal({ id, onClose, onDone }: { id: string; onClose: () => void;
   }
 
   return (
-    <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl w-full max-w-sm p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <p className="font-bold text-gray-900 mb-1">Reabrir negociação convertida</p>
-        <p className="text-xs text-gray-500 mb-3">O cliente, os serviços, os pagamentos e os documentos continuam como estão. Fica registrado no histórico.</p>
-        {error && <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-2">{error}</p>}
+    <div className="fixed inset-0 z-[60] bg-veu flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-card rounded-[24px] border border-border w-full max-w-sm p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <p className="font-bold text-foreground mb-1">Reabrir negociação convertida</p>
+        <p className="text-xs text-muted-foreground mb-3">O cliente, os serviços, os pagamentos e os documentos continuam como estão. Fica registrado no histórico.</p>
+        {error && <p className="text-xs text-destructive-texto bg-destructive-suave border border-destructive/20 rounded-lg px-3 py-2 mb-2">{error}</p>}
         <input value={reason} onChange={(e) => setReason(e.target.value)} className="input text-sm" placeholder="Motivo da reabertura" autoFocus />
         <div className="flex justify-end gap-2 mt-4">
-          <button onClick={onClose} disabled={saving} className="px-3 py-2 text-xs font-medium text-gray-600">Cancelar</button>
-          <button onClick={submit} disabled={saving || !reason.trim()} className="px-4 py-2 bg-[#030A8C] text-white rounded-lg text-xs font-semibold disabled:opacity-40">Reabrir</button>
+          <button onClick={onClose} disabled={saving} className="px-3 py-2 text-xs font-medium text-muted-foreground">Cancelar</button>
+          <button onClick={submit} disabled={saving || !reason.trim()} className="px-4 py-2 bg-primary hover:bg-primary-hover text-primary-foreground rounded-lg text-xs font-semibold disabled:opacity-40">Reabrir</button>
         </div>
       </div>
     </div>

@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ArrowDownCircle, ArrowUpCircle, Loader2, Plus, Trash2, Wallet } from 'lucide-react'
 import { CASH_KINDS, brlFromCents, cashLabel, parseAmountCents, type CashKind } from '@/lib/caixa-core'
+import { Button } from '@/components/vex/button'
+import { Destaque, Kpi, Painel } from '@/components/vex/vireo'
 
 interface Movimento {
   id: string
@@ -51,58 +53,55 @@ export default function CaixaPanel() {
   }, [mes])
 
   if (loading && !dados) {
-    return <div className="flex items-center gap-2 text-sm text-gray-400"><Loader2 className="w-4 h-4 animate-spin" /> Carregando caixa...</div>
+    return <div className="flex items-center gap-2 text-sm text-muted-foreground py-4"><Loader2 className="w-4 h-4 animate-spin" /> Carregando caixa...</div>
   }
 
   const t = dados?.totaisDoPeriodo
+  const entra = (kind: string) => kind === 'ENTRADA' || kind === 'APORTE'
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-end justify-between gap-3 flex-wrap">
-        <div>
-          <p className="text-xs text-gray-500">Saldo do caixa</p>
-          <p className={`text-2xl font-bold ${(dados?.saldoCents ?? 0) < 0 ? 'text-red-600' : 'text-gray-900'}`}>
-            {brlFromCents(dados?.saldoCents ?? 0)}
-          </p>
-          <p className="text-[10px] text-gray-400">Soma de tudo que já entrou e saiu, desde o primeiro lançamento.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <input
-            type="month"
-            value={mes}
-            onChange={(e) => setMes(e.target.value)}
-            className="border border-gray-200 rounded-lg px-2 py-2 text-xs text-gray-700 outline-none focus:border-[#030A8C] bg-white"
-          />
-          <button
-            onClick={() => { setNovo(true); setErro('') }}
-            className="flex items-center gap-1.5 px-3 py-2 bg-[#030A8C] text-white text-xs font-semibold rounded-lg hover:bg-[#02077a] transition-colors"
-          >
-            <Plus className="w-3.5 h-3.5" /> Lançar
-          </button>
-        </div>
-      </div>
+    <div className="space-y-5">
+      {/* Saldo do caixa no cartão de destaque, com o mês e o lançamento à direita */}
+      <Destaque
+        rotulo="Saldo do caixa"
+        titulo={<span className={(dados?.saldoCents ?? 0) < 0 ? 'text-destructive-texto' : undefined}>{brlFromCents(dados?.saldoCents ?? 0)}</span>}
+        sub="Soma de tudo que já entrou e saiu, desde o primeiro lançamento."
+        acoes={
+          <>
+            <input
+              type="month"
+              aria-label="Mês do caixa"
+              value={mes}
+              onChange={(e) => setMes(e.target.value)}
+              className="h-10 rounded-xl border border-border bg-card px-3 text-[13px] font-semibold text-foreground outline-none focus:border-marca"
+            />
+            <Button type="button" onClick={() => { setNovo(true); setErro('') }} className="h-10 rounded-xl">
+              <Plus /> Lançar
+            </Button>
+          </>
+        }
+      />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Tile label="Entrou" value={t?.entradasCents ?? 0} tone="green" icon={ArrowUpCircle} />
-        <Tile label="Saiu" value={t?.saidasCents ?? 0} tone="red" icon={ArrowDownCircle} />
-        <Tile label="Retiradas dos sócios" value={t?.retiradasCents ?? 0} tone="amber" icon={Wallet} />
-        <Tile label="Resultado do mês" value={t?.saldoCents ?? 0} tone={(t?.saldoCents ?? 0) < 0 ? 'red' : 'green'} icon={Wallet} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+        <Kpi icone={ArrowUpCircle} tom="sucesso" rotulo="Entrou" valor={brlFromCents(t?.entradasCents ?? 0)} nota={`em ${mesLabel}`} />
+        <Kpi icone={ArrowDownCircle} tom="perigo" rotulo="Saiu" valor={brlFromCents(t?.saidasCents ?? 0)} nota={`em ${mesLabel}`} />
+        <Kpi icone={Wallet} tom="atencao" rotulo="Retiradas dos sócios" valor={brlFromCents(t?.retiradasCents ?? 0)} nota={`em ${mesLabel}`} />
+        <Kpi icone={Wallet} tom={(t?.saldoCents ?? 0) < 0 ? 'perigo' : 'sucesso'} rotulo="Resultado do mês" valor={brlFromCents(t?.saldoCents ?? 0)} alerta={(t?.saldoCents ?? 0) < 0} nota={`em ${mesLabel}`} />
       </div>
 
       {(dados?.retiradasPorSocio.length ?? 0) > 0 && (
-        <div className="card p-3">
-          <p className="text-xs font-semibold text-gray-600 mb-2">Retiradas em {mesLabel}</p>
-          <div className="flex flex-wrap gap-3">
+        <Painel rotulo="Sócios" titulo={`Retiradas em ${mesLabel}`}>
+          <div className="flex flex-wrap gap-3 -mt-1">
             {dados!.retiradasPorSocio.map((r) => (
-              <span key={r.nome} className="text-xs text-gray-700">
-                <b>{r.nome}</b> {brlFromCents(r.cents)}
+              <span key={r.nome} className="inline-flex items-center gap-2 rounded-xl bg-secondary/60 px-3 py-2 text-[13px] text-foreground">
+                <b className="font-semibold">{r.nome}</b> <span className="font-display font-semibold tabular-nums">{brlFromCents(r.cents)}</span>
               </span>
             ))}
           </div>
-        </div>
+        </Painel>
       )}
 
-      {erro && <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{erro}</p>}
+      {erro && <p className="text-[13px] text-destructive-texto bg-destructive-suave rounded-2xl px-4 py-3">{erro}</p>}
 
       {novo && dados && (
         <NovoLancamento
@@ -113,70 +112,65 @@ export default function CaixaPanel() {
         />
       )}
 
-      <div className="card overflow-hidden">
-        <table className="w-full text-xs">
-          <thead className="bg-gray-50 text-gray-500">
-            <tr>
-              <th className="text-left font-medium px-3 py-2">Data</th>
-              <th className="text-left font-medium px-3 py-2">Tipo</th>
-              <th className="text-left font-medium px-3 py-2">Descrição</th>
-              <th className="text-right font-medium px-3 py-2">Valor</th>
-              <th className="px-3 py-2" />
-            </tr>
-          </thead>
-          <tbody>
-            {(dados?.movimentos ?? []).map((m) => (
-              <tr key={m.id} className="border-t border-gray-100">
-                <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{new Date(m.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</td>
-                <td className="px-3 py-2">
-                  <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
-                    m.kind === 'ENTRADA' || m.kind === 'APORTE' ? 'bg-green-100 text-green-700'
-                    : m.kind === 'RETIRADA' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
-                    {cashLabel(m.kind)}
-                  </span>
-                </td>
-                <td className="px-3 py-2 text-gray-800">
-                  {m.description}
-                  {m.partner && <span className="text-gray-400"> · {m.partner.name}</span>}
-                  {m.source === 'IA' && <span className="text-[10px] text-purple-600"> · pela IA</span>}
-                </td>
-                <td className={`px-3 py-2 text-right font-semibold whitespace-nowrap ${m.kind === 'ENTRADA' || m.kind === 'APORTE' ? 'text-green-700' : 'text-red-600'}`}>
-                  {m.kind === 'ENTRADA' || m.kind === 'APORTE' ? '+' : '−'} {brlFromCents(m.amountCents)}
-                </td>
-                <td className="px-3 py-2 text-right">
-                  <button
-                    onClick={async () => {
-                      if (!confirm(`Remover "${m.description}" do caixa?`)) return
-                      const r = await fetch(`/api/caixa/${m.id}`, { method: 'DELETE' })
-                      if (r.ok) { setLoading(true); await carregar() } else setErro('Não consegui remover.')
-                    }}
-                    className="text-gray-300 hover:text-red-500 transition-colors"
-                    aria-label="Remover"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </td>
+      <Painel rotulo="Extrato" titulo="Movimentos do mês" sub={mesLabel} semPadding className="overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[640px]">
+            <thead className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground bg-secondary/60">
+              <tr className="border-y border-border">
+                <th className="text-left font-semibold px-6 py-3">Data</th>
+                <th className="text-left font-semibold px-3 py-3">Tipo</th>
+                <th className="text-left font-semibold px-3 py-3">Descrição</th>
+                <th className="text-right font-semibold px-3 py-3">Valor</th>
+                <th className="px-6 py-3"><span className="sr-only">Ações</span></th>
               </tr>
-            ))}
-            {(dados?.movimentos.length ?? 0) === 0 && (
-              <tr><td colSpan={5} className="px-3 py-8 text-center text-gray-400">Nenhum lançamento em {mesLabel}.</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {(dados?.movimentos ?? []).map((m) => (
+                <tr key={m.id} className="hover:bg-secondary/40 transition-colors">
+                  <td className="px-6 py-4 text-[13px] text-muted-foreground whitespace-nowrap tabular-nums">{new Date(m.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</td>
+                  <td className="px-3 py-4">
+                    <span className={`text-[11.5px] font-semibold px-2.5 py-1 rounded-full whitespace-nowrap ${
+                      entra(m.kind) ? 'bg-success-suave text-success'
+                      : m.kind === 'RETIRADA' ? 'bg-warning-suave text-warning' : 'bg-destructive-suave text-destructive-texto'}`}>
+                      {cashLabel(m.kind)}
+                    </span>
+                  </td>
+                  <td className="px-3 py-4 text-[13px] text-foreground">
+                    {m.description}
+                    {m.partner && <span className="text-muted-foreground"> · {m.partner.name}</span>}
+                    {m.source === 'IA' && <span className="text-[11px] font-semibold text-ia"> · pela IA</span>}
+                  </td>
+                  <td className={`px-3 py-4 text-right font-display text-[14px] font-semibold whitespace-nowrap tabular-nums ${entra(m.kind) ? 'text-success' : 'text-destructive-texto'}`}>
+                    {entra(m.kind) ? '+' : '−'} {brlFromCents(m.amountCents)}
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <button
+                      onClick={async () => {
+                        if (!confirm(`Remover "${m.description}" do caixa?`)) return
+                        const r = await fetch(`/api/caixa/${m.id}`, { method: 'DELETE' })
+                        if (r.ok) { setLoading(true); await carregar() } else setErro('Não consegui remover.')
+                      }}
+                      className="w-8 h-8 inline-flex items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive-suave hover:text-destructive-texto transition-colors"
+                      aria-label="Remover"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {(dados?.movimentos.length ?? 0) === 0 && (
+                <tr><td colSpan={5} className="px-6 py-14 text-center t-legenda">Nenhum lançamento em {mesLabel}.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Painel>
     </div>
   )
 }
 
-function Tile({ label, value, tone, icon: Icon }: { label: string; value: number; tone: 'green' | 'red' | 'amber'; icon: React.ElementType }) {
-  const cor = tone === 'green' ? 'text-green-700' : tone === 'red' ? 'text-red-600' : 'text-amber-700'
-  return (
-    <div className="card p-3">
-      <p className="text-[10px] text-gray-500 flex items-center gap-1"><Icon className="w-3 h-3" /> {label}</p>
-      <p className={`text-base font-bold ${cor}`}>{brlFromCents(value)}</p>
-    </div>
-  )
-}
+const CAMPO = 'w-full h-10 border border-border rounded-xl px-3 text-[13px] text-foreground bg-card outline-none focus:border-marca'
+const ROTULO = 'block text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-1'
 
 function NovoLancamento({ socios, onClose, onSaved, setErro }: {
   socios: Array<{ id: string; name: string }>
@@ -206,80 +200,55 @@ function NovoLancamento({ socios, onClose, onSaved, setErro }: {
   }
 
   return (
-    <div className="card p-4 space-y-3">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <div>
-          <label className="block text-[10px] text-gray-500 mb-1">Tipo</label>
-          <select
-            value={form.kind}
-            onChange={(e) => set('kind', e.target.value as CashKind)}
-            className="w-full border border-gray-200 rounded-lg px-2 py-2 text-xs text-gray-900 outline-none focus:border-[#030A8C] bg-white"
-          >
-            {CASH_KINDS.map((k) => <option key={k.key} value={k.key}>{k.label}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="block text-[10px] text-gray-500 mb-1">Valor</label>
-          <input
-            value={form.valor}
-            onChange={(e) => set('valor', e.target.value)}
-            placeholder="1.500,00"
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 outline-none focus:border-[#030A8C] bg-white"
-          />
-        </div>
-        <div>
-          <label className="block text-[10px] text-gray-500 mb-1">Data</label>
-          <input
-            type="date"
-            value={form.date}
-            onChange={(e) => set('date', e.target.value)}
-            className="w-full border border-gray-200 rounded-lg px-2 py-2 text-xs text-gray-900 outline-none focus:border-[#030A8C] bg-white"
-          />
-        </div>
-        {(form.kind === 'RETIRADA' || form.kind === 'APORTE') && (
+    <Painel rotulo="Caixa" titulo="Novo lançamento">
+      <div className="space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div>
-            <label className="block text-[10px] text-gray-500 mb-1">Sócio</label>
-            <select
-              value={form.partnerId}
-              onChange={(e) => set('partnerId', e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-2 py-2 text-xs text-gray-900 outline-none focus:border-[#030A8C] bg-white"
-            >
-              <option value="">Escolha</option>
-              {socios.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            <label className={ROTULO}>Tipo</label>
+            <select value={form.kind} onChange={(e) => set('kind', e.target.value as CashKind)} className={CAMPO}>
+              {CASH_KINDS.map((k) => <option key={k.key} value={k.key}>{k.label}</option>)}
             </select>
           </div>
-        )}
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="sm:col-span-2">
-          <label className="block text-[10px] text-gray-500 mb-1">Do que se trata</label>
-          <input
-            value={form.description}
-            onChange={(e) => set('description', e.target.value)}
-            placeholder="Pró-labore de setembro, plano de saúde, recebimento da Promo Prime..."
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 outline-none focus:border-[#030A8C] bg-white"
-          />
+          <div>
+            <label className={ROTULO}>Valor</label>
+            <input value={form.valor} onChange={(e) => set('valor', e.target.value)} placeholder="1.500,00" className={CAMPO} />
+          </div>
+          <div>
+            <label className={ROTULO}>Data</label>
+            <input type="date" value={form.date} onChange={(e) => set('date', e.target.value)} className={CAMPO} />
+          </div>
+          {(form.kind === 'RETIRADA' || form.kind === 'APORTE') && (
+            <div>
+              <label className={ROTULO}>Sócio</label>
+              <select value={form.partnerId} onChange={(e) => set('partnerId', e.target.value)} className={CAMPO}>
+                <option value="">Escolha</option>
+                {socios.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </div>
+          )}
         </div>
-        <div>
-          <label className="block text-[10px] text-gray-500 mb-1">Conta (opcional)</label>
-          <input
-            value={form.account}
-            onChange={(e) => set('account', e.target.value)}
-            placeholder="Nubank, Asaas..."
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 outline-none focus:border-[#030A8C] bg-white"
-          />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="sm:col-span-2">
+            <label className={ROTULO}>Do que se trata</label>
+            <input
+              value={form.description}
+              onChange={(e) => set('description', e.target.value)}
+              placeholder="Pró-labore de setembro, plano de saúde, recebimento da Promo Prime..."
+              className={CAMPO}
+            />
+          </div>
+          <div>
+            <label className={ROTULO}>Conta (opcional)</label>
+            <input value={form.account} onChange={(e) => set('account', e.target.value)} placeholder="Nubank, Asaas..." className={CAMPO} />
+          </div>
+        </div>
+        <div className="flex items-center gap-2 pt-1">
+          <Button type="button" onClick={salvar} disabled={salvando}>
+            {salvando ? 'Salvando...' : 'Lançar no caixa'}
+          </Button>
+          <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
         </div>
       </div>
-      <div className="flex items-center gap-2">
-        <button
-          onClick={salvar}
-          disabled={salvando}
-          className="px-4 py-2 bg-[#030A8C] text-white text-xs font-semibold rounded-lg hover:bg-[#02077a] disabled:opacity-40 transition-colors"
-        >
-          {salvando ? 'Salvando...' : 'Lançar no caixa'}
-        </button>
-        <button onClick={onClose} className="px-3 py-2 text-xs text-gray-500 hover:text-gray-700">Cancelar</button>
-      </div>
-    </div>
+    </Painel>
   )
 }

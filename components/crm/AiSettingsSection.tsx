@@ -105,31 +105,31 @@ export default function AiSettingsSection() {
         type="checkbox"
         checked={form[key] === 'true'}
         onChange={(e) => set(key, e.target.checked ? 'true' : 'false')}
-        className="mt-0.5 accent-[#030A8C]"
+        className="mt-0.5 accent-marca"
       />
       <span className="min-w-0">
-        <span className="block text-xs text-gray-700 font-medium">{label}</span>
-        <span className="block text-[10px] text-gray-400 leading-snug">{hint}</span>
+        <span className="block text-xs text-foreground font-medium">{label}</span>
+        <span className="block text-[10px] text-subtle leading-snug">{hint}</span>
       </span>
     </label>
   )
 
   return (
     <div className="space-y-3">
-      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
-        <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+        <Sparkles className="w-3.5 h-3.5 text-ia" />
         Assistente de IA
       </p>
 
       <div>
-        <label className="block text-xs text-gray-500 mb-1">Motor do assistente</label>
+        <label className="block text-xs text-muted-foreground mb-1">Motor do assistente</label>
         <select
           value={form.AI_PROVIDER}
           onChange={(e) => {
             const provider = e.target.value
             setForm((f) => ({ ...f, AI_PROVIDER: provider, AI_AGENT_MODEL: provider === 'gemini' ? 'gemini-3.5-flash' : 'claude-sonnet-5' }))
           }}
-          className="w-full border border-gray-200 rounded-lg px-2 py-2 text-xs text-gray-900 outline-none focus:border-[#030A8C] bg-white"
+          className="w-full border border-border rounded-lg px-2 py-2 text-xs text-foreground outline-none focus:border-marca bg-card"
         >
           <option value="gemini">Google Gemini — comandos por texto e áudio</option>
           <option value="anthropic">Anthropic Claude — comandos por texto (áudio precisa da chave Gemini)</option>
@@ -137,42 +137,42 @@ export default function AiSettingsSection() {
       </div>
 
       <div>
-        <label className="block text-xs text-gray-500 mb-1">Chave da API Gemini</label>
+        <label className="block text-xs text-muted-foreground mb-1">Chave da API Gemini</label>
         <input
           value={form.GEMINI_API_KEY}
           onChange={(e) => set('GEMINI_API_KEY', e.target.value)}
           placeholder={geminiKeyIsSet ? '•••••••• (salva — preencha para trocar)' : 'AIza... ou AQ....'}
           type="password"
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 outline-none focus:border-[#030A8C] bg-white"
+          className="w-full border border-border rounded-lg px-3 py-2 text-xs text-foreground outline-none focus:border-marca bg-card"
         />
-        <p className="text-[10px] text-gray-400 mt-1">
+        <p className="text-[10px] text-subtle mt-1">
           Guardada criptografada. Transcreve os áudios recebidos e, se for o motor escolhido, executa os comandos.
         </p>
       </div>
 
       <div>
-        <label className="block text-xs text-gray-500 mb-1">Chave da API Anthropic</label>
+        <label className="block text-xs text-muted-foreground mb-1">Chave da API Anthropic</label>
         <input
           value={form.ANTHROPIC_API_KEY}
           onChange={(e) => set('ANTHROPIC_API_KEY', e.target.value)}
           placeholder={keyIsSet ? '•••••••• (salva — preencha para trocar)' : 'sk-ant-...'}
           type="password"
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 outline-none focus:border-[#030A8C] bg-white"
+          className="w-full border border-border rounded-lg px-3 py-2 text-xs text-foreground outline-none focus:border-marca bg-card"
         />
-        <p className="text-[10px] text-gray-400 mt-1">
+        <p className="text-[10px] text-subtle mt-1">
           Guardada criptografada. Você paga por uso direto à Anthropic.
         </p>
       </div>
 
       <div>
-        <label className="block text-xs text-gray-500 mb-1">Números que comandam a IA</label>
+        <label className="block text-xs text-muted-foreground mb-1">Números que comandam a IA</label>
         <input
           value={form.AI_COMMAND_NUMBERS}
           onChange={(e) => set('AI_COMMAND_NUMBERS', e.target.value)}
           placeholder="5511999998888, 5511888887777"
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 outline-none focus:border-[#030A8C] bg-white"
+          className="w-full border border-border rounded-lg px-3 py-2 text-xs text-foreground outline-none focus:border-marca bg-card"
         />
-        <p className="text-[10px] text-gray-400 mt-1 leading-snug">
+        <p className="text-[10px] text-subtle mt-1 leading-snug">
           Seu número pessoal, com DDI e DDD, separados por vírgula. Mande mensagem
           para o WhatsApp da agência a partir dele e a IA responde. Qualquer outro
           número é tratado como cliente comum.
@@ -193,11 +193,11 @@ export default function AiSettingsSection() {
       </div>
 
       <div>
-        <label className="block text-xs text-gray-500 mb-1">Modelo do assistente</label>
+        <label className="block text-xs text-muted-foreground mb-1">Modelo do assistente</label>
         <select
           value={form.AI_AGENT_MODEL}
           onChange={(e) => set('AI_AGENT_MODEL', e.target.value)}
-          className="w-full border border-gray-200 rounded-lg px-2 py-2 text-xs text-gray-900 outline-none focus:border-[#030A8C] bg-white"
+          className="w-full border border-border rounded-lg px-2 py-2 text-xs text-foreground outline-none focus:border-marca bg-card"
         >
           {(form.AI_PROVIDER === 'gemini' ? GEMINI_MODELS : AGENT_MODELS).map((m) => (
             <option key={m.value} value={m.value}>{m.label}</option>
@@ -206,11 +206,11 @@ export default function AiSettingsSection() {
       </div>
 
       <div>
-        <label className="block text-xs text-gray-500 mb-1">Modelo dos rascunhos</label>
+        <label className="block text-xs text-muted-foreground mb-1">Modelo dos rascunhos</label>
         <select
           value={form.AI_DRAFT_MODEL}
           onChange={(e) => set('AI_DRAFT_MODEL', e.target.value)}
-          className="w-full border border-gray-200 rounded-lg px-2 py-2 text-xs text-gray-900 outline-none focus:border-[#030A8C] bg-white"
+          className="w-full border border-border rounded-lg px-2 py-2 text-xs text-foreground outline-none focus:border-marca bg-card"
         >
           {DRAFT_MODELS.map((m) => (
             <option key={m.value} value={m.value}>{m.label}</option>
@@ -221,7 +221,7 @@ export default function AiSettingsSection() {
       <button
         onClick={save}
         disabled={saving}
-        className="w-full py-2 bg-[#030A8C] text-white text-xs font-semibold rounded-lg hover:bg-[#02077a] disabled:opacity-40 transition-colors flex items-center justify-center gap-2"
+        className="w-full py-2 bg-primary text-primary-foreground text-xs font-semibold rounded-lg hover:bg-primary-hover disabled:opacity-40 transition-colors flex items-center justify-center gap-2"
       >
         {saving ? (
           <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Salvando...</>

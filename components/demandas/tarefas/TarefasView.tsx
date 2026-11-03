@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { MousePointerClick } from 'lucide-react'
 import ListaTarefas, { filtrarPorRecorte, ordenarPorPrazo, type Recorte } from './ListaTarefas'
 import ResumoTarefa from './ResumoTarefa'
 import type { Option, ProcessOption, Task } from '../types'
@@ -76,8 +75,8 @@ export default function TarefasView({
   const pessoasDaEquipe = useMemo(() => users.filter((u) => tasks.some((t) => t.assignee?.id === u.id)), [users, tasks])
 
   return (
-    <div className="flex-1 min-h-0 grid lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-2 px-2 pb-2">
-      <aside className={`min-h-0 rounded-[12px] border border-border bg-card overflow-hidden ${selecionada ? 'hidden lg:block' : 'block'}`}>
+    <div className={`flex-1 min-h-0 grid gap-4 px-4 sm:px-8 pb-6 ${selecionada ? 'lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]' : ''}`}>
+      <aside className={`min-h-0 rounded-[24px] border border-border bg-card overflow-hidden shadow-[0_1px_2px_rgba(16,24,40,0.04)] ${selecionada ? 'hidden lg:block' : 'block'}`}>
         <ListaTarefas
           tarefas={visiveis}
           total={contagem.abertas}
@@ -92,8 +91,9 @@ export default function TarefasView({
         />
       </aside>
 
-      <section className={`min-h-0 rounded-[12px] border border-border bg-card overflow-hidden ${selecionada ? 'block' : 'hidden lg:block'}`}>
-        {selecionada ? (
+      {/* Resumo da tarefa ao lado; sem tarefa aberta, a lista ocupa a largura toda */}
+      {selecionada && (
+        <section className="min-h-0 rounded-[24px] border border-border bg-card overflow-hidden shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
           <ResumoTarefa
             key={selecionada}
             taskId={selecionada}
@@ -104,14 +104,8 @@ export default function TarefasView({
             onChanged={onReload}
             onVoltar={() => selecionar(null)}
           />
-        ) : (
-          <div className="h-full flex flex-col items-center justify-center text-center p-8">
-            <MousePointerClick className="w-7 h-7 text-subtle mb-3" />
-            <p className="t-secao text-foreground">Selecione uma tarefa</p>
-            <p className="t-rotulo text-muted-foreground mt-1 max-w-xs">O resumo aparece aqui: o que fazer agora, o briefing, comentários e histórico.</p>
-          </div>
-        )}
-      </section>
+        </section>
+      )}
     </div>
   )
 }

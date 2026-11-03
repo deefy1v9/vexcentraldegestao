@@ -1,7 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { CheckCircle2, FileUp, Link2, Loader2, RefreshCw, Undo2 } from 'lucide-react'
+import { CheckCircle2, FileUp, Landmark, Link2, Loader2, RefreshCw, Undo2 } from 'lucide-react'
+import { Chip, Numero, Pilulas, Sobretitulo } from '@/components/vex/vireo'
 import { COST_CATEGORIES } from '@/components/financeiro/EntryForms'
 
 interface Mov { id: string; kind: string; amountCents: number; description: string; dia: string }
@@ -120,77 +121,82 @@ export default function ConciliacaoTab() {
     await carregar()
   }
 
-  if (erro) return <p className="text-sm font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-3 text-center">{erro}</p>
-  if (!d) return <div className="flex items-center gap-2 text-sm text-gray-400 py-6"><Loader2 className="w-4 h-4 animate-spin" /> Carregando conciliação...</div>
+  if (erro) return <p className="text-sm font-medium text-destructive-texto bg-destructive-suave border border-destructive/20 rounded-2xl px-4 py-3 text-center">{erro}</p>
+  if (!d) return <div className="flex items-center gap-2 text-sm text-muted-foreground py-6"><Loader2 className="w-4 h-4 animate-spin" /> Carregando conciliação...</div>
 
   const diferenca = d.saldoBancosCents === null ? null : d.saldoBancosCents - d.saldoCentralCents
 
   return (
-    <div className="space-y-4 py-2">
+    <div className="space-y-5 py-1">
       {/* Situação: responsável, contas e saldo do banco contra o da Central */}
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-3">
-        <div className="bg-white border border-gray-200 rounded-2xl p-4 space-y-3">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-5">
+        <div className="rounded-[24px] border border-border bg-card shadow-[0_1px_2px_rgba(16,24,40,0.04)] p-6 space-y-4">
           <div>
-            <p className="text-[11px] uppercase tracking-wide text-gray-400 font-medium">Responsável</p>
-            <select value={d.responsavel?.id ?? ''} onChange={(e) => trocarResponsavel(e.target.value)} className="mt-1 h-9 w-full rounded-lg border border-gray-200 bg-white px-2 text-sm">
+            <Sobretitulo>Responsável</Sobretitulo>
+            <select value={d.responsavel?.id ?? ''} onChange={(e) => trocarResponsavel(e.target.value)} className="mt-2 h-10 w-full rounded-xl border border-border bg-card px-3 text-[13.5px] text-foreground outline-none focus:border-marca">
               {d.admins.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
-            <p className="text-[11px] text-gray-500 mt-1">Todo dia às 23h, se a conta não está conciliada até o dia, recebe a demanda “Subir extrato” e o aviso no WhatsApp. A demanda se fecha sozinha quando o extrato chega.</p>
+            <p className="t-legenda mt-2">Todo dia às 23h, se a conta não está conciliada até o dia, recebe a demanda “Subir extrato” e o aviso no WhatsApp. A demanda se fecha sozinha quando o extrato chega.</p>
           </div>
-          <div className="border-t border-gray-100 pt-3">
-            <p className="text-[11px] uppercase tracking-wide text-gray-400 font-medium">Saldo</p>
-            <div className="flex justify-between text-sm mt-1"><span className="text-gray-600">Bancos (último extrato de cada conta)</span><span className="font-semibold tabular-nums">{d.saldoBancosCents === null ? '—' : brl(d.saldoBancosCents)}</span></div>
-            <div className="flex justify-between text-sm"><span className="text-gray-600">Caixa da Central</span><span className="font-semibold tabular-nums">{brl(d.saldoCentralCents)}</span></div>
+          <div className="border-t border-border pt-4">
+            <Sobretitulo>Saldo</Sobretitulo>
+            <div className="flex justify-between gap-3 text-[13.5px] mt-2"><span className="text-muted-foreground">Bancos (último extrato de cada conta)</span><span className="font-display font-semibold text-foreground tabular-nums">{d.saldoBancosCents === null ? '—' : brl(d.saldoBancosCents)}</span></div>
+            <div className="flex justify-between gap-3 text-[13.5px] mt-1.5"><span className="text-muted-foreground">Caixa da Central</span><span className="font-display font-semibold text-foreground tabular-nums">{brl(d.saldoCentralCents)}</span></div>
             {diferenca !== null && (
-              <p className={`text-xs mt-2 font-medium ${diferenca === 0 ? 'text-green-700' : 'text-amber-700'}`}>
+              <p className={`text-[12px] mt-3 font-medium rounded-xl px-3 py-2 ${diferenca === 0 ? 'bg-success-suave text-success' : 'bg-warning-suave text-warning'}`}>
                 {diferenca === 0 ? 'Bate com o banco.' : `Diferença de ${brl(diferenca)}: falta conciliar algo ou há dinheiro que ainda não caiu.`}
               </p>
             )}
           </div>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-5">
           <label
             onDragOver={(e) => { e.preventDefault(); setArrastando(true) }}
             onDragLeave={() => setArrastando(false)}
             onDrop={(e) => { e.preventDefault(); setArrastando(false); const f = e.dataTransfer.files?.[0]; if (f) subir(f) }}
-            className={`flex items-center gap-3 rounded-2xl border-2 border-dashed px-4 py-4 cursor-pointer transition-colors ${arrastando ? 'border-[#030A8C] bg-[#030A8C]/5' : 'border-gray-200 bg-white hover:border-[#030A8C]/50'}`}
+            className={`flex items-center gap-4 rounded-[24px] border-2 border-dashed px-6 py-5 cursor-pointer transition-colors ${arrastando ? 'border-marca bg-marca-suave' : 'border-border bg-card hover:border-marca/50'}`}
           >
-            {enviando ? <Loader2 className="w-6 h-6 text-[#030A8C] animate-spin shrink-0" /> : <FileUp className="w-6 h-6 text-[#030A8C] shrink-0" />}
+            {enviando ? <span className="w-11 h-11 rounded-xl grid place-items-center bg-marca-suave text-marca-texto shrink-0"><Loader2 className="w-5 h-5 animate-spin" /></span> : <Chip icone={FileUp} tom="marca" tamanho="lg" />}
             <div className="text-sm">
-              <p className="font-semibold text-gray-900">{enviando ? 'Lendo o extrato…' : 'Subir extrato'}</p>
-              <p className="text-xs text-gray-500">Arraste ou clique: PDF do Santander Empresas ou do Nubank PJ, ou arquivo OFX. Pode subir o mesmo período de novo, a Central não duplica.</p>
+              <p className="font-display text-[16px] font-semibold text-foreground">{enviando ? 'Lendo o extrato…' : 'Subir extrato'}</p>
+              <p className="t-legenda mt-0.5">Arraste ou clique: PDF do Santander Empresas ou do Nubank PJ, ou arquivo OFX. Pode subir o mesmo período de novo, a Central não duplica.</p>
             </div>
             <input type="file" accept=".pdf,.ofx,application/pdf" className="hidden" disabled={enviando} onChange={(e) => { const f = e.target.files?.[0]; if (f) subir(f); e.target.value = '' }} />
           </label>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {d.contas.length === 0 && <p className="text-xs text-gray-400">Nenhum extrato ainda. Suba o primeiro acima.</p>}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {d.contas.length === 0 && <p className="t-legenda">Nenhum extrato ainda. Suba o primeiro acima.</p>}
             {d.contas.map((c) => (
-              <button key={c.conta} type="button" onClick={() => setConta(conta === c.conta ? '' : c.conta)} className={`text-left bg-white border rounded-xl p-3 transition-colors ${conta === c.conta ? 'border-[#030A8C]' : 'border-gray-200 hover:border-gray-300'}`}>
-                <p className="font-semibold text-sm text-gray-900 truncate">{c.conta}</p>
-                <p className="text-xs text-gray-500 mt-0.5">Conciliado até <strong className={c.conciliadoAte === c.cobertoAte ? 'text-green-700' : 'text-amber-700'}>{br(c.conciliadoAte)}</strong> · extrato até {br(c.cobertoAte)}</p>
-                <p className="text-xs text-gray-500">{c.pendentes} pendente(s) · {c.conciliadas} conciliada(s) · {c.ignoradas} ignorada(s){c.saldoBancoCents !== null ? ` · saldo ${brl(c.saldoBancoCents)}` : ''}</p>
+              <button key={c.conta} type="button" onClick={() => setConta(conta === c.conta ? '' : c.conta)} aria-pressed={conta === c.conta} className={`text-left rounded-[20px] border p-5 transition-colors ${conta === c.conta ? 'border-marca/40 bg-marca-suave' : 'border-border bg-card hover:border-marca/30'}`}>
+                <div className="flex items-center gap-3"><Chip icone={Landmark} tom={conta === c.conta ? 'marca' : 'neutro'} /><p className="font-display font-semibold text-[15px] text-foreground truncate">{c.conta}</p></div>
+                <p className="t-legenda mt-3">Conciliado até <strong className={c.conciliadoAte === c.cobertoAte ? 'text-success' : 'text-warning'}>{br(c.conciliadoAte)}</strong> · extrato até {br(c.cobertoAte)}</p>
+                <p className="t-legenda">{c.pendentes} pendente(s) · {c.conciliadas} conciliada(s) · {c.ignoradas} ignorada(s){c.saldoBancoCents !== null ? ` · saldo ${brl(c.saldoBancoCents)}` : ''}</p>
               </button>
             ))}
           </div>
         </div>
       </div>
 
-      {aviso && <p className="text-xs font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5">{aviso}</p>}
+      {aviso && <p className="text-[13px] font-medium text-foreground bg-info-suave border border-info/20 rounded-2xl px-4 py-3">{aviso}</p>}
 
-      <div className="flex items-center gap-2 flex-wrap">
-        {FILTROS.map(([v, rotulo]) => (
-          <button key={v} type="button" onClick={() => setStatus(v)} className={`h-8 px-3 rounded-full border text-xs font-medium ${status === v ? 'border-[#030A8C] bg-[#030A8C] text-white' : 'border-gray-200 bg-white text-gray-600 hover:border-[#030A8C]'}`}>{rotulo}</button>
-        ))}
-        {conta && <span className="text-xs text-gray-500">· só {conta}</span>}
-        <button type="button" onClick={reconciliar} disabled={enviando} className="ml-auto h-8 px-3 inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white text-xs font-semibold text-gray-700 hover:border-[#030A8C] hover:text-[#030A8C] disabled:opacity-50">
-          <RefreshCw className="w-3.5 h-3.5" /> Conciliar de novo
-        </button>
-      </div>
+      <section className="rounded-[24px] border border-border bg-card shadow-[0_1px_2px_rgba(16,24,40,0.04)] overflow-hidden">
+        <div className="flex items-start justify-between gap-3 flex-wrap px-6 pt-6 pb-4">
+          <div className="min-w-0">
+            <Sobretitulo>Extrato</Sobretitulo>
+            <h2 className="mt-1 font-display text-[21px] font-semibold tracking-[-0.01em] text-foreground">Linhas do banco</h2>
+            <p className="t-legenda mt-0.5">{conta ? `Só ${conta}` : 'Todas as contas'} · <Numero className="text-[12px]">{d.linhas.length}</Numero> linha(s)</p>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Pilulas rotulo="Situação das linhas" valor={status} aoMudar={setStatus} opcoes={FILTROS.map(([v, rotulo]) => ({ valor: v as string, rotulo }))} />
+            <button type="button" onClick={reconciliar} disabled={enviando} className="h-9 px-3 inline-flex items-center gap-1.5 rounded-xl border border-border bg-card text-[12.5px] font-semibold text-foreground hover:border-marca/40 hover:text-marca-texto disabled:opacity-50">
+              <RefreshCw className="w-3.5 h-3.5" /> Conciliar de novo
+            </button>
+          </div>
+        </div>
 
-      <div className="bg-white border border-gray-200 rounded-2xl divide-y divide-gray-100">
-        {d.linhas.length === 0 && <p className="text-sm text-gray-400 px-4 py-6 text-center">{status === 'PENDENTE' ? 'Nada pendente. Tudo conciliado.' : 'Nenhuma linha.'}</p>}
+        <div className="border-t border-border divide-y divide-border">
+        {d.linhas.length === 0 && <p className="t-legenda px-6 py-14 text-center">{status === 'PENDENTE' ? 'Nada pendente. Tudo conciliado.' : 'Nenhuma linha.'}</p>}
         {d.linhas.map((l) => (
           <LinhaExtrato
             key={l.id}
@@ -203,7 +209,8 @@ export default function ConciliacaoTab() {
             onAgir={(corpo) => agir(l.id, corpo)}
           />
         ))}
-      </div>
+        </div>
+      </section>
     </div>
   )
 }
@@ -229,77 +236,77 @@ function LinhaExtrato({
   const comSocio = kind === 'RETIRADA' || kind === 'APORTE'
 
   return (
-    <div className="px-4 py-3">
+    <div className="px-6 py-4 hover:bg-secondary/30 transition-colors">
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-sm text-gray-900 truncate"><span className="text-gray-400 tabular-nums mr-2">{br(l.data)}</span>{l.descricao}</p>
-          <p className="text-[11px] text-gray-400 truncate">{l.conta}{l.documento ? ` · doc ${l.documento}` : ''}</p>
+          <p className="text-[13.5px] font-medium text-foreground truncate"><span className="text-muted-foreground font-normal tabular-nums mr-2">{br(l.data)}</span>{l.descricao}</p>
+          <p className="t-legenda truncate">{l.conta}{l.documento ? ` · doc ${l.documento}` : ''}</p>
         </div>
-        <span className={`text-sm font-semibold tabular-nums shrink-0 ${entra ? 'text-green-700' : 'text-red-600'}`}>{brl(l.valorCents)}</span>
+        <span className={`font-display text-[15px] font-semibold tabular-nums shrink-0 ${entra ? 'text-success' : 'text-destructive-texto'}`}>{brl(l.valorCents)}</span>
       </div>
 
       {l.status === 'CONCILIADO' && (
         <div className="mt-1.5 flex items-start gap-2 text-xs">
-          <CheckCircle2 className="w-3.5 h-3.5 text-green-600 shrink-0 mt-0.5" />
-          <span className="text-gray-600 flex-1">
+          <CheckCircle2 className="w-3.5 h-3.5 text-success shrink-0 mt-0.5" />
+          <span className="text-muted-foreground flex-1">
             {l.auto ? 'A Central casou com ' : 'Casada com '}
             {l.movimentos.map((m) => `${m.description} (${brl(m.amountCents)} em ${br(m.dia)})`).join(' + ')}
-            {l.diferencaCents !== 0 && <span className="text-amber-700 font-medium"> · diferença de {brl(l.diferencaCents)}</span>}
+            {l.diferencaCents !== 0 && <span className="text-warning font-medium"> · diferença de {brl(l.diferencaCents)}</span>}
           </span>
-          <button type="button" disabled={ocupada} onClick={() => onAgir({ acao: 'desfazer' })} className="inline-flex items-center gap-1 text-gray-500 hover:text-[#030A8C]"><Undo2 className="w-3 h-3" />Desfazer</button>
+          <button type="button" disabled={ocupada} onClick={() => onAgir({ acao: 'desfazer' })} className="inline-flex items-center gap-1 text-muted-foreground hover:text-marca-texto"><Undo2 className="w-3 h-3" />Desfazer</button>
         </div>
       )}
       {l.status === 'IGNORADO' && (
-        <div className="mt-1.5 flex items-center gap-2 text-xs text-gray-500">
+        <div className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground">
           <span className="flex-1">{MOTIVO[l.motivo ?? 'OUTRO']}{l.auto ? ' (a Central lembrou)' : ''}</span>
-          <button type="button" disabled={ocupada} onClick={() => onAgir({ acao: 'desfazer' })} className="inline-flex items-center gap-1 hover:text-[#030A8C]"><Undo2 className="w-3 h-3" />Desfazer</button>
+          <button type="button" disabled={ocupada} onClick={() => onAgir({ acao: 'desfazer' })} className="inline-flex items-center gap-1 hover:text-marca-texto"><Undo2 className="w-3 h-3" />Desfazer</button>
         </div>
       )}
 
       {l.status === 'PENDENTE' && (
         <div className="mt-2 space-y-2">
-          {sug?.daCasa && <p className="text-[11px] text-gray-500">Pix com o CNPJ da própria VEX: costuma ser transferência entre contas ou saque do Asaas.</p>}
+          {sug?.daCasa && <p className="t-legenda">Pix com o CNPJ da própria VEX: costuma ser transferência entre contas ou saque do Asaas.</p>}
           <div className="flex flex-wrap gap-1.5">
             {sug?.movimentos.map((m) => (
-              <button key={m.id} type="button" disabled={ocupada} onClick={() => onAgir({ acao: 'vincular', movimentos: [m.id] })} className="h-7 px-2.5 inline-flex items-center gap-1 rounded-md border border-[#030A8C]/30 bg-[#030A8C]/5 text-[11px] font-medium text-[#030A8C] hover:bg-[#030A8C]/10 max-w-full">
+              <button key={m.id} type="button" disabled={ocupada} onClick={() => onAgir({ acao: 'vincular', movimentos: [m.id] })} className="h-8 px-3 inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/5 text-[12px] font-medium text-primary hover:bg-primary/10 max-w-full">
                 <Link2 className="w-3 h-3 shrink-0" /><span className="truncate">{m.description} · {brl(m.amountCents)} · {br(m.dia)}</span>
               </button>
             ))}
-            <button type="button" onClick={onAbrir} className="h-7 px-2.5 rounded-md border border-gray-200 text-[11px] font-semibold text-gray-700 hover:border-[#030A8C]">{aberta ? 'Fechar' : 'Lançar no caixa'}</button>
-            <button type="button" disabled={ocupada} onClick={() => onAgir({ acao: 'ignorar', motivo: 'INTERNA' })} className="h-7 px-2.5 rounded-md border border-gray-200 text-[11px] text-gray-600 hover:border-gray-400">Entre contas / Asaas</button>
-            <button type="button" disabled={ocupada} onClick={() => onAgir({ acao: 'ignorar', motivo: 'PESSOAL', lembrar: true })} className="h-7 px-2.5 rounded-md border border-gray-200 text-[11px] text-gray-600 hover:border-gray-400" title="A Central lembra desta contraparte e ignora as próximas sozinha">Pessoal do Davi</button>
-            <button type="button" disabled={ocupada} onClick={() => onAgir({ acao: 'ignorar', motivo: 'OUTRO' })} className="h-7 px-2.5 rounded-md border border-gray-200 text-[11px] text-gray-500 hover:border-gray-400">Ignorar</button>
+            <button type="button" onClick={onAbrir} className="h-8 px-3 rounded-lg border border-border bg-card text-[12px] font-semibold text-foreground hover:border-marca/40 hover:text-marca-texto">{aberta ? 'Fechar' : 'Lançar no caixa'}</button>
+            <button type="button" disabled={ocupada} onClick={() => onAgir({ acao: 'ignorar', motivo: 'INTERNA' })} className="h-8 px-3 rounded-lg border border-border bg-card text-[12px] text-muted-foreground hover:text-foreground hover:border-subtle">Entre contas / Asaas</button>
+            <button type="button" disabled={ocupada} onClick={() => onAgir({ acao: 'ignorar', motivo: 'PESSOAL', lembrar: true })} className="h-8 px-3 rounded-lg border border-border bg-card text-[12px] text-muted-foreground hover:text-foreground hover:border-subtle" title="A Central lembra desta contraparte e ignora as próximas sozinha">Pessoal do Davi</button>
+            <button type="button" disabled={ocupada} onClick={() => onAgir({ acao: 'ignorar', motivo: 'OUTRO' })} className="h-8 px-3 rounded-lg text-[12px] text-muted-foreground hover:bg-secondary hover:text-foreground">Ignorar</button>
           </div>
 
           {aberta && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[150px_minmax(0,1fr)_170px_170px_auto] gap-2 items-end rounded-lg bg-gray-50 border border-gray-100 p-3">
-              <label className="text-[11px] text-gray-600">Tipo
-                <select value={kind} onChange={(e) => setKind(e.target.value)} className="mt-0.5 h-8 w-full rounded-md border border-gray-200 bg-white px-2 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[150px_minmax(0,1fr)_170px_170px_auto] gap-2 items-end rounded-2xl bg-secondary/60 border border-border p-3">
+              <label className="text-[11px] font-semibold text-muted-foreground">Tipo
+                <select value={kind} onChange={(e) => setKind(e.target.value)} className="mt-0.5 h-9 w-full rounded-lg border border-border bg-card px-2 text-xs text-foreground outline-none focus:border-marca">
                   {(entra ? [['ENTRADA', 'Entrada'], ['APORTE', 'Aporte de sócio']] : [['SAIDA', 'Saída'], ['RETIRADA', 'Retirada de sócio']]).map(([v, r]) => <option key={v} value={v}>{r}</option>)}
                 </select>
               </label>
-              <label className="text-[11px] text-gray-600">Descrição
-                <input value={descricao} onChange={(e) => setDescricao(e.target.value)} className="mt-0.5 h-8 w-full rounded-md border border-gray-200 bg-white px-2 text-xs" />
+              <label className="text-[11px] font-semibold text-muted-foreground">Descrição
+                <input value={descricao} onChange={(e) => setDescricao(e.target.value)} className="mt-0.5 h-9 w-full rounded-lg border border-border bg-card px-2 text-xs text-foreground outline-none focus:border-marca" />
               </label>
               {comSocio ? (
-                <label className="text-[11px] text-gray-600">Sócio
-                  <select value={socio} onChange={(e) => setSocio(e.target.value)} className="mt-0.5 h-8 w-full rounded-md border border-gray-200 bg-white px-2 text-xs">
+                <label className="text-[11px] font-semibold text-muted-foreground">Sócio
+                  <select value={socio} onChange={(e) => setSocio(e.target.value)} className="mt-0.5 h-9 w-full rounded-lg border border-border bg-card px-2 text-xs text-foreground outline-none focus:border-marca">
                     <option value="">Escolha</option>
                     {socios.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
                 </label>
               ) : <span className="hidden lg:block" />}
-              <label className="text-[11px] text-gray-600">Categoria
-                <select value={categoria} onChange={(e) => setCategoria(e.target.value)} className="mt-0.5 h-8 w-full rounded-md border border-gray-200 bg-white px-2 text-xs">
+              <label className="text-[11px] font-semibold text-muted-foreground">Categoria
+                <select value={categoria} onChange={(e) => setCategoria(e.target.value)} className="mt-0.5 h-9 w-full rounded-lg border border-border bg-card px-2 text-xs text-foreground outline-none focus:border-marca">
                   <option value="">Sem categoria</option>
                   {CATEGORIAS.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </label>
               <div className="flex items-center gap-2">
-                <label className="text-[11px] text-gray-600 inline-flex items-center gap-1 whitespace-nowrap" title="Da próxima vez, a Central sugere o mesmo para esta contraparte">
+                <label className="text-[11px] text-muted-foreground inline-flex items-center gap-1 whitespace-nowrap" title="Da próxima vez, a Central sugere o mesmo para esta contraparte">
                   <input type="checkbox" checked={lembrar} onChange={(e) => setLembrar(e.target.checked)} /> lembrar
                 </label>
-                <button type="button" disabled={ocupada || !descricao.trim() || (comSocio && !socio)} onClick={() => onAgir({ acao: 'lancar', kind, descricao, categoria, partnerId: socio || null, lembrar })} className="h-8 px-3 rounded-md bg-[#030A8C] text-white text-xs font-semibold disabled:opacity-50">Lançar</button>
+                <button type="button" disabled={ocupada || !descricao.trim() || (comSocio && !socio)} onClick={() => onAgir({ acao: 'lancar', kind, descricao, categoria, partnerId: socio || null, lembrar })} className="h-9 px-3.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary-hover text-xs font-semibold disabled:opacity-50">Lançar</button>
               </div>
             </div>
           )}

@@ -2,7 +2,8 @@
 
 import { ArrowRight, CheckCircle2 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
-import { buildQueue, STAGE_BY_KEY, isLate, PRIORITY_CONFIG } from '@/lib/demandas-core'
+import { buildQueue, STAGE_BY_KEY, isLate } from '@/lib/demandas-core'
+import { textoDoStatus } from './visual'
 import type { Task } from './types'
 
 /**
@@ -17,20 +18,20 @@ export default function MyQueue({ tasks, userId, onOpen, title = 'Minha fila' }:
 
   return (
     <div className="flex flex-col min-h-0 h-full">
-      <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between shrink-0">
-        <p className="text-sm font-bold text-gray-900">{title}</p>
-        <span className="text-[11px] font-semibold text-gray-500 bg-gray-100 rounded-full px-2 py-0.5">{total}</span>
+      <div className="px-4 py-3 border-b border-border flex items-center justify-between shrink-0">
+        <p className="text-sm font-bold text-foreground">{title}</p>
+        <span className="text-[11px] font-semibold text-muted-foreground bg-secondary rounded-full px-2 py-0.5">{total}</span>
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto">
         {total === 0 ? (
           <div className="px-4 py-10 text-center">
-            <CheckCircle2 className="w-8 h-8 text-green-500 mx-auto mb-2" />
-            <p className="text-sm font-semibold text-gray-900">Nada esperando você</p>
-            <p className="text-xs text-gray-400 mt-1">Quando uma demanda chegar na sua etapa, ela aparece aqui.</p>
+            <CheckCircle2 className="w-8 h-8 text-success mx-auto mb-2" />
+            <p className="text-sm font-semibold text-foreground">Nada esperando você</p>
+            <p className="text-xs text-muted-foreground mt-1">Quando uma demanda chegar na sua etapa, ela aparece aqui.</p>
           </div>
         ) : groups.map((g) => (
           <div key={g.key}>
-            <p className={`px-4 pt-3 pb-1 text-[10px] font-bold uppercase tracking-wide ${g.key === 'atrasadas' ? 'text-red-600' : g.key === 'hoje' ? 'text-[#030A8C]' : 'text-gray-400'}`}>
+            <p className={`px-4 pt-3 pb-1 text-[10px] font-bold uppercase tracking-wide ${g.key === 'atrasadas' ? 'text-destructive-texto' : g.key === 'hoje' ? 'text-marca-texto' : 'text-muted-foreground'}`}>
               {g.label} · {g.items.length}
             </p>
             <ul>
@@ -44,22 +45,22 @@ export default function MyQueue({ tasks, userId, onOpen, title = 'Minha fila' }:
                     <button
                       type="button"
                       onClick={() => onOpen(t)}
-                      className={`w-full text-left px-4 py-2.5 flex items-start gap-3 hover:bg-gray-50 transition-colors border-l-2 ${late ? 'border-red-500' : ordem === 1 ? 'border-[#030A8C]' : 'border-transparent'}`}
+                      className={`w-full text-left px-4 py-2.5 flex items-start gap-3 hover:bg-secondary/60 transition-colors border-l-2 ${late ? 'border-destructive' : ordem === 1 ? 'border-marca' : 'border-transparent'}`}
                     >
-                      <span className={`mt-0.5 w-5 h-5 rounded-full text-[10px] font-bold inline-flex items-center justify-center shrink-0 ${ordem === 1 ? 'bg-[#030A8C] text-white' : 'bg-gray-100 text-gray-500'}`}>{ordem}</span>
+                      <span className={`mt-0.5 w-5 h-5 rounded-full text-[10px] font-bold inline-flex items-center justify-center shrink-0 ${ordem === 1 ? 'bg-marca text-white' : 'bg-secondary text-muted-foreground'}`}>{ordem}</span>
                       <span className="min-w-0 flex-1">
-                        <span className="block text-xs font-semibold text-gray-900 leading-snug line-clamp-2">{t.title}</span>
-                        <span className="block text-[11px] text-gray-500 truncate mt-0.5">
+                        <span className="block text-xs font-semibold text-foreground leading-snug line-clamp-2">{t.title}</span>
+                        <span className="block text-[11px] text-muted-foreground truncate mt-0.5">
                           {t.client?.name ? `${t.client.name.split(' /')[0]} · ` : ''}
-                          <span className={stage.color}>{stage.label}</span>
-                          {t.priority === 'URGENTE' && <span className={`ml-1.5 ${PRIORITY_CONFIG.URGENTE.text} font-semibold`}>Urgente</span>}
+                          <span className={textoDoStatus(t.status)}>{stage.label}</span>
+                          {t.priority === 'URGENTE' && <span className="ml-1.5 text-destructive-texto font-semibold">Urgente</span>}
                         </span>
-                        <span className={`block text-[11px] mt-0.5 ${late ? 'text-red-600 font-semibold' : 'text-gray-400'}`}>
+                        <span className={`block text-[11px] mt-0.5 ${late ? 'text-destructive-texto font-semibold' : 'text-muted-foreground'}`}>
                           {it.deadline ? `${it.role} até ${formatDate(it.deadline)}` : it.role}
                           {it.daysLeft != null && it.daysLeft < 0 && ` · ${Math.abs(it.daysLeft)} dia(s) de atraso`}
                         </span>
                       </span>
-                      <span className="shrink-0 mt-1 inline-flex items-center gap-0.5 text-[11px] font-semibold text-[#030A8C]">
+                      <span className="shrink-0 mt-1 inline-flex items-center gap-0.5 text-[11px] font-semibold text-marca-texto">
                         {it.cta} <ArrowRight className="w-3 h-3" />
                       </span>
                     </button>

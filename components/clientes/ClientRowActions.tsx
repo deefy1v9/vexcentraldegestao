@@ -36,30 +36,30 @@ export default function ClientRowActions({
         onClick={() => setOpen((v) => !v)}
         aria-label={`Ações de ${clientName}`}
         aria-expanded={open}
-        className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+        className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
       >
         <MoreVertical className="w-4 h-4" />
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-gray-100 rounded-xl shadow-lg z-30 py-1 overflow-hidden">
+        <div className="absolute right-0 top-full mt-1 w-48 bg-card border border-border rounded-[12px] shadow-[0_8px_24px_rgb(16_24_40/0.12)] z-30 py-1 overflow-hidden">
           <Link
             href={`/clientes/${clientId}`}
-            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+            className="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-secondary/60 transition-colors"
           >
-            <Eye className="w-4 h-4 text-gray-400" />
+            <Eye className="w-4 h-4 text-muted-foreground" />
             Ver perfil
           </Link>
           {isAdmin && (
             <>
               <Link
                 href={`/clientes/${clientId}/editar`}
-                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                className="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-secondary/60 transition-colors"
               >
-                <Pencil className="w-4 h-4 text-gray-400" />
+                <Pencil className="w-4 h-4 text-muted-foreground" />
                 Editar
               </Link>
-              <div className="border-t border-gray-100 my-1" />
+              <div className="border-t border-border my-1" />
               <DeleteClientButton clientId={clientId} clientName={clientName} variant="menu" />
             </>
           )}

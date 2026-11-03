@@ -110,7 +110,7 @@ export default function EditorBriefing({ inicial }: { inicial: Inicial }) {
         {ativo && <CopiarLink caminho={`/b/${inicial.publicToken}`} rotulo="Copiar link geral" />}
       </div>
 
-      <div className="rounded-[12px] border border-border bg-card p-4 space-y-3">
+      <div className="rounded-[24px] border border-border bg-card p-5 space-y-3 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
         <label className="block text-xs text-muted-foreground">Nome do briefing
           <Input value={nome} onChange={(e) => { setNome(e.target.value); setMudou(true) }} className="mt-1" />
         </label>
@@ -134,7 +134,7 @@ export default function EditorBriefing({ inicial }: { inicial: Inicial }) {
           const editando = aberta === p.id
           if (!editando) {
             return (
-              <li key={p.id} className={`group rounded-[12px] border border-border bg-card ${p.tipo === 'secao' ? 'bg-secondary/60' : ''}`}>
+              <li key={p.id} className={`group rounded-2xl border border-border bg-card ${p.tipo === 'secao' ? 'bg-secondary/60' : ''}`}>
                 <div className="flex items-center gap-2 px-3 py-2.5">
                   <button type="button" onClick={() => setAberta(p.id)} className="flex-1 min-w-0 text-left">
                     <p className={`truncate ${p.tipo === 'secao' ? 't-secao text-foreground' : 'text-sm text-foreground'}`}>
@@ -158,7 +158,7 @@ export default function EditorBriefing({ inicial }: { inicial: Inicial }) {
             )
           }
           return (
-            <li key={p.id} className="rounded-[12px] border-2 border-primary/50 bg-card p-4 space-y-3">
+            <li key={p.id} className="rounded-2xl border-2 border-marca/40 bg-card p-4 space-y-3">
               <div className="flex flex-wrap gap-2">
                 <select value={p.tipo} onChange={(e) => {
                   const tipo = e.target.value as TipoPergunta

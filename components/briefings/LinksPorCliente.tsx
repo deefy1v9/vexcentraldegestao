@@ -47,9 +47,9 @@ export default function LinksPorCliente({ briefingId, ativo, clientes, convites 
   }
 
   return (
-    <aside className="rounded-[12px] border border-border bg-card p-4 space-y-4 xl:sticky xl:top-0">
+    <aside className="rounded-[24px] border border-border bg-card p-5 space-y-4 shadow-[0_1px_2px_rgba(16,24,40,0.04)] xl:sticky xl:top-0">
       <div>
-        <p className="t-secao text-foreground">Link para um cliente</p>
+        <p className="font-display text-[18px] font-semibold tracking-[-0.01em] text-foreground">Link para um cliente</p>
         <p className="text-xs text-muted-foreground mt-0.5">A resposta já chega ligada ao cliente, e a Central mostra quem ainda não respondeu.</p>
       </div>
       {!ativo ? (
@@ -65,7 +65,7 @@ export default function LinksPorCliente({ briefingId, ativo, clientes, convites 
               <CopiarLink caminho={`/b/${novo.token}`} />
             </div>
           )}
-          {erro && <p className="text-sm text-destructive">{erro}</p>}
+          {erro && <p className="text-sm text-destructive-texto">{erro}</p>}
         </div>
       )}
 

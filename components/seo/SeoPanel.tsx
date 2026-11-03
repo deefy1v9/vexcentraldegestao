@@ -4,13 +4,17 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
   Search, Link2, RefreshCw, Unlink, Plug, AlertTriangle, CheckCircle2, Loader2,
-  MousePointerClick, Eye, Percent, Gauge, X, Globe, TrendingUp, TrendingDown, Trash2,
+  MousePointerClick, Eye, Percent, Gauge, X, Globe, TrendingUp, TrendingDown, Trash2, ChevronDown,
 } from 'lucide-react'
 import {
   formatCount, formatCtr, formatPosition, variation, br, PERMISSION_LABEL,
   type RangeKind,
 } from '@/lib/gsc-core'
 import AnalyticsPanel from '@/components/seo/AnalyticsPanel'
+import GraficoDiario from '@/components/seo/GraficoDiario'
+import { Button } from '@/components/vex/button'
+import { Chip, Kpi, Painel, Pilulas, type Tom } from '@/components/vex/vireo'
+import { PERIODOS } from '@/components/seo/periodos'
 
 /* ---------------------------------- tipos ---------------------------------- */
 
@@ -67,10 +71,10 @@ interface Relatorio {
 }
 
 const STATUS_CONEXAO: Record<string, { texto: string; cls: string }> = {
-  ATIVA: { texto: 'Conectado', cls: 'bg-green-100 text-green-700' },
-  SEM_REFRESH: { texto: 'Sem renovação automática', cls: 'bg-orange-100 text-orange-700' },
-  REVOGADA: { texto: 'Autorização expirada', cls: 'bg-red-100 text-red-700' },
-  ERRO: { texto: 'Erro na conexão', cls: 'bg-red-100 text-red-700' },
+  ATIVA: { texto: 'Conectado', cls: 'bg-success-suave text-success' },
+  SEM_REFRESH: { texto: 'Sem renovação automática', cls: 'bg-warning-suave text-warning' },
+  REVOGADA: { texto: 'Autorização expirada', cls: 'bg-destructive-suave text-destructive-texto' },
+  ERRO: { texto: 'Erro na conexão', cls: 'bg-destructive-suave text-destructive-texto' },
 }
 
 /**
@@ -92,6 +96,7 @@ export default function SeoPanel({ clientes }: { clientes: Array<{ id: string; n
   const [aviso, setAviso] = useState<string | null>(null)
   const [vincular, setVincular] = useState(false)
   const [ocupado, setOcupado] = useState(false)
+  const [conexaoAberta, setConexaoAberta] = useState(false)
 
   const aba = params.get('aba') === 'analytics' ? 'analytics' : 'search-console'
   const propriedadeUrl = params.get('propriedade') ?? ''
@@ -196,45 +201,65 @@ export default function SeoPanel({ clientes }: { clientes: Array<{ id: string; n
   const anterior = relatorio?.report.previousTotals
   const semDados = !!relatorio && (totals?.impressions ?? 0) === 0 && (totals?.clicks ?? 0) === 0
 
+  // Conexão em dia: a configuração some numa linha e abre em "Gerenciar"
+  const conexaoOk = !!status?.connection && status.connection.status === 'ATIVA' && !status.connection.lastError && status.properties.length > 0
+  const acoesConexao = (
+    <div className="flex flex-wrap items-center gap-2">
+      {status?.connection && (
+        <>
+          <Button variant="outline" size="sm" onClick={() => setVincular(true)} disabled={ocupado}>
+            <Link2 /> Vincular propriedade
+          </Button>
+          <Button variant="outline" size="sm" onClick={desconectar} disabled={ocupado} className="hover:border-destructive/30 hover:text-destructive-texto">
+            <Unlink /> Desconectar
+          </Button>
+        </>
+      )}
+      <a
+        href="/api/gsc/oauth/start"
+        className={`h-8 px-3 inline-flex items-center gap-1.5 rounded-lg text-[13px] font-medium ${
+          status?.configured ? 'bg-primary text-primary-foreground hover:bg-primary-hover' : 'bg-secondary text-muted-foreground pointer-events-none'
+        }`}
+      >
+        <Plug className="w-4 h-4" />
+        {status?.connection ? 'Reconectar' : 'Conectar Google Search Console'}
+      </a>
+    </div>
+  )
+
   /* -------------------------------- render -------------------------------- */
 
   if (carregandoStatus) {
     return (
       <div className="space-y-3">
-        <div className="h-24 bg-gray-100 rounded-xl animate-pulse" />
+        <div className="h-24 bg-secondary rounded-[24px] animate-pulse" />
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {[...Array(4)].map((_, i) => <div key={i} className="h-24 bg-gray-100 rounded-xl animate-pulse" />)}
+          {[...Array(4)].map((_, i) => <div key={i} className="h-32 bg-secondary rounded-[20px] animate-pulse" />)}
         </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {erro && (
-        <p className="flex items-start gap-2 text-xs font-medium text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+        <p className="flex items-start gap-2 t-rotulo text-destructive-texto bg-destructive-suave border border-destructive/30 rounded-xl px-4 py-2.5">
           <AlertTriangle className="w-4 h-4 shrink-0 mt-px" /> {erro}
         </p>
       )}
       {aviso && (
-        <p className="flex items-start gap-2 text-xs font-medium text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2">
+        <p className="flex items-start gap-2 t-rotulo text-success bg-success-suave border border-success/30 rounded-xl px-4 py-2.5">
           <CheckCircle2 className="w-4 h-4 shrink-0 mt-px" /> {aviso}
         </p>
       )}
 
       {/* Search Console e Analytics: cada um com suas definições */}
-      <div className="flex items-center gap-0.5 bg-gray-100 rounded-lg p-0.5 h-10 w-fit">
-        {([['search-console', 'Search Console'], ['analytics', 'Analytics']] as const).map(([k, l]) => (
-          <button
-            key={k}
-            onClick={() => setParams({ aba: k === 'search-console' ? null : k })}
-            aria-pressed={aba === k}
-            className={`px-4 h-9 rounded-md text-xs font-semibold ${aba === k ? 'bg-white text-[#030A8C] shadow-sm' : 'text-gray-500'}`}
-          >
-            {l}
-          </button>
-        ))}
-      </div>
+      <Pilulas
+        rotulo="Fonte dos dados"
+        valor={aba}
+        aoMudar={(k) => setParams({ aba: k === 'search-console' ? null : k })}
+        opcoes={[{ valor: 'search-console', rotulo: 'Search Console' }, { valor: 'analytics', rotulo: 'Analytics' }]}
+      />
 
       {aba === 'analytics' ? (
         <AnalyticsPanel
@@ -258,67 +283,56 @@ export default function SeoPanel({ clientes }: { clientes: Array<{ id: string; n
         />
       )}
 
-      {/* Conexão */}
-      <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="font-semibold text-gray-900 flex items-center gap-2">
-              <Plug className="w-4 h-4 text-[#030A8C]" /> Google Search Console
-            </p>
-            {status?.connection ? (
-              <p className="text-xs text-gray-500 mt-1 flex items-center gap-2 flex-wrap">
-                <span className="truncate">{status.connection.googleEmail}</span>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${STATUS_CONEXAO[status.connection.status]?.cls ?? 'bg-gray-100 text-gray-600'}`}>
-                  {STATUS_CONEXAO[status.connection.status]?.texto ?? status.connection.status}
-                </span>
-                {status.connection.lastSyncAt && (
-                  <span className="text-gray-400">última consulta {new Date(status.connection.lastSyncAt).toLocaleString('pt-BR')}</span>
-                )}
-              </p>
-            ) : (
-              <p className="text-xs text-gray-500 mt-1">Nenhuma conta conectada.</p>
-            )}
-            {status?.connection?.lastError && (
-              <p className="text-xs text-red-600 mt-1">{status.connection.lastError}</p>
-            )}
+      {/* Conexão: já ligada e sem erro, fica recolhida numa linha */}
+      <section className="rounded-[24px] border border-border bg-card shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4">
+          <div className="min-w-0 flex items-center gap-3">
+            <Chip icone={Plug} tom={conexaoOk ? 'sucesso' : status?.connection ? 'atencao' : 'neutro'} />
+            <div className="min-w-0">
+              <p className="t-secao text-foreground">Google Search Console</p>
+              {status?.connection ? (
+                <p className="t-legenda mt-0.5 flex items-center gap-2 flex-wrap">
+                  <span className="truncate">{status.connection.googleEmail}</span>
+                  <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md ${STATUS_CONEXAO[status.connection.status]?.cls ?? 'bg-secondary text-muted-foreground'}`}>
+                    {STATUS_CONEXAO[status.connection.status]?.texto ?? status.connection.status}
+                  </span>
+                  <span>{status.properties.length} propriedade(s)</span>
+                  {status.connection.lastSyncAt && (
+                    <span>· última consulta {new Date(status.connection.lastSyncAt).toLocaleString('pt-BR')}</span>
+                  )}
+                </p>
+              ) : (
+                <p className="t-legenda mt-0.5">Nenhuma conta conectada.</p>
+              )}
+              {status?.connection?.lastError && (
+                <p className="t-legenda text-destructive-texto mt-1">{status.connection.lastError}</p>
+              )}
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {status?.connection && (
-              <>
-                <button
-                  onClick={() => setVincular(true)}
-                  disabled={ocupado}
-                  className="h-9 px-3 inline-flex items-center gap-1.5 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 hover:border-[#030A8C] hover:text-[#030A8C] disabled:opacity-50"
-                >
-                  <Link2 className="w-3.5 h-3.5" /> Vincular propriedade
-                </button>
-                <button
-                  onClick={desconectar}
-                  disabled={ocupado}
-                  className="h-9 px-3 inline-flex items-center gap-1.5 border border-gray-200 rounded-lg text-xs font-semibold text-gray-600 hover:border-red-300 hover:text-red-600 disabled:opacity-50"
-                >
-                  <Unlink className="w-3.5 h-3.5" /> Desconectar
-                </button>
-              </>
-            )}
-            <a
-              href="/api/gsc/oauth/start"
-              className={`h-9 px-4 inline-flex items-center gap-1.5 rounded-lg text-xs font-semibold text-white ${
-                status?.configured ? 'bg-[#030A8C] hover:bg-[#02077a]' : 'bg-gray-300 pointer-events-none'
-              }`}
+          {conexaoOk ? (
+            <button
+              onClick={() => setConexaoAberta((v) => !v)}
+              aria-expanded={conexaoAberta}
+              className="h-9 px-3 inline-flex items-center gap-1.5 rounded-lg text-xs font-semibold text-muted-foreground hover:bg-secondary hover:text-foreground"
             >
-              <Plug className="w-3.5 h-3.5" />
-              {status?.connection ? 'Reconectar' : 'Conectar Google Search Console'}
-            </a>
-          </div>
+              {conexaoAberta ? 'Recolher' : 'Gerenciar conexão'}
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform ${conexaoAberta ? 'rotate-180' : ''}`} />
+            </button>
+          ) : acoesConexao}
         </div>
 
-        {/* Propriedades vinculadas */}
+        {conexaoOk && conexaoAberta && (
+          <div className="px-6 pb-4 flex flex-wrap items-center gap-2 border-t border-border pt-4">
+            {acoesConexao}
+          </div>
+        )}
+
+        {/* Propriedades vinculadas: escolhem o que o painel mostra */}
         {status?.connection && (
-          <div className="mt-4 pt-4 border-t border-gray-100">
+          <div className="px-6 pb-5 pt-4 border-t border-border">
             {status.properties.length === 0 ? (
-              <p className="text-xs text-gray-500">
+              <p className="t-legenda">
                 Nenhuma propriedade vinculada ainda. Use “Vincular propriedade” para escolher um site do Search Console.
               </p>
             ) : (
@@ -328,24 +342,26 @@ export default function SeoPanel({ clientes }: { clientes: Array<{ id: string; n
                   return (
                     <span
                       key={p.id}
-                      className={`inline-flex items-center gap-1.5 h-8 pl-3 pr-1 rounded-full border text-[11px] font-medium ${
-                        ativa ? 'border-[#030A8C] bg-[#030A8C]/5 text-[#030A8C]' : 'border-gray-200 text-gray-600'
+                      className={`inline-flex items-center gap-1.5 h-8 pl-3 pr-1 rounded-full border text-[11.5px] font-medium ${
+                        ativa ? 'border-marca bg-marca-suave text-marca-texto' : 'border-border text-muted-foreground'
                       }`}
                     >
                       <button onClick={() => setParams({ propriedade: p.id })} className="inline-flex items-center gap-1.5">
                         <Globe className="w-3 h-3" />
                         {p.label}
-                        <span className="text-gray-400">
+                        <span className="text-muted-foreground">
                           {p.isVexSite ? 'VEX' : p.client?.name ?? 'sem cliente'}
                         </span>
                       </button>
-                      <button
-                        onClick={() => desvincular(p.id)}
-                        aria-label={`Desvincular ${p.label}`}
-                        className="p-1 rounded-full hover:bg-gray-100 text-gray-400"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
+                      {(!conexaoOk || conexaoAberta) && (
+                        <button
+                          onClick={() => desvincular(p.id)}
+                          aria-label={`Desvincular ${p.label}`}
+                          className="p-1 rounded-full hover:bg-secondary text-muted-foreground"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      )}
                     </span>
                   )
                 })}
@@ -353,30 +369,24 @@ export default function SeoPanel({ clientes }: { clientes: Array<{ id: string; n
             )}
           </div>
         )}
-      </div>
+      </section>
 
       {/* Período e atualização */}
       {propriedade && (
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-0.5 bg-gray-100 rounded-lg p-0.5 h-10">
-            {([['28d', '28 dias'], ['mes', 'Mensal'], ['ano', 'Anual'], ['custom', 'Período']] as const).map(([k, l]) => (
-              <button
-                key={k}
-                onClick={() => setParams({ periodo: k })}
-                aria-pressed={periodo === k}
-                className={`px-3 h-9 rounded-md text-xs font-semibold ${periodo === k ? 'bg-white text-[#030A8C] shadow-sm' : 'text-gray-500'}`}
-              >
-                {l}
-              </button>
-            ))}
-          </div>
+          <Pilulas
+            rotulo="Período"
+            valor={periodo}
+            aoMudar={(k) => setParams({ periodo: k })}
+            opcoes={PERIODOS}
+          />
 
           {periodo === 'mes' && (
             <input
               type="month"
               value={mes || new Date().toISOString().slice(0, 7)}
               onChange={(e) => setParams({ mes: e.target.value })}
-              className="h-10 px-2 text-xs border border-gray-200 rounded-lg bg-white"
+              className="h-9 px-2 text-xs border border-border rounded-lg bg-card text-foreground"
               aria-label="Mês"
             />
           )}
@@ -385,104 +395,90 @@ export default function SeoPanel({ clientes }: { clientes: Array<{ id: string; n
               type="number" min={2015} max={2100}
               value={ano || new Date().getFullYear()}
               onChange={(e) => setParams({ ano: e.target.value })}
-              className="h-10 w-24 px-2 text-xs border border-gray-200 rounded-lg bg-white"
+              className="h-9 w-24 px-2 text-xs border border-border rounded-lg bg-card text-foreground"
               aria-label="Ano"
             />
           )}
           {periodo === 'custom' && (
             <>
-              <input type="date" value={de} onChange={(e) => setParams({ de: e.target.value })} className="h-10 px-2 text-xs border border-gray-200 rounded-lg bg-white" aria-label="Data inicial" />
-              <input type="date" value={ate} onChange={(e) => setParams({ ate: e.target.value })} className="h-10 px-2 text-xs border border-gray-200 rounded-lg bg-white" aria-label="Data final" />
+              <input type="date" value={de} onChange={(e) => setParams({ de: e.target.value })} className="h-9 px-2 text-xs border border-border rounded-lg bg-card text-foreground" aria-label="Data inicial" />
+              <input type="date" value={ate} onChange={(e) => setParams({ ate: e.target.value })} className="h-9 px-2 text-xs border border-border rounded-lg bg-card text-foreground" aria-label="Data final" />
             </>
           )}
 
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => { setCarregandoRelatorio(true); carregarRelatorio(true) }}
             disabled={carregandoRelatorio}
-            className="ml-auto h-10 px-3 inline-flex items-center gap-1.5 border border-gray-200 rounded-lg text-xs font-semibold text-gray-600 hover:border-[#030A8C] hover:text-[#030A8C] disabled:opacity-50"
+            className="ml-auto"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${carregandoRelatorio ? 'animate-spin' : ''}`} /> Atualizar
-          </button>
+            <RefreshCw className={carregandoRelatorio ? 'animate-spin' : ''} /> Atualizar
+          </Button>
         </div>
       )}
 
       {/* Estados */}
       {!status?.connection ? (
-        <div className="bg-white border border-gray-200 rounded-xl p-8 text-center">
-          <Plug className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-          <p className="text-sm font-semibold text-gray-900">Conecte a conta do Google</p>
-          <p className="text-xs text-gray-500 mt-1 max-w-md mx-auto">
-            A conexão pede apenas leitura do Search Console. Depois de autorizar, escolha as propriedades e vincule a cada cliente ou ao site da VEX.
-          </p>
-        </div>
+        <Vazio icone={Plug} titulo="Conecte a conta do Google">
+          A conexão pede apenas leitura do Search Console. Depois de autorizar, escolha as propriedades e vincule a cada cliente ou ao site da VEX.
+        </Vazio>
       ) : !propriedade ? (
-        <div className="bg-white border border-gray-200 rounded-xl p-8 text-center">
-          <Globe className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-          <p className="text-sm font-semibold text-gray-900">Nenhuma propriedade vinculada</p>
-          <p className="text-xs text-gray-500 mt-1">Vincule um site do Search Console para ver os indicadores.</p>
-        </div>
+        <Vazio icone={Globe} titulo="Nenhuma propriedade vinculada">
+          Vincule um site do Search Console para ver os indicadores.
+        </Vazio>
       ) : carregandoRelatorio && !relatorio ? (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {[...Array(4)].map((_, i) => <div key={i} className="h-24 bg-gray-100 rounded-xl animate-pulse" />)}
+          {[...Array(4)].map((_, i) => <div key={i} className="h-32 bg-secondary rounded-[20px] animate-pulse" />)}
         </div>
       ) : !relatorio ? (
-        <div className="bg-white border border-gray-200 rounded-xl p-8 text-center">
-          <AlertTriangle className="w-8 h-8 text-orange-300 mx-auto mb-2" />
-          <p className="text-sm font-semibold text-gray-900">Sem resposta do Search Console</p>
-          <p className="text-xs text-gray-500 mt-1">{erro ?? 'Tente atualizar em instantes.'}</p>
-        </div>
+        <Vazio icone={AlertTriangle} tom="atencao" titulo="Sem resposta do Search Console">
+          {erro ?? 'Tente atualizar em instantes.'}
+        </Vazio>
       ) : (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            {[
-              { label: 'Cliques', valor: formatCount(Math.round(totals?.clicks ?? 0)), icon: MousePointerClick, cor: '#030A8C', atual: totals?.clicks ?? 0, ant: anterior?.clicks ?? 0 },
-              { label: 'Impressões', valor: formatCount(Math.round(totals?.impressions ?? 0)), icon: Eye, cor: '#6366f1', atual: totals?.impressions ?? 0, ant: anterior?.impressions ?? 0 },
-              { label: 'CTR', valor: formatCtr(totals?.ctr ?? 0), icon: Percent, cor: '#10b981', atual: totals?.ctr ?? 0, ant: anterior?.ctr ?? 0 },
-              { label: 'Posição média', valor: formatPosition(totals?.position ?? 0), icon: Gauge, cor: '#F74A13', atual: totals?.position ?? 0, ant: anterior?.position ?? 0, inverso: true },
-            ].map((c) => {
+            {([
+              { label: 'Cliques', valor: formatCount(Math.round(totals?.clicks ?? 0)), icon: MousePointerClick, tom: 'marca', atual: totals?.clicks ?? 0, ant: anterior?.clicks ?? 0 },
+              { label: 'Impressões', valor: formatCount(Math.round(totals?.impressions ?? 0)), icon: Eye, tom: 'info', atual: totals?.impressions ?? 0, ant: anterior?.impressions ?? 0 },
+              { label: 'CTR', valor: formatCtr(totals?.ctr ?? 0), icon: Percent, tom: 'sucesso', atual: totals?.ctr ?? 0, ant: anterior?.ctr ?? 0 },
+              { label: 'Posição média', valor: formatPosition(totals?.position ?? 0), icon: Gauge, tom: 'atencao', atual: totals?.position ?? 0, ant: anterior?.position ?? 0, inverso: true },
+            ] as const).map((c) => {
               const v = variation(c.atual, c.ant)
               const sobe = (v ?? 0) >= 0
-              const bom = c.inverso ? !sobe : sobe
+              const bom = 'inverso' in c ? !sobe : sobe
               return (
-                <div key={c.label} className="bg-white border border-gray-100 rounded-xl p-4">
-                  <div className="flex items-start justify-between mb-2">
-                    <p className="text-xs font-medium text-gray-500">{c.label}</p>
-                    <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: c.cor + '1f' }}>
-                      <c.icon className="w-3.5 h-3.5" style={{ color: c.cor }} />
-                    </div>
-                  </div>
-                  <p className="text-xl font-bold text-gray-900 leading-tight">{c.valor}</p>
-                  {v == null ? (
-                    <p className="text-[11px] text-gray-400 mt-1">Sem base de comparação</p>
-                  ) : (
-                    <p className={`text-[11px] font-semibold mt-1 inline-flex items-center gap-1 ${v === 0 ? 'text-gray-400' : bom ? 'text-green-600' : 'text-red-600'}`}>
-                      {sobe ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                      {v > 0 ? '+' : ''}{v.toFixed(0)}% vs período anterior
-                    </p>
+                <Kpi
+                  key={c.label}
+                  icone={c.icon}
+                  tom={c.tom}
+                  rotulo={c.label}
+                  valor={c.valor}
+                  tendencia={v == null ? undefined : { texto: `${v > 0 ? '+' : ''}${v.toFixed(0)}%`, bom: v === 0 || bom }}
+                  nota={v == null ? 'Sem base de comparação' : (
+                    <span className="inline-flex items-center gap-1">
+                      {sobe ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />} vs período anterior
+                    </span>
                   )}
-                </div>
+                />
               )
             })}
           </div>
 
-          <p className="text-[11px] text-gray-400">
+          <p className="t-legenda">
             {relatorio.range.label} · {br(relatorio.range.startDate)} a {br(relatorio.range.endDate)} ·
             {' '}dados disponíveis até {br(relatorio.dataAvailableUntil)} (fuso {relatorio.timeZone}) ·
             {' '}consulta de {new Date(relatorio.fetchedAt).toLocaleString('pt-BR')}{relatorio.cached ? ', do cache' : ''}
           </p>
 
           {semDados ? (
-            <div className="bg-white border border-gray-200 rounded-xl p-8 text-center">
-              <Search className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-              <p className="text-sm font-semibold text-gray-900">Sem dados neste período</p>
-              <p className="text-xs text-gray-500 mt-1">
-                A propriedade respondeu, mas não há cliques nem impressões entre {br(relatorio.range.startDate)} e {br(relatorio.range.endDate)}.
-              </p>
-            </div>
+            <Vazio icone={Search} titulo="Sem dados neste período">
+              A propriedade respondeu, mas não há cliques nem impressões entre {br(relatorio.range.startDate)} e {br(relatorio.range.endDate)}.
+            </Vazio>
           ) : (
             <>
-              <EvolucaoPorData linhas={relatorio.report.byDate} />
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              <EvolucaoPorData linhas={relatorio.report.byDate} periodo={relatorio.range.label} />
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <Tabela titulo="Principais consultas" linhas={relatorio.report.queries} />
                 <Tabela titulo="Principais páginas" linhas={relatorio.report.pages} />
               </div>
@@ -505,33 +501,39 @@ export default function SeoPanel({ clientes }: { clientes: Array<{ id: string; n
   )
 }
 
+/* ------------------------------ estado vazio ------------------------------ */
+
+/** Cartão de estado (sem conexão, sem propriedade, sem dado). */
+export function Vazio({ icone, titulo, tom = 'neutro', children }: { icone: React.ElementType; titulo: string; tom?: Tom; children?: React.ReactNode }) {
+  return (
+    <Painel className="text-center py-10">
+      <Chip icone={icone} tom={tom} tamanho="lg" className="mx-auto" />
+      <p className="t-secao text-foreground mt-3">{titulo}</p>
+      {children && <p className="t-legenda mt-1 max-w-md mx-auto">{children}</p>}
+    </Painel>
+  )
+}
+
 /* ------------------------------ evolução ------------------------------ */
 
-function EvolucaoPorData({ linhas }: { linhas: Linha[] }) {
+function EvolucaoPorData({ linhas, periodo }: { linhas: Linha[]; periodo: string }) {
   if (linhas.length === 0) return null
-  const max = Math.max(...linhas.map((l) => l.clicks ?? 0), 1)
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-4">
-      <p className="text-sm font-semibold text-gray-900 mb-3">Evolução por data</p>
-      <div className="flex items-end gap-0.5 h-32 overflow-x-auto">
-        {linhas.map((l) => {
+    <Painel rotulo="Search Console" titulo="Evolução por data" sub={`Cliques por dia · ${periodo}`}>
+      <GraficoDiario
+        metrica="Cliques"
+        unidade="cliques por dia"
+        pontos={linhas.map((l) => {
           const dia = l.keys?.[0] ?? ''
-          const altura = Math.max(2, Math.round(((l.clicks ?? 0) / max) * 100))
-          return (
-            <div
-              key={dia}
-              title={`${br(dia)} · ${formatCount(Math.round(l.clicks ?? 0))} clique(s) · ${formatCount(Math.round(l.impressions ?? 0))} impressões`}
-              className="flex-1 min-w-[3px] bg-[#030A8C] rounded-t hover:bg-[#F74A13] transition-colors"
-              style={{ height: `${altura}%` }}
-            />
-          )
+          return {
+            chave: dia,
+            rotulo: br(dia).slice(0, 5),
+            valor: l.clicks ?? 0,
+            dica: `${br(dia)} · ${formatCount(Math.round(l.clicks ?? 0))} clique(s) · ${formatCount(Math.round(l.impressions ?? 0))} impressões`,
+          }
         })}
-      </div>
-      <div className="flex justify-between text-[10px] text-gray-400 mt-1">
-        <span>{br(linhas[0]?.keys?.[0] ?? '')}</span>
-        <span>{br(linhas[linhas.length - 1]?.keys?.[0] ?? '')}</span>
-      </div>
-    </div>
+      />
+    </Painel>
   )
 }
 
@@ -539,40 +541,36 @@ function EvolucaoPorData({ linhas }: { linhas: Linha[] }) {
 
 function Tabela({ titulo, linhas }: { titulo: string; linhas: Linha[] }) {
   return (
-    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-      <div className="px-4 py-3 border-b border-gray-100">
-        <p className="text-sm font-semibold text-gray-900">{titulo}</p>
-        <p className="text-[10px] text-gray-400">Principais resultados: o Google não devolve todas as linhas.</p>
-      </div>
+    <Painel rotulo="Search Console" titulo={titulo} sub="Principais resultados: o Google não devolve todas as linhas." semPadding className="overflow-hidden">
       {linhas.length === 0 ? (
-        <p className="text-xs text-gray-400 text-center py-6">Nada no período</p>
+        <p className="t-legenda text-center py-6 border-t border-border">Nada no período</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-xs min-w-[420px]">
-            <thead className="bg-gray-50">
-              <tr className="text-left text-[10px] font-semibold text-gray-500 uppercase">
-                <th className="px-4 py-2">Item</th>
-                <th className="px-3 py-2">Cliques</th>
-                <th className="px-3 py-2">Impressões</th>
-                <th className="px-3 py-2">CTR</th>
-                <th className="px-3 py-2">Posição</th>
+            <thead className="bg-secondary/60 border-y border-border">
+              <tr className="text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.08em]">
+                <th className="px-6 py-2.5">Item</th>
+                <th className="px-3 py-2.5">Cliques</th>
+                <th className="px-3 py-2.5">Impressões</th>
+                <th className="px-3 py-2.5">CTR</th>
+                <th className="px-3 py-2.5 pr-6">Posição</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-border">
               {linhas.map((l) => (
-                <tr key={l.keys?.[0]} className="hover:bg-gray-50">
-                  <td className="px-4 py-2 max-w-[260px] truncate text-gray-900" title={l.keys?.[0]}>{l.keys?.[0]}</td>
-                  <td className="px-3 py-2 text-gray-900">{formatCount(Math.round(l.clicks ?? 0))}</td>
-                  <td className="px-3 py-2 text-gray-600">{formatCount(Math.round(l.impressions ?? 0))}</td>
-                  <td className="px-3 py-2 text-gray-600">{formatCtr(l.ctr ?? 0)}</td>
-                  <td className="px-3 py-2 text-gray-600">{formatPosition(l.position ?? 0)}</td>
+                <tr key={l.keys?.[0]} className="hover:bg-secondary/40">
+                  <td className="px-6 py-2.5 max-w-[260px] truncate text-foreground" title={l.keys?.[0]}>{l.keys?.[0]}</td>
+                  <td className="px-3 py-2.5 text-foreground font-semibold tabular">{formatCount(Math.round(l.clicks ?? 0))}</td>
+                  <td className="px-3 py-2.5 text-muted-foreground tabular">{formatCount(Math.round(l.impressions ?? 0))}</td>
+                  <td className="px-3 py-2.5 text-muted-foreground tabular">{formatCtr(l.ctr ?? 0)}</td>
+                  <td className="px-3 py-2.5 pr-6 text-muted-foreground tabular">{formatPosition(l.position ?? 0)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
-    </div>
+    </Painel>
   )
 }
 
@@ -623,56 +621,56 @@ function VincularModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center sm:justify-center sm:p-4" onClick={onClose}>
-      <div className="bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl shadow-xl max-h-[92dvh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-gray-100 sticky top-0 bg-white">
-          <h3 className="font-bold text-gray-900">Vincular propriedade</h3>
-          <button onClick={onClose} aria-label="Fechar" className="p-1.5 hover:bg-gray-100 rounded-lg"><X className="w-4 h-4 text-gray-400" /></button>
+    <div className="fixed inset-0 z-50 bg-veu flex items-end sm:items-center sm:justify-center sm:p-4" onClick={onClose}>
+      <div className="bg-card w-full sm:max-w-lg rounded-t-[24px] sm:rounded-[24px] shadow-xl max-h-[92dvh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-border sticky top-0 bg-card">
+          <h3 className="font-bold text-foreground">Vincular propriedade</h3>
+          <button onClick={onClose} aria-label="Fechar" className="p-1.5 hover:bg-secondary rounded-lg"><X className="w-4 h-4 text-muted-foreground" /></button>
         </div>
 
         <div className="p-4 sm:p-5 space-y-3">
-          {erro && <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{erro}</p>}
+          {erro && <p className="text-xs text-destructive-texto bg-destructive-suave border border-destructive/30 rounded-lg px-3 py-2">{erro}</p>}
 
           {sites === null && !erro ? (
-            <p className="text-xs text-gray-400 flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Consultando o Search Console…</p>
+            <p className="text-xs text-muted-foreground flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Consultando o Search Console…</p>
           ) : sites && sites.length === 0 ? (
-            <p className="text-xs text-orange-700 bg-orange-50 border border-orange-100 rounded-lg px-3 py-2">
+            <p className="text-xs text-warning bg-warning-suave border border-warning/20 rounded-lg px-3 py-2">
               A conta conectada não tem nenhuma propriedade no Search Console. Adicione o site à conta no Search Console e tente de novo.
             </p>
           ) : (
             <>
               <div className="relative">
-                <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   value={busca}
                   onChange={(e) => setBusca(e.target.value)}
                   placeholder="Buscar propriedade"
-                  className="w-full h-10 pl-9 pr-3 text-xs border border-gray-200 rounded-lg"
+                  className="w-full h-10 pl-9 pr-3 text-xs border border-border rounded-lg"
                 />
               </div>
-              <div className="max-h-56 overflow-y-auto border border-gray-100 rounded-lg divide-y divide-gray-100">
+              <div className="max-h-56 overflow-y-auto border border-border rounded-lg divide-y divide-border">
                 {filtrados.map((s) => (
                   <button
                     key={s.siteUrl}
                     onClick={() => setEscolhido(s.siteUrl)}
                     disabled={!s.canRead}
-                    className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between gap-2 disabled:opacity-40 ${escolhido === s.siteUrl ? 'bg-[#030A8C]/5' : 'hover:bg-gray-50'}`}
+                    className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between gap-2 disabled:opacity-40 ${escolhido === s.siteUrl ? 'bg-marca/5' : 'hover:bg-secondary/60'}`}
                   >
                     <span className="min-w-0">
-                      <span className="block font-medium text-gray-900 truncate">{s.label}</span>
-                      <span className="block text-[10px] text-gray-400">
+                      <span className="block font-medium text-foreground truncate">{s.label}</span>
+                      <span className="block text-[10px] text-muted-foreground">
                         {s.isDomain ? 'propriedade de domínio' : 'prefixo de URL'}
                         {s.permissionLabel ? ` · ${s.permissionLabel}` : ''}
                         {s.linked ? ' · já vinculada' : ''}
                       </span>
                     </span>
-                    {escolhido === s.siteUrl && <CheckCircle2 className="w-4 h-4 text-[#030A8C] shrink-0" />}
+                    {escolhido === s.siteUrl && <CheckCircle2 className="w-4 h-4 text-marca-texto shrink-0" />}
                   </button>
                 ))}
-                {filtrados.length === 0 && <p className="px-3 py-3 text-[11px] text-gray-400">Nada com esse nome.</p>}
+                {filtrados.length === 0 && <p className="px-3 py-3 text-[11px] text-muted-foreground">Nada com esse nome.</p>}
               </div>
 
-              <div className="flex items-center gap-3 text-xs text-gray-700 pt-1">
+              <div className="flex items-center gap-3 text-xs text-foreground pt-1">
                 <label className="flex items-center gap-1.5">
                   <input type="radio" checked={destino === 'cliente'} onChange={() => setDestino('cliente')} /> Cliente
                 </label>
@@ -690,12 +688,12 @@ function VincularModal({
           )}
         </div>
 
-        <div className="flex justify-end gap-2 p-4 sm:p-5 border-t border-gray-100 sticky bottom-0 bg-white">
-          <button onClick={onClose} disabled={salvando} className="px-3 py-2 text-xs font-medium text-gray-600 hover:text-gray-900">Cancelar</button>
+        <div className="flex justify-end gap-2 p-4 sm:p-5 border-t border-border sticky bottom-0 bg-card">
+          <button onClick={onClose} disabled={salvando} className="px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground">Cancelar</button>
           <button
             onClick={salvar}
             disabled={salvando || !escolhido || (destino === 'cliente' && !clienteId)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-[#030A8C] text-white rounded-lg text-xs font-semibold hover:bg-[#02077a] disabled:opacity-40"
+            className="flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-xs font-semibold hover:bg-primary-hover disabled:opacity-40"
           >
             {salvando && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Vincular
           </button>
@@ -742,33 +740,33 @@ function CredenciaisCard({
   }
 
   return (
-    <div className="bg-white border border-orange-200 rounded-xl p-4 sm:p-5 space-y-3">
+    <div className="bg-card border border-warning/30 rounded-[24px] p-6 space-y-3">
       <div>
-        <p className="font-semibold text-gray-900 flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4 text-orange-500" /> Configuração pendente
+        <p className="font-semibold text-foreground flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 text-warning" /> Configuração pendente
         </p>
-        <p className="text-sm text-gray-600 mt-1">
+        <p className="text-sm text-muted-foreground mt-1">
           Falta no servidor: <span className="font-mono text-xs">{missingEnv.join(', ')}</span>.
           Cole abaixo as credenciais do cliente OAuth. O segredo é gravado cifrado e nunca volta para a tela.
         </p>
       </div>
 
-      <div className="flex items-center gap-2 text-xs bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-        <span className="text-gray-500 shrink-0">URI de retorno:</span>
-        <span className="font-mono text-[11px] text-gray-900 truncate">{redirectUri}</span>
+      <div className="flex items-center gap-2 text-xs bg-secondary/60 border border-border rounded-lg px-3 py-2">
+        <span className="text-muted-foreground shrink-0">URI de retorno:</span>
+        <span className="font-mono text-[11px] text-foreground truncate">{redirectUri}</span>
         <button
           onClick={() => { navigator.clipboard.writeText(redirectUri); setCopiado(true) }}
-          className="ml-auto text-[11px] font-semibold text-[#030A8C] hover:underline shrink-0"
+          className="ml-auto text-[11px] font-semibold text-marca-texto hover:underline shrink-0"
         >
           {copiado ? 'copiado' : 'copiar'}
         </button>
       </div>
 
-      {erro && <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{erro}</p>}
+      {erro && <p className="text-xs text-destructive-texto bg-destructive-suave border border-destructive/30 rounded-lg px-3 py-2">{erro}</p>}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-          <label className="text-xs font-medium text-gray-600 mb-1 block">Client ID</label>
+          <label className="text-xs font-medium text-muted-foreground mb-1 block">Client ID</label>
           <input
             value={clientId}
             onChange={(e) => setClientId(e.target.value)}
@@ -778,7 +776,7 @@ function CredenciaisCard({
           />
         </div>
         <div>
-          <label className="text-xs font-medium text-gray-600 mb-1 block">Client secret</label>
+          <label className="text-xs font-medium text-muted-foreground mb-1 block">Client secret</label>
           <input
             type="password"
             value={clientSecret}
@@ -791,13 +789,13 @@ function CredenciaisCard({
       </div>
 
       <div className="flex items-center justify-between gap-2">
-        <p className="text-[11px] text-gray-400">
+        <p className="text-[11px] text-muted-foreground">
           O Google não mostra o segredo depois de criado. Se você não tem mais o valor, gere um novo em “Add secret”.
         </p>
         <button
           onClick={salvar}
           disabled={salvando || !clientId.trim() || !clientSecret.trim()}
-          className="shrink-0 flex items-center gap-1.5 px-4 h-9 bg-[#030A8C] text-white rounded-lg text-xs font-semibold hover:bg-[#02077a] disabled:opacity-40"
+          className="shrink-0 flex items-center gap-1.5 px-4 h-9 bg-primary text-primary-foreground rounded-lg text-xs font-semibold hover:bg-primary-hover disabled:opacity-40"
         >
           {salvando && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Salvar credenciais
         </button>

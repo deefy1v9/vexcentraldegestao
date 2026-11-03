@@ -29,7 +29,7 @@ export default async function AutorizarPage({ searchParams }: { searchParams: Pr
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-lg p-6 sm:p-8 w-full max-w-md">
         <div className="text-center mb-6">
-          <div className="w-12 h-12 bg-[#030A8C] rounded-xl flex items-center justify-center mx-auto mb-3">
+          <div className="w-12 h-12 bg-marca rounded-xl flex items-center justify-center mx-auto mb-3">
             <span className="text-white text-xl font-bold">V</span>
           </div>
           <p className="text-sm text-gray-500">VEX Central de Gestão</p>
@@ -49,7 +49,7 @@ export default async function AutorizarPage({ searchParams }: { searchParams: Pr
           <form method="post" action="/api/mcp/oauth/autorizar" className="space-y-5">
             <input type="hidden" name="q" value={params.toString()} />
             <div>
-              <h1 className="text-lg font-semibold text-gray-900">Autorizar <span className="text-[#030A8C]">{v.pedido.appNome}</span>?</h1>
+              <h1 className="text-lg font-semibold text-gray-900">Autorizar <span className="text-marca-texto">{v.pedido.appNome}</span>?</h1>
               <p className="text-sm text-gray-600 mt-1">
                 O assistente vai ler a Central como <strong>{viewer.name}</strong>.
               </p>
@@ -82,7 +82,7 @@ export default async function AutorizarPage({ searchParams }: { searchParams: Pr
               <button type="submit" name="decisao" value="cancelar" className="flex-1 h-11 rounded-xl border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-50">
                 Cancelar
               </button>
-              <button type="submit" name="decisao" value="autorizar" className="flex-1 h-11 rounded-xl bg-[#030A8C] text-white text-sm font-semibold hover:opacity-90">
+              <button type="submit" name="decisao" value="autorizar" className="flex-1 h-11 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary-hover">
                 Autorizar
               </button>
             </div>

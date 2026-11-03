@@ -48,7 +48,7 @@ function Card({ c }: { c: CardDef }) {
           {c.label}
           {c.posicao && <span className="block text-[10px] font-normal text-gray-400">posição</span>}
         </p>
-        <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: c.color + '1f' }}>
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: `color-mix(in srgb, ${c.color} 12%, transparent)` }}>
           <c.icon className="w-3.5 h-3.5" style={{ color: c.color }} />
         </div>
       </div>
@@ -86,47 +86,47 @@ export default function DashboardIndicators({
   const principais: CardDef[] = [
     {
       label: 'Clientes ativos', value: String(s.activeClients),
-      sub: `${s.novosClientes} novo(s) no período`, icon: Building2, color: '#030A8C',
+      sub: `${s.novosClientes} novo(s) no período`, icon: Building2, color: 'var(--marca)',
       href: '/clientes', posicao: true,
       trend: p ? { current: s.novosClientes, previous: p.novosClientes } : undefined,
     },
     {
       label: 'Receita recorrente (MRR)', value: brl(s.mrrCents),
-      sub: `${s.clientsWithRecurring} cliente(s) com recorrência`, icon: Repeat, color: '#10b981',
+      sub: `${s.clientsWithRecurring} cliente(s) com recorrência`, icon: Repeat, color: 'var(--success)',
       href: financeiroHref, posicao: true,
       trend: p ? { current: s.mrrCents, previous: p.mrrCents } : undefined,
     },
     {
       label: 'Receita recebida', value: brl(s.recebidaCents),
       sub: s.previstaCents > 0 ? `${Math.round((s.recebidaCents / s.previstaCents) * 100)}% do previsto` : 'sem previsão no período',
-      icon: TrendingUp, color: '#6366f1', href: financeiroHref,
+      icon: TrendingUp, color: 'var(--info)', href: financeiroHref,
       trend: p ? { current: s.recebidaCents, previous: p.recebidaCents, parcial } : undefined,
     },
     {
       label: 'Receita atrasada', value: brl(s.atrasadaCents),
-      sub: `${inadimplencia.toFixed(1)}% de inadimplência`, icon: AlertTriangle, color: '#ef4444',
+      sub: `${inadimplencia.toFixed(1)}% de inadimplência`, icon: AlertTriangle, color: 'var(--destructive)',
       href: financeiroHref,
       trend: p ? { current: s.atrasadaCents, previous: p.atrasadaCents, invert: true } : undefined,
     },
     {
       label: 'Receita prevista', value: brl(s.previstaCents),
       sub: `${brl(s.previstaRecorrenteCents)} recorrente · ${brl(s.previstaAvulsaCents)} avulsa`,
-      icon: BarChart3, color: '#6366f1', href: financeiroHref,
+      icon: BarChart3, color: 'var(--info)', href: financeiroHref,
       trend: p ? { current: s.previstaCents, previous: p.previstaCents } : undefined,
     },
     {
       label: 'Receita pendente', value: brl(s.pendenteCents),
-      sub: 'em aberto dentro do prazo', icon: Wallet, color: '#f59e0b', href: financeiroHref,
+      sub: 'em aberto dentro do prazo', icon: Wallet, color: 'var(--warning)', href: financeiroHref,
     },
     {
       label: 'Custos e salários', value: brl(s.custosPrevistosCents),
       sub: `${brl(s.custosPagosCents)} pago · ${brl(custosPendentes)} pendente · ${brl(s.salariosPrevistosCents)} de salários`,
-      icon: TrendingDown, color: '#ef4444', href: financeiroHref,
+      icon: TrendingDown, color: 'var(--destructive)', href: financeiroHref,
       trend: p ? { current: s.custosPrevistosCents, previous: p.custosPrevistosCents, invert: true } : undefined,
     },
     {
       label: 'ARR projetado', value: brl(s.arrCents),
-      sub: 'MRR de referência × 12, não é receita do ano', icon: BarChart3, color: '#030A8C',
+      sub: 'MRR de referência × 12, não é receita do ano', icon: BarChart3, color: 'var(--marca)',
       href: financeiroHref, posicao: true,
     },
   ]
@@ -222,7 +222,7 @@ export default function DashboardIndicators({
           type="button"
           onClick={() => setExpanded((v) => !v)}
           aria-expanded={expanded}
-          className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-[#030A8C] bg-[#030A8C]/5 hover:bg-[#030A8C]/10 rounded-lg transition-colors"
+          className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-marca-texto bg-marca/5 hover:bg-marca/10 rounded-lg transition-colors"
         >
           {expanded ? 'Menos indicadores' : 'Mais indicadores'}
           <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`} />

@@ -65,15 +65,15 @@ export default function ClientCredentialsPanel({
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="font-semibold text-gray-900 flex items-center gap-2">
-          <Lock className="w-4 h-4 text-[#030A8C]" />
+    <section className="bg-card rounded-[24px] border border-border p-6 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+      <div className="flex items-center justify-between mb-5">
+        <h2 className="font-display text-[21px] font-semibold tracking-[-0.01em] text-foreground flex items-center gap-2.5">
+          <span className="w-9 h-9 rounded-xl grid place-items-center bg-marca-suave text-marca-texto"><Lock className="w-[18px] h-[18px]" /></span>
           Cofre de Credenciais
         </h2>
         <button
           onClick={() => setShowForm(!showForm)}
-          className="flex items-center gap-1 text-sm text-[#030A8C] hover:underline font-medium"
+          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-border bg-card text-[13px] font-medium text-foreground hover:bg-accent transition-colors"
         >
           <Plus className="w-4 h-4" />
           Adicionar
@@ -81,10 +81,10 @@ export default function ClientCredentialsPanel({
       </div>
 
       {showForm && (
-        <div className="bg-gray-50 rounded-lg p-4 mb-4 space-y-3">
+        <div className="bg-secondary/60 rounded-[16px] border border-border p-4 mb-4 space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Tipo</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Tipo</label>
               <select value={form.type} onChange={(e) => setForm((p) => ({ ...p, type: e.target.value }))}
                 className="input text-sm">
                 {CRED_TYPES.map((t) => (
@@ -93,43 +93,43 @@ export default function ClientCredentialsPanel({
               </select>
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Título/Label *</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Título/Label *</label>
               <input value={form.label} onChange={(e) => setForm((p) => ({ ...p, label: e.target.value }))}
                 className="input text-sm" placeholder="Ex: WordPress Principal" />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Usuário</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Usuário</label>
               <input value={form.username} onChange={(e) => setForm((p) => ({ ...p, username: e.target.value }))}
                 className="input text-sm" placeholder="admin" />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Senha</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Senha</label>
               <input type="password" value={form.password} onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
                 className="input text-sm" placeholder="••••••••" />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">URL</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">URL</label>
               <input value={form.url} onChange={(e) => setForm((p) => ({ ...p, url: e.target.value }))}
                 className="input text-sm" placeholder="https://..." />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Email</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Email</label>
               <input value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
                 className="input text-sm" placeholder="email@..." />
             </div>
             <div className="sm:col-span-2">
-              <label className="text-xs font-medium text-gray-600 mb-1 block">Notas</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Notas</label>
               <input value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
                 className="input text-sm" placeholder="Informações adicionais..." />
             </div>
           </div>
           <div className="flex gap-2 justify-end">
             <button onClick={() => setShowForm(false)}
-              className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-200 rounded-lg transition-colors">
+              className="px-3 py-1.5 text-sm text-muted-foreground hover:bg-border rounded-lg transition-colors">
               Cancelar
             </button>
             <button onClick={addCredential}
-              className="px-3 py-1.5 text-sm bg-[#030A8C] text-white rounded-lg hover:bg-[#02077a] transition-colors">
+              className="px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary-hover transition-colors">
               Salvar
             </button>
           </div>
@@ -137,71 +137,71 @@ export default function ClientCredentialsPanel({
       )}
 
       {credentials.length === 0 ? (
-        <p className="text-sm text-gray-400 text-center py-6">Nenhuma credencial cadastrada</p>
+        <p className="text-sm text-muted-foreground text-center py-6">Nenhuma credencial cadastrada</p>
       ) : (
         <div className="space-y-3">
           {credentials.map((cred) => (
-            <div key={cred.id} className="border border-gray-200 rounded-lg p-4">
+            <div key={cred.id} className="border border-border rounded-[16px] p-4 hover:border-subtle/60 transition-colors">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs bg-blue-50 text-[#030A8C] px-2 py-0.5 rounded-full font-medium capitalize">
+                  <span className="text-[11.5px] bg-secondary text-foreground px-2 py-0.5 rounded-md font-medium capitalize">
                     {cred.type}
                   </span>
-                  <p className="text-sm font-semibold text-gray-900">{cred.label}</p>
+                  <p className="text-sm font-semibold text-foreground">{cred.label}</p>
                 </div>
                 <button onClick={() => deleteCredential(cred.id)}
-                  className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors">
+                  className="p-1 text-muted-foreground hover:text-destructive-texto hover:bg-destructive-suave rounded transition-colors">
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                 {cred.url && (
-                  <div className="flex items-center gap-1 text-gray-600">
-                    <span className="text-gray-400">URL:</span>
+                  <div className="flex items-center gap-1 text-muted-foreground">
+                    <span className="text-muted-foreground">URL:</span>
                     <a href={cred.url} target="_blank" rel="noopener noreferrer"
-                      className="text-[#030A8C] hover:underline truncate max-w-[160px]">{cred.url}</a>
+                      className="text-marca-texto hover:underline truncate max-w-[160px]">{cred.url}</a>
                   </div>
                 )}
                 {cred.email && (
-                  <div className="flex items-center gap-1 text-gray-600">
-                    <span className="text-gray-400">Email:</span>
+                  <div className="flex items-center gap-1 text-muted-foreground">
+                    <span className="text-muted-foreground">Email:</span>
                     <span className="font-mono">{cred.email}</span>
-                    <button onClick={() => copyToClipboard(cred.email!)} className="text-gray-400 hover:text-gray-700">
+                    <button onClick={() => copyToClipboard(cred.email!)} className="text-muted-foreground hover:text-foreground">
                       <Copy className="w-3 h-3" />
                     </button>
                   </div>
                 )}
                 {cred.username && (
-                  <div className="flex items-center gap-1 text-gray-600">
-                    <span className="text-gray-400">Usuário:</span>
+                  <div className="flex items-center gap-1 text-muted-foreground">
+                    <span className="text-muted-foreground">Usuário:</span>
                     <span className="font-mono">{cred.username}</span>
-                    <button onClick={() => copyToClipboard(cred.username!)} className="text-gray-400 hover:text-gray-700">
+                    <button onClick={() => copyToClipboard(cred.username!)} className="text-muted-foreground hover:text-foreground">
                       <Copy className="w-3 h-3" />
                     </button>
                   </div>
                 )}
                 {cred.password && (
-                  <div className="flex items-center gap-1 text-gray-600">
-                    <span className="text-gray-400">Senha:</span>
+                  <div className="flex items-center gap-1 text-muted-foreground">
+                    <span className="text-muted-foreground">Senha:</span>
                     <span className="font-mono">
                       {visiblePasswords.has(cred.id) ? cred.password : '••••••••'}
                     </span>
-                    <button onClick={() => togglePassword(cred.id)} className="text-gray-400 hover:text-gray-700">
+                    <button onClick={() => togglePassword(cred.id)} className="text-muted-foreground hover:text-foreground">
                       {visiblePasswords.has(cred.id) ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                     </button>
-                    <button onClick={() => copyToClipboard(cred.password!)} className="text-gray-400 hover:text-gray-700">
+                    <button onClick={() => copyToClipboard(cred.password!)} className="text-muted-foreground hover:text-foreground">
                       <Copy className="w-3 h-3" />
                     </button>
                   </div>
                 )}
                 {cred.notes && (
-                  <div className="sm:col-span-2 text-gray-500 italic">{cred.notes}</div>
+                  <div className="sm:col-span-2 text-muted-foreground italic">{cred.notes}</div>
                 )}
               </div>
             </div>
           ))}
         </div>
       )}
-    </div>
+    </section>
   )
 }

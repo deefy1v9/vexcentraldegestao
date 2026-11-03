@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Logo } from "@/components/marca/Logo";
 import { usePathname } from "next/navigation";
-import { ChevronsLeft } from "lucide-react";
+import { Search } from "lucide-react";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/vex/avatar";
@@ -83,8 +83,8 @@ export function Sidebar({
   assinatura = false,
   modo = "fixa",
   aberta = false,
-  aoAlternar,
   aoNavegar,
+  aoBuscar,
   badges = {},
   pe,
   pessoa,
@@ -105,6 +105,8 @@ export function Sidebar({
   aberta?: boolean;
   aoAlternar?: () => void;
   aoNavegar?: () => void;
+  /** Abre a busca geral (clientes, demandas, propostas e telas). */
+  aoBuscar?: () => void;
   /** Contadores discretos por rota — só quando existe algo que pede ação. */
   badges?: Record<string, number>;
   /** O que vai no fim do trilho, abaixo de tudo (sino e Sair, desde 01/10). */
@@ -116,6 +118,7 @@ export function Sidebar({
   const pathname = usePathname();
   // Só a gaveta escreve por extenso; o trilho é sempre só ícones.
   const expandida = modo === "gaveta" || aberta;
+
 
   // O ativo é o destino de href mais longo que contém a rota (nav-config).
   const atual = itemAtivo(pathname, secoes);
@@ -139,7 +142,7 @@ export function Sidebar({
       data-trilho={modo === "fixa" ? ESTILO_DO_TRILHO : undefined}
       className={cn(
         "relative flex flex-col h-full flex-shrink-0 bg-sidebar text-sidebar-foreground border-r border-sidebar-border",
-        modo === "gaveta" ? "w-[272px]" : aberta ? "w-[248px]" : "w-[80px]",
+        modo === "gaveta" ? "w-[272px]" : aberta ? "w-[264px]" : "w-[80px]",
         "transition-[width] duration-200 ease-out",
       )}
     >
@@ -165,6 +168,19 @@ export function Sidebar({
           )}
         </Link>
       </div>
+      {expandida && aoBuscar && (
+        <div className="px-3 pt-1 pb-2 flex-shrink-0">
+          <button
+            type="button"
+            onClick={aoBuscar}
+            className={cn("w-full flex items-center gap-2.5 h-10 rounded-xl border border-border bg-secondary/60 px-3 text-[13px] text-muted-foreground hover:bg-card hover:border-subtle/60 transicao", focusRing)}
+          >
+            <Search className="w-4 h-4" strokeWidth={1.75} />
+            <span className="flex-1 text-left">Buscar…</span>
+            <span className="rounded-md border border-border bg-card px-1.5 py-0.5 text-[10px] font-semibold">Ctrl K</span>
+          </button>
+        </div>
+      )}
       {/* Linha bem leve entre a marca e os destinos (o dono, 15/10). O abrir
           e recolher mora no pé, abaixo de Configurações. */}
       <div aria-hidden className="mx-4 h-px flex-shrink-0 bg-sidebar-border/60" />
@@ -173,11 +189,11 @@ export function Sidebar({
       <nav className={cn("flex-1 overflow-y-auto overflow-x-hidden", expandida ? "py-2" : "py-1.5")}>
         {principais.map((secao, i) =>
           expandida ? (
-            <div key={secao.label} className={cn(i > 0 && "mt-3")}>
+            <div key={secao.label} className={cn(i > 0 && "mt-4")}>
               {principais.length > 1 && (
-                <p className="px-[18px] mb-1 text-[11px] leading-4 font-medium text-subtle">{secao.label}</p>
+                <p className="px-5 mb-1.5 text-[11px] leading-4 font-semibold uppercase tracking-[0.12em] text-muted-foreground/80">{secao.label}</p>
               )}
-              <div className="space-y-px">
+              <div className="space-y-0.5">
                 {secao.items.map((item) => (
                   <ItemDaColuna key={item.href} item={item} on={ativo(item.href)} badge={badges[item.href] ?? 0} aoNavegar={aoNavegar} aoSuporte={aoSuporte} />
                 ))}
@@ -233,7 +249,6 @@ export function Sidebar({
               <ItemDoTrilho key={secao.label} item={entrada} on={on} badge={0} aoNavegar={aoNavegar} />
             );
           })}
-          {aoAlternar && modo === "fixa" && <BotaoRecolher aberta={expandida} aoAlternar={aoAlternar} />}
           {rodape && <RodapeConteudo rodape={rodape} expandida={expandida} aoNavegar={aoNavegar} />}
           {expandida && assinatura && (
             <div className="flex items-center h-9 pl-2">
@@ -345,58 +360,15 @@ function ItemDoTrilho({ item, on, badge, aoNavegar, aoSuporte }: { item: NavItem
   );
 }
 
-/**
- * Abrir e recolher o trilho, no pé e no mesmo desenho dos destinos: fechado é
- * um ícone de 44px com a dica; aberto, uma linha com "Recolher". A seta gira
- * meia volta a cada troca.
- */
-function BotaoRecolher({ aberta, aoAlternar }: { aberta: boolean; aoAlternar: () => void }) {
-  const seta = (
-    <ChevronsLeft
-      className={cn("transition-transform duration-300 ease-out flex-shrink-0", aberta ? "w-[21px] h-[21px]" : "w-[26px] h-[26px] rotate-180")}
-      strokeWidth={1.75}
-    />
-  );
-  if (!aberta) {
-    return (
-      <Dica label="Expandir menu" hint="mostra o nome de cada destino">
-        <div className="relative w-full">
-          <button
-            type="button"
-            onClick={aoAlternar}
-            aria-label="Expandir menu"
-            aria-expanded={false}
-            className={cn("ico-vivo mx-auto grid place-items-center w-11 h-11 [@media(max-height:780px)]:h-10 rounded-lg transicao text-sidebar-icone hover:text-sidebar-icone-ativo", focusRing)}
-          >
-            {seta}
-          </button>
-        </div>
-      </Dica>
-    );
-  }
-  return (
-    <div className="-mx-2 mb-1">
-      <button
-        type="button"
-        onClick={aoAlternar}
-        aria-label="Recolher menu"
-        aria-expanded
-        className={cn("ico-vivo mx-2 w-[calc(100%-1rem)] flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13px] font-medium transicao text-sidebar-icone hover:bg-sidebar-ativo/60 hover:text-sidebar-icone-ativo", focusRing)}
-      >
-        {seta}
-        <span className="flex-1 min-w-0 truncate text-left surgir">Recolher</span>
-      </button>
-    </div>
-  );
-}
-
 /** Um destino na gaveta: ícone e nome na mesma linha, 36px. */
 function ItemDaColuna({ item, on, badge, aoNavegar, aoSuporte }: { item: NavItem; on: boolean; badge: number; aoNavegar?: () => void; aoSuporte?: () => void }) {
   const Icone = item.icon;
   const suporte = item.href === "/suporte" && !!aoSuporte;
+  // Aberto, no estilo do modelo Vireo: o ativo é uma pílula em azul-marinho
+  // claro, com o traço da marca na borda esquerda
   return (
-    <div className={cn("relative", on && "bg-sidebar-ativo")}>
-      {on && <Marcador />}
+    <div className="relative">
+      {on && <span aria-hidden className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-marca" />}
       <Link
         href={item.href}
         onClick={(e) => {
@@ -409,8 +381,8 @@ function ItemDaColuna({ item, on, badge, aoNavegar, aoSuporte }: { item: NavItem
         }}
         aria-current={on ? "page" : undefined}
         className={cn(
-          "ico-vivo mx-2 flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13px] transicao",
-          on ? "text-sidebar-icone-ativo font-semibold" : "text-sidebar-icone font-medium hover:bg-sidebar-ativo/60 hover:text-sidebar-icone-ativo",
+          "ico-vivo mx-3 flex items-center gap-3 h-10 px-3 rounded-xl text-[13.5px] transicao",
+          on ? "bg-marca-suave text-marca-texto font-semibold ring-1 ring-marca/10" : "text-sidebar-icone font-medium hover:bg-secondary hover:text-foreground",
           focusRing,
         )}
       >
@@ -472,3 +444,4 @@ function RodapeConteudo({
     </Link>
   );
 }
+

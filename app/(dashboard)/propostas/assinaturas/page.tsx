@@ -40,15 +40,15 @@ export default async function AssinaturasPage() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <Header title="Assinaturas" subtitle="Contratos para assinar pelo link, cada um no próprio celular" />
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-8 pb-8 pt-2">
         <ProposalsNav showNew={false} />
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[12px] border border-border bg-card px-4 py-3">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-[20px] border border-border bg-card px-5 py-4 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
           <p className="text-sm text-muted-foreground">
             {drive
               ? `Google Drive liberado (${drive.googleEmail}): a Central guarda contratos e notas fiscais nas pastas dos clientes.`
               : 'Google Drive: libere para a Central guardar contratos assinados e notas fiscais nas pastas dos clientes. Use a conta que administra o Drive de clientes.'}
           </p>
-          <a href="/api/gsc/oauth/start?escopos=analytics,drive" className="h-9 px-3 inline-flex items-center rounded-lg border border-border text-xs font-medium text-foreground hover:bg-secondary shrink-0">
+          <a href="/api/gsc/oauth/start?escopos=analytics,drive" className="h-9 px-3.5 inline-flex items-center rounded-lg border border-border bg-card text-[13px] font-medium text-foreground hover:bg-secondary shrink-0">
             {drive ? 'Reconectar o Google' : 'Liberar o Google Drive'}
           </a>
         </div>

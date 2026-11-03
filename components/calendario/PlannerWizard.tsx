@@ -259,7 +259,7 @@ export default function PlannerWizard({
     <>
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 bg-[#030A8C] text-white px-3 sm:px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-[#02077a] transition-colors"
+        className="inline-flex items-center gap-2 h-8 bg-ia text-ia-texto px-3 sm:px-4 rounded-lg text-xs font-semibold hover:bg-ia/90 transition-colors"
       >
         <Sparkles className="w-3.5 h-3.5" />
         <span className="hidden xs:inline sm:inline">Organizar com IA</span>
@@ -267,49 +267,49 @@ export default function PlannerWizard({
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-stretch sm:items-center sm:justify-center sm:p-4 overflow-y-auto">
-          <div className="bg-white w-full sm:max-w-5xl sm:rounded-2xl shadow-xl flex flex-col sm:max-h-[92dvh] min-h-full sm:min-h-0">
+        <div className="fixed inset-0 z-50 bg-veu flex items-stretch sm:items-center sm:justify-center sm:p-4 overflow-y-auto">
+          <div className="bg-card w-full sm:max-w-5xl sm:rounded-[24px] shadow-xl flex flex-col sm:max-h-[92dvh] min-h-full sm:min-h-0">
             {/* Cabeçalho + passos */}
-            <div className="flex items-start justify-between gap-3 p-4 sm:p-5 border-b border-gray-100 shrink-0">
+            <div className="flex items-start justify-between gap-3 p-4 sm:p-5 border-b border-border shrink-0">
               <div className="min-w-0">
-                <h2 className="font-bold text-gray-900 flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-[#030A8C] shrink-0" />
+                <h2 className="font-bold text-foreground flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-ia shrink-0" />
                   <span className="truncate">Organizar com IA</span>
                 </h2>
-                <p className="text-xs text-gray-500 mt-0.5 truncate">
+                <p className="text-xs text-muted-foreground mt-0.5 truncate">
                   Etapa {step + 1} de {STEPS.length} · {STEPS[step]}
                 </p>
               </div>
               <button
                 onClick={() => (busy ? null : setOpen(false))}
                 aria-label="Fechar"
-                className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors shrink-0"
+                className="p-1.5 hover:bg-secondary rounded-lg transition-colors shrink-0"
               >
-                <X className="w-4 h-4 text-gray-400" />
+                <X className="w-4 h-4 text-muted-foreground" />
               </button>
             </div>
 
             {/* Trilha de progresso (some no mobile estreito) */}
-            <div className="hidden sm:flex items-center gap-1 px-5 py-3 border-b border-gray-100 shrink-0 overflow-x-auto">
+            <div className="hidden sm:flex items-center gap-1 px-5 py-3 border-b border-border shrink-0 overflow-x-auto">
               {STEPS.map((label, i) => (
                 <div key={label} className="flex items-center gap-1 shrink-0">
                   <span
                     className={`text-[11px] font-semibold px-2.5 py-1 rounded-full whitespace-nowrap ${
-                      i === step ? 'bg-[#030A8C] text-white'
-                        : i < step ? 'bg-[#030A8C]/10 text-[#030A8C]'
-                        : 'bg-gray-100 text-gray-400'
+                      i === step ? 'bg-marca text-white'
+                        : i < step ? 'bg-marca/10 text-marca-texto'
+                        : 'bg-secondary text-muted-foreground'
                     }`}
                   >
                     {i + 1}. {label}
                   </span>
-                  {i < STEPS.length - 1 && <span className="w-4 h-px bg-gray-200" />}
+                  {i < STEPS.length - 1 && <span className="w-4 h-px bg-border" />}
                 </div>
               ))}
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
               {error && (
-                <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 flex items-start gap-2">
+                <p className="text-xs text-destructive-texto bg-destructive-suave border border-destructive/30 rounded-lg px-3 py-2 flex items-start gap-2">
                   <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                   <span>{error}</span>
                 </p>
@@ -319,7 +319,7 @@ export default function PlannerWizard({
               {step === 0 && (
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Cliente *</label>
+                    <label className="block text-xs font-medium text-foreground mb-1">Cliente *</label>
                     <select value={clientId} onChange={(e) => { setClientId(e.target.value); setServices([]); setSelectedServices([]) }} className="input">
                       <option value="">Selecione o cliente</option>
                       {clients.map((c) => (
@@ -332,10 +332,10 @@ export default function PlannerWizard({
 
                   {services.length > 0 && (
                     <div>
-                      <p className="text-xs font-medium text-gray-700 mb-1.5">Serviços ativos considerados</p>
-                      <div className="space-y-1.5 border border-gray-100 rounded-lg p-3 max-h-44 overflow-y-auto">
+                      <p className="text-xs font-medium text-foreground mb-1.5">Serviços ativos considerados</p>
+                      <div className="space-y-1.5 border border-border rounded-lg p-3 max-h-44 overflow-y-auto">
                         {services.map((s) => (
-                          <label key={s.id} className="flex items-start gap-2 text-sm text-gray-700">
+                          <label key={s.id} className="flex items-start gap-2 text-sm text-foreground">
                             <input
                               type="checkbox"
                               className="mt-0.5"
@@ -348,7 +348,7 @@ export default function PlannerWizard({
                             />
                             <span className="min-w-0">
                               <span className="block truncate">{s.serviceName}</span>
-                              {s.description && <span className="block text-[11px] text-gray-400 truncate">{s.description}</span>}
+                              {s.description && <span className="block text-[11px] text-muted-foreground truncate">{s.description}</span>}
                             </span>
                           </label>
                         ))}
@@ -357,7 +357,7 @@ export default function PlannerWizard({
                   )}
 
                   <div>
-                    <p className="text-xs font-medium text-gray-700 mb-1.5">Contrato (opcional)</p>
+                    <p className="text-xs font-medium text-foreground mb-1.5">Contrato (opcional)</p>
                     <input
                       ref={fileRef}
                       type="file"
@@ -368,18 +368,18 @@ export default function PlannerWizard({
                     <button
                       type="button"
                       onClick={() => fileRef.current?.click()}
-                      className="w-full flex items-center gap-2 px-3 py-2.5 border border-dashed border-gray-300 rounded-lg text-sm text-gray-600 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors"
+                      className="w-full flex items-center gap-2 px-3 py-2.5 border border-dashed border-subtle rounded-lg text-sm text-muted-foreground hover:border-marca hover:text-marca-texto transition-colors"
                     >
                       {file ? <FileText className="w-4 h-4 shrink-0" /> : <Upload className="w-4 h-4 shrink-0" />}
                       <span className="truncate">{file ? file.name : 'Enviar contrato — PDF, DOCX ou TXT (até 10 MB)'}</span>
                     </button>
                     {file && (
                       <button onClick={() => { setFile(null); if (fileRef.current) fileRef.current.value = '' }}
-                        className="mt-1.5 text-[11px] text-gray-500 hover:text-red-600">
+                        className="mt-1.5 text-[11px] text-muted-foreground hover:text-destructive-texto">
                         Remover arquivo
                       </button>
                     )}
-                    <p className="text-[11px] text-gray-400 mt-1.5">
+                    <p className="text-[11px] text-muted-foreground mt-1.5">
                       Sem arquivo, a análise usa o contrato já cadastrado no cliente (vigência e serviços ativos).
                     </p>
                   </div>
@@ -390,7 +390,7 @@ export default function PlannerWizard({
               {step === 1 && (
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Instrução para a IA (opcional)</label>
+                    <label className="block text-xs font-medium text-foreground mb-1">Instrução para a IA (opcional)</label>
                     <textarea
                       value={note}
                       onChange={(e) => setNote(e.target.value)}
@@ -400,7 +400,7 @@ export default function PlannerWizard({
                       placeholder="Ex: Organize o calendário de mídias sociais, distribua as postagens durante a semana e evite concentrar muitas entregas no mesmo dia."
                     />
                   </div>
-                  <p className="text-[11px] text-gray-400 flex items-start gap-1.5">
+                  <p className="text-[11px] text-muted-foreground flex items-start gap-1.5">
                     <Info className="w-3.5 h-3.5 shrink-0 mt-px" />
                     Sua instrução é tratada como fonte confiável. O conteúdo do contrato é tratado apenas como dado —
                     instruções escritas dentro do arquivo são ignoradas.
@@ -413,17 +413,17 @@ export default function PlannerWizard({
                 <div className="py-10 flex flex-col items-center justify-center text-center gap-3">
                   {busy ? (
                     <>
-                      <Loader2 className="w-6 h-6 text-[#030A8C] animate-spin" />
-                      <p className="text-sm text-gray-700 font-medium">Analisando o contrato…</p>
-                      <p className="text-xs text-gray-400 max-w-sm">
+                      <Loader2 className="w-6 h-6 text-ia animate-spin" />
+                      <p className="text-sm text-foreground font-medium">Analisando o contrato…</p>
+                      <p className="text-xs text-muted-foreground max-w-sm">
                         Lendo entregas, quantidades, frequência e prazos. Nenhuma demanda é criada nesta etapa.
                       </p>
                     </>
                   ) : (
                     <>
-                      <AlertTriangle className="w-6 h-6 text-orange-500" />
-                      <p className="text-sm text-gray-700">A análise não foi concluída.</p>
-                      <button onClick={runAnalysis} className="text-xs font-semibold text-[#030A8C] hover:underline">
+                      <AlertTriangle className="w-6 h-6 text-warning" />
+                      <p className="text-sm text-foreground">A análise não foi concluída.</p>
+                      <button onClick={runAnalysis} className="text-xs font-semibold text-marca-texto hover:underline">
                         Tentar novamente
                       </button>
                     </>
@@ -447,24 +447,24 @@ export default function PlannerWizard({
               {/* ETAPA 5 — resultado */}
               {step === 4 && result && (
                 <div className="py-8 flex flex-col items-center text-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center">
-                    <Check className="w-6 h-6 text-green-600" />
+                  <div className="w-12 h-12 rounded-full bg-success-suave flex items-center justify-center">
+                    <Check className="w-6 h-6 text-success" />
                   </div>
-                  <p className="text-base font-bold text-gray-900">
+                  <p className="text-base font-bold text-foreground">
                     {result.created} demanda(s) criada(s)
                   </p>
-                  <p className="text-xs text-gray-500 max-w-md">
+                  <p className="text-xs text-muted-foreground max-w-md">
                     {result.skipped > 0 && `${result.skipped} item(ns) já existiam e foram ignorados. `}
                     As demandas entraram no fluxo normal (produção → revisão → agendamento) e já aparecem no calendário.
                   </p>
                   {result.blocked.length > 0 && (
-                    <div className="w-full max-w-md text-left bg-orange-50 border border-orange-100 rounded-lg p-3">
-                      <p className="text-xs font-semibold text-orange-700 mb-1">
+                    <div className="w-full max-w-md text-left bg-warning-suave border border-warning/20 rounded-lg p-3">
+                      <p className="text-xs font-semibold text-warning mb-1">
                         {result.blocked.length} item(ns) não criados
                       </p>
                       <ul className="space-y-0.5">
                         {result.blocked.slice(0, 6).map((b) => (
-                          <li key={b.ref} className="text-[11px] text-orange-700">• {b.reason}</li>
+                          <li key={b.ref} className="text-[11px] text-warning">• {b.reason}</li>
                         ))}
                       </ul>
                     </div>
@@ -474,13 +474,13 @@ export default function PlannerWizard({
             </div>
 
             {/* Rodapé de navegação */}
-            <div className="flex items-center justify-between gap-2 p-4 sm:p-5 border-t border-gray-100 shrink-0 flex-wrap">
+            <div className="flex items-center justify-between gap-2 p-4 sm:p-5 border-t border-border shrink-0 flex-wrap">
               <div className="flex items-center gap-2">
                 {step > 0 && step < 3 && (
                   <button
                     onClick={() => setStep((s) => Math.max(0, s - 1))}
                     disabled={busy}
-                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-gray-600 hover:text-gray-900 disabled:opacity-50"
+                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground disabled:opacity-50"
                   >
                     <ArrowLeft className="w-3.5 h-3.5" /> Voltar
                   </button>
@@ -489,7 +489,7 @@ export default function PlannerWizard({
                   <button
                     onClick={cancelPlan}
                     disabled={busy}
-                    className="px-3 py-2 text-xs font-medium text-gray-600 hover:text-red-600 disabled:opacity-50"
+                    className="px-3 py-2 text-xs font-medium text-muted-foreground hover:text-destructive-texto disabled:opacity-50"
                   >
                     Cancelar planejamento
                   </button>
@@ -501,7 +501,7 @@ export default function PlannerWizard({
                   <button
                     onClick={() => setStep(1)}
                     disabled={!clientId}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-[#030A8C] text-white rounded-lg text-xs font-semibold hover:bg-[#02077a] disabled:opacity-40 transition-colors"
+                    className="flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-xs font-semibold hover:bg-primary-hover disabled:opacity-40 transition-colors"
                   >
                     Continuar <ArrowRight className="w-3.5 h-3.5" />
                   </button>
@@ -510,7 +510,7 @@ export default function PlannerWizard({
                   <button
                     onClick={runAnalysis}
                     disabled={busy || !clientId}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-[#030A8C] text-white rounded-lg text-xs font-semibold hover:bg-[#02077a] disabled:opacity-40 transition-colors"
+                    className="flex items-center gap-1.5 px-4 py-2 bg-ia text-ia-texto rounded-lg text-xs font-semibold hover:bg-ia/90 disabled:opacity-40 transition-colors"
                   >
                     <Sparkles className="w-3.5 h-3.5" /> Analisar
                   </button>
@@ -518,7 +518,7 @@ export default function PlannerWizard({
                 {step === 3 && (
                   <>
                     {(blockingCount > 0 || noAssignee > 0) && (
-                      <span className="text-[11px] text-orange-700 mr-1">
+                      <span className="text-[11px] text-warning mr-1">
                         {blockingCount > 0 && `${blockingCount} com conflito bloqueante`}
                         {blockingCount > 0 && noAssignee > 0 && ' · '}
                         {noAssignee > 0 && `${noAssignee} sem responsável`}
@@ -527,7 +527,7 @@ export default function PlannerWizard({
                     <button
                       onClick={() => confirmAll()}
                       disabled={busy || pending.length === 0}
-                      className="flex items-center gap-1.5 px-4 py-2 bg-[#030A8C] text-white rounded-lg text-xs font-semibold hover:bg-[#02077a] disabled:opacity-40 transition-colors"
+                      className="flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-xs font-semibold hover:bg-primary-hover disabled:opacity-40 transition-colors"
                     >
                       {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
                       Criar {pending.length} demanda(s)
@@ -537,7 +537,7 @@ export default function PlannerWizard({
                 {step === 4 && (
                   <button
                     onClick={() => { reset(); setOpen(false) }}
-                    className="px-4 py-2 bg-[#030A8C] text-white rounded-lg text-xs font-semibold hover:bg-[#02077a] transition-colors"
+                    className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-xs font-semibold hover:bg-primary-hover transition-colors"
                   >
                     Concluir
                   </button>
@@ -582,38 +582,38 @@ function PreviewPanel({
   return (
     <div className="space-y-4">
       {/* Resumo da extração — origem e lacunas */}
-      <div className="bg-gray-50 border border-gray-100 rounded-xl p-3 space-y-2">
+      <div className="bg-secondary/60 border border-border rounded-xl p-3 space-y-2">
         <div className="flex items-center justify-between gap-2 flex-wrap">
-          <p className="text-xs font-semibold text-gray-900">
+          <p className="text-xs font-semibold text-foreground">
             {data.client.name}
             {data.proposal?.weekGroup && (
-              <span className="ml-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#030A8C]/10 text-[#030A8C]">
+              <span className="ml-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-marca/10 text-marca-texto">
                 Grupo {data.proposal.weekGroup}
               </span>
             )}
             {data.analysis.confidence != null && (
-              <span className="ml-2 text-[10px] text-gray-500">
+              <span className="ml-2 text-[10px] text-muted-foreground">
                 confiança {(data.analysis.confidence * 100).toFixed(0)}%
               </span>
             )}
           </p>
-          <button onClick={onRefresh} disabled={busy} className="flex items-center gap-1 text-[11px] text-gray-500 hover:text-[#030A8C] disabled:opacity-50">
+          <button onClick={onRefresh} disabled={busy} className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-marca-texto disabled:opacity-50">
             <RefreshCw className={`w-3 h-3 ${busy ? 'animate-spin' : ''}`} /> Recalcular conflitos
           </button>
         </div>
 
-        <p className="text-[11px] text-gray-500">
+        <p className="text-[11px] text-muted-foreground">
           Vigência: {fmtISO(data.analysis.contractStart)} → {fmtISO(data.analysis.contractEnd)}
           {summary?.periodStart && ` · planejado de ${fmtISO(summary.periodStart)} a ${fmtISO(summary.periodEnd)}`}
         </p>
         {data.proposal?.groupReason && (
-          <p className="text-[11px] text-gray-500">{data.proposal.groupReason}</p>
+          <p className="text-[11px] text-muted-foreground">{data.proposal.groupReason}</p>
         )}
 
         {data.analysis.deliveries.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
             {data.analysis.deliveries.map((d, i) => (
-              <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-white border border-gray-200 text-gray-600">
+              <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-card border border-border text-muted-foreground">
                 {d.service_label}
                 {d.quantity != null && ` · ${d.quantity}/${d.quantity_period === 'semana' ? 'semana' : d.quantity_period === 'mes' ? 'mês' : 'total'}`}
                 {d.weekdays.length > 0 && ` · ${d.weekdays.map((w) => WEEKDAY_LABEL[w]).join('/')}`}
@@ -626,12 +626,12 @@ function PreviewPanel({
         {(data.analysis.missing.length > 0 || (summary?.notes?.length ?? 0) > 0) && (
           <div className="space-y-1 pt-1">
             {data.analysis.missing.slice(0, 5).map((m, i) => (
-              <p key={`m${i}`} className="text-[11px] text-orange-700 flex items-start gap-1.5">
+              <p key={`m${i}`} className="text-[11px] text-warning flex items-start gap-1.5">
                 <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" /> {m}
               </p>
             ))}
             {(summary?.notes ?? []).slice(0, 5).map((n, i) => (
-              <p key={`n${i}`} className="text-[11px] text-gray-500 flex items-start gap-1.5">
+              <p key={`n${i}`} className="text-[11px] text-muted-foreground flex items-start gap-1.5">
                 <Info className="w-3 h-3 shrink-0 mt-0.5" /> {n}
               </p>
             ))}
@@ -641,29 +641,29 @@ function PreviewPanel({
 
       {/* Alternador de visão + legenda */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
+        <div className="flex items-center gap-1 bg-secondary rounded-lg p-0.5">
           {([['lista', List], ['calendario', CalendarDays], ['competencia', Layers]] as const).map(([key, Icon]) => (
             <button
               key={key}
               onClick={() => setView(key)}
               className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-semibold capitalize transition-colors ${
-                view === key ? 'bg-white text-[#030A8C] shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                view === key ? 'bg-card text-marca-texto shadow-sm' : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               <Icon className="w-3.5 h-3.5" /> {key === 'competencia' ? 'Por mês' : key}
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-2.5 text-[10px] text-gray-500 flex-wrap">
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#030A8C]" /> Do contrato</span>
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-purple-500" /> Sugerido pela IA</span>
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-teal-500" /> Editado</span>
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500" /> Conflito</span>
+        <div className="flex items-center gap-2.5 text-[10px] text-muted-foreground flex-wrap">
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-marca" /> Do contrato</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-ia" /> Sugerido pela IA</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-info" /> Editado</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-destructive" /> Conflito</span>
         </div>
       </div>
 
       {items.length === 0 ? (
-        <p className="text-sm text-gray-500 text-center py-8">
+        <p className="text-sm text-muted-foreground text-center py-8">
           Nenhuma entrega sugerida. Verifique as lacunas apontadas acima.
         </p>
       ) : view === 'lista' ? (
@@ -676,7 +676,7 @@ function PreviewPanel({
         <div className="space-y-4">
           {[...new Set(items.map((i) => i.competence))].sort().map((comp) => (
             <div key={comp}>
-              <p className="text-xs font-bold text-gray-900 mb-1.5">
+              <p className="text-xs font-bold text-foreground mb-1.5">
                 {comp.split('-').reverse().join('/')} · {items.filter((i) => i.competence === comp).length} entrega(s)
               </p>
               <div className="space-y-2">
@@ -705,38 +705,38 @@ function ItemRow({
 }) {
   const conflicts = item.conflicts ?? []
   const blocking = conflicts.filter((c) => c.blocking)
-  const dot = blocking.length > 0 ? 'bg-red-500'
-    : item.editedFields.length > 0 ? 'bg-teal-500'
-    : item.origin === 'CONTRATO' ? 'bg-[#030A8C]' : 'bg-purple-500'
+  const dot = blocking.length > 0 ? 'bg-destructive'
+    : item.editedFields.length > 0 ? 'bg-info'
+    : item.origin === 'CONTRATO' ? 'bg-marca' : 'bg-ia'
 
   return (
-    <div className={`border rounded-xl p-3 ${blocking.length > 0 ? 'border-red-200 bg-red-50' : 'border-gray-100 bg-white'}`}>
+    <div className={`border rounded-xl p-3 ${blocking.length > 0 ? 'border-destructive/30 bg-destructive-suave' : 'border-border bg-card'}`}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+          <p className="text-sm font-semibold text-foreground flex items-center gap-2">
             <span className={`w-2 h-2 rounded-full shrink-0 ${dot}`} />
             <span className="truncate">{item.title}</span>
           </p>
-          <p className="text-[11px] text-gray-500 mt-1">
+          <p className="text-[11px] text-muted-foreground mt-1">
             Publicação {fmtISO(item.publishAt)} · produção {fmtISO(item.productionAt)} · revisão {fmtISO(item.reviewAt)}
             {item.scheduleAt ? ` · agendamento ${fmtISO(item.scheduleAt)}` : ''}
           </p>
-          <p className="text-[11px] text-gray-500">
-            {userName(item.assigneeId) ?? <span className="text-orange-700 font-medium">Não atribuído</span>}
+          <p className="text-[11px] text-muted-foreground">
+            {userName(item.assigneeId) ?? <span className="text-warning font-medium">Não atribuído</span>}
             {item.reviewerId && ` · revisão: ${userName(item.reviewerId)}`}
             {' · '}{PRIORITY_LABEL[item.priority] ?? item.priority}
             {item.weekGroup && ` · Grupo ${item.weekGroup}`}
           </p>
           {item.sourceRef && (
-            <p className="text-[10px] text-gray-400 mt-1 italic truncate" title={item.sourceRef}>
+            <p className="text-[10px] text-muted-foreground mt-1 italic truncate" title={item.sourceRef}>
               origem: “{item.sourceRef}”
             </p>
           )}
           {item.notes.map((n, i) => (
-            <p key={i} className="text-[10px] text-gray-400 mt-0.5">{n}</p>
+            <p key={i} className="text-[10px] text-muted-foreground mt-0.5">{n}</p>
           ))}
           {conflicts.map((c, i) => (
-            <p key={i} className={`text-[11px] mt-1 flex items-start gap-1.5 ${c.blocking ? 'text-red-700 font-medium' : 'text-orange-700'}`}>
+            <p key={i} className={`text-[11px] mt-1 flex items-start gap-1.5 ${c.blocking ? 'text-destructive-texto font-medium' : 'text-warning'}`}>
               <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" /> {c.message}
             </p>
           ))}
@@ -746,7 +746,7 @@ function ItemRow({
             onClick={() => onEdit(item)}
             disabled={busy}
             aria-label={`Editar ${item.title}`}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-[#030A8C] hover:bg-gray-100 disabled:opacity-50 transition-colors"
+            className="p-1.5 rounded-lg text-muted-foreground hover:text-marca-texto hover:bg-secondary disabled:opacity-50 transition-colors"
           >
             <Pencil className="w-3.5 h-3.5" />
           </button>
@@ -754,7 +754,7 @@ function ItemRow({
             onClick={() => onDiscard(item)}
             disabled={busy}
             aria-label={`Remover ${item.title}`}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-50 transition-colors"
+            className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive-texto hover:bg-destructive-suave disabled:opacity-50 transition-colors"
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>
@@ -778,17 +778,17 @@ function PreviewCalendar({ items, onEdit }: { items: PlanItem[]; onEdit: (i: Pla
       {dates.map((date) => {
         const list = byDate.get(date)!
         return (
-          <div key={date} className={`border rounded-xl p-2.5 ${list.length > 3 ? 'border-orange-200 bg-orange-50' : 'border-gray-100 bg-white'}`}>
-            <p className="text-[11px] font-bold text-gray-900 mb-1.5">
+          <div key={date} className={`border rounded-xl p-2.5 ${list.length > 3 ? 'border-warning/30 bg-warning-suave' : 'border-border bg-card'}`}>
+            <p className="text-[11px] font-bold text-foreground mb-1.5">
               {fmtISO(date)}
-              <span className="ml-1.5 font-normal text-gray-500">{list.length} entrega(s)</span>
+              <span className="ml-1.5 font-normal text-muted-foreground">{list.length} entrega(s)</span>
             </p>
             <div className="space-y-1">
               {list.map((i) => (
                 <button
                   key={i.id}
                   onClick={() => onEdit(i)}
-                  className="w-full text-left text-[11px] px-2 py-1 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-700 truncate transition-colors"
+                  className="w-full text-left text-[11px] px-2 py-1 rounded-lg bg-secondary/60 hover:bg-secondary text-foreground truncate transition-colors"
                 >
                   {i.title}
                 </button>
@@ -821,49 +821,49 @@ function ItemEditor({
   const [editNote, setEditNote] = useState('')
 
   return (
-    <div className="fixed inset-0 z-[60] bg-black/40 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] bg-veu flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
       <div
-        className="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-xl max-h-[90dvh] overflow-y-auto"
+        className="bg-card w-full sm:max-w-md rounded-t-[24px] sm:rounded-[24px] shadow-xl max-h-[90dvh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between p-4 border-b border-gray-100">
-          <p className="font-semibold text-gray-900 text-sm">Editar sugestão</p>
-          <button onClick={onClose} aria-label="Fechar" className="p-1 hover:bg-gray-100 rounded-lg">
-            <X className="w-4 h-4 text-gray-400" />
+        <div className="flex items-center justify-between p-4 border-b border-border">
+          <p className="font-semibold text-foreground text-sm">Editar sugestão</p>
+          <button onClick={onClose} aria-label="Fechar" className="p-1 hover:bg-secondary rounded-lg">
+            <X className="w-4 h-4 text-muted-foreground" />
           </button>
         </div>
         <div className="p-4 space-y-3">
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Título</label>
+            <label className="block text-xs font-medium text-foreground mb-1">Título</label>
             <input value={title} onChange={(e) => setTitle(e.target.value)} className="input" />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Publicação</label>
+              <label className="block text-xs font-medium text-foreground mb-1">Publicação</label>
               <input type="date" value={publishAt} onChange={(e) => setPublishAt(e.target.value)} className="input" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Prioridade</label>
+              <label className="block text-xs font-medium text-foreground mb-1">Prioridade</label>
               <select value={priority} onChange={(e) => setPriority(e.target.value)} className="input">
                 {Object.entries(PRIORITY_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Produção</label>
+              <label className="block text-xs font-medium text-foreground mb-1">Produção</label>
               <select value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)} className="input">
                 <option value="">Não atribuído</option>
                 {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Revisão</label>
+              <label className="block text-xs font-medium text-foreground mb-1">Revisão</label>
               <select value={reviewerId} onChange={(e) => setReviewerId(e.target.value)} className="input">
                 <option value="">Não atribuído</option>
                 {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Grupo</label>
+              <label className="block text-xs font-medium text-foreground mb-1">Grupo</label>
               <select value={weekGroup} onChange={(e) => setWeekGroup(e.target.value)} className="input">
                 <option value="">Sem grupo</option>
                 <option value="A">Grupo A</option>
@@ -872,15 +872,15 @@ function ItemEditor({
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Motivo da alteração (opcional)</label>
+            <label className="block text-xs font-medium text-foreground mb-1">Motivo da alteração (opcional)</label>
             <input value={editNote} onChange={(e) => setEditNote(e.target.value)} className="input" placeholder="Fica registrado para melhorar as próximas sugestões" />
           </div>
-          <p className="text-[11px] text-gray-400">
+          <p className="text-[11px] text-muted-foreground">
             Mudar a data recalcula automaticamente produção, revisão e agendamento.
           </p>
         </div>
-        <div className="flex justify-end gap-2 p-4 border-t border-gray-100">
-          <button onClick={onClose} disabled={busy} className="px-3 py-2 text-xs font-medium text-gray-600 hover:text-gray-900 disabled:opacity-50">
+        <div className="flex justify-end gap-2 p-4 border-t border-border">
+          <button onClick={onClose} disabled={busy} className="px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground disabled:opacity-50">
             Cancelar
           </button>
           <button
@@ -893,7 +893,7 @@ function ItemEditor({
               editNote: editNote || undefined,
             })}
             disabled={busy || !title.trim()}
-            className="px-4 py-2 bg-[#030A8C] text-white rounded-lg text-xs font-semibold hover:bg-[#02077a] disabled:opacity-40 transition-colors"
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-xs font-semibold hover:bg-primary-hover disabled:opacity-40 transition-colors"
           >
             {busy ? 'Salvando…' : 'Salvar'}
           </button>

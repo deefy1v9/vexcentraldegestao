@@ -7,7 +7,7 @@ import { isConfigured, uazSendText } from '@/lib/uazapi'
 import { validateDragTransition, logTaskEvent, TaskStatusValue } from '@/lib/task-flow'
 import { alignStageToStatus } from '@/lib/processos-server'
 import { dispararAvisoEtapa } from '@/lib/aviso-cliente'
-import { normalizarPrazos } from '@/lib/processos'
+import { normalizarPrazos, prazosAposRemarcar } from '@/lib/processos'
 import { Prisma } from '@prisma/client'
 
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -106,7 +106,19 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (has('priority')) data.priority = body.priority
     if (has('tags')) data.tags = body.tags
     if (has('platform')) data.platform = body.platform || null
-    if (has('dueDate')) data.dueDate = body.dueDate ? new Date(body.dueDate) : null
+    if (has('dueDate')) {
+      data.dueDate = body.dueDate ? new Date(body.dueDate) : null
+      // Remarcar a data final sem mexer nos prazos por etapa deixava a demanda
+      // "atrasada" pelo prazo antigo da etapa. Os prazos que já passaram ou que
+      // ficaram depois da nova data final caem e voltam a seguir o processo.
+      if (!has('stageDeadlines')) {
+        const limpos = prazosAposRemarcar(previous.stageDeadlines, data.dueDate as Date | null, new Date())
+        if (limpos.mudou) {
+          data.stageDeadlines = limpos.prazos ?? Prisma.JsonNull
+          await logTaskEvent(id, 'PRAZO', `${session.user.name} remarcou a data final; os prazos por etapa vencidos ou depois dela voltaram a seguir o processo.`, session.user.id)
+        }
+      }
+    }
     // Prazo de cada etapa: só etapas do processo desta demanda, datas válidas
     if (has('stageDeadlines')) {
       const etapas = (previous.process?.stages ?? []).filter((s) => s.kind !== 'FINAL').sort((a, b) => a.position - b.position)

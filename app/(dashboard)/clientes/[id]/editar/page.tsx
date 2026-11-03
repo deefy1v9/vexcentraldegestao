@@ -9,7 +9,9 @@ import ClientAvisoSection, { AvisoForm, EMPTY_AVISO } from '@/components/cliente
 import { CLIENT_LINK_KINDS, type ClientLinkKind } from '@/lib/client-links'
 import { formatCurrency } from '@/lib/utils'
 import Link from 'next/link'
-import { ArrowLeft, Save, Trash2, Plus } from 'lucide-react'
+import { ArrowLeft, Save, Trash2, Plus, Building2, Layers, FileSignature, StickyNote } from 'lucide-react'
+import { Button } from '@/components/vex/button'
+import { Campo, RodapeForm, SecaoForm, campo, campoLeitura, campoTexto } from '@/components/clientes/FormSecao'
 
 interface ServiceForm {
   id: string | null
@@ -217,7 +219,7 @@ export default function EditClientePage() {
       <div className="flex flex-col h-full overflow-hidden">
         <Header title="Carregando..." />
         <div className="flex-1 flex items-center justify-center">
-          <div className="w-8 h-8 border-2 border-[#030A8C] border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-2 border-marca border-t-transparent rounded-full animate-spin" />
         </div>
       </div>
     )
@@ -225,217 +227,213 @@ export default function EditClientePage() {
 
   if (!client) return null
 
+  const botaoExcluir = (
+    <button
+      type="button"
+      onClick={handleDelete}
+      className="inline-flex items-center gap-2 h-9 px-3 text-destructive-texto hover:bg-destructive-suave rounded-lg text-[13.5px] font-medium transition-colors"
+    >
+      <Trash2 className="w-4 h-4" />
+      Excluir Cliente
+    </button>
+  )
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <Header title={`Editar — ${client.name}`} subtitle={client.niche || 'Cliente'} />
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-        <div className="max-w-3xl">
-          <Link href={`/clientes/${id}`} className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 mb-6">
-            <ArrowLeft className="w-4 h-4" /> Voltar para o cliente
-          </Link>
-
-          <form onSubmit={handleSave} className="space-y-4">
-            {/* Dados básicos */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6 space-y-4">
-              <h2 className="font-bold text-gray-900">Dados do Cliente</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Nome *</label>
-                  <input required value={form.name} onChange={(e) => setField('name', e.target.value)} className="input" placeholder="Nome da empresa" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">CNPJ</label>
-                  <input value={form.cnpj} onChange={(e) => setField('cnpj', e.target.value)} className="input" placeholder="00.000.000/0001-00" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Nicho</label>
-                  <input value={form.niche} onChange={(e) => setField('niche', e.target.value)} className="input" placeholder="Ex: E-commerce, Saúde..." />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                  <input type="email" value={form.email} onChange={(e) => setField('email', e.target.value)} className="input" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
-                  <input value={form.phone} onChange={(e) => setField('phone', e.target.value)} className="input" placeholder="(11) 99999-9999" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                  <select value={form.status} onChange={(e) => setField('status', e.target.value)} className="input">
-                    <option value="ATIVO">Ativo</option>
-                    <option value="INATIVO">Inativo</option>
-                    <option value="PAUSADO">Pausado</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Grupo do cliente</label>
-                  <select value={form.tier} onChange={(e) => setField('tier', e.target.value)} className="input">
-                    <option value="AUTO">Automático (pela faixa de ticket)</option>
-                    <option value="START">Start</option>
-                    <option value="GROWTH">Growth</option>
-                    <option value="SCALE">Scale</option>
-                  </select>
-                  <p className="text-xs text-gray-400 mt-1">
-                    {client?.tier ? `Atual: ${client.tier === 'START' ? 'Start' : client.tier === 'GROWTH' ? 'Growth' : 'Scale'}${client.tierManual ? ' (manual)' : ' (automático)'}` : 'Ainda não classificado'}
-                  </p>
+      <Header
+        title={`Editar — ${client.name}`}
+        subtitle={client.niche || 'Cliente'}
+        acoes={(
+          <Button asChild variant="ghost">
+            <Link href={`/clientes/${id}`}><ArrowLeft /> Voltar para o cliente</Link>
+          </Button>
+        )}
+      />
+      <div className="relative flex-1 overflow-y-auto px-4 sm:px-8 pt-2">
+        <form onSubmit={handleSave}>
+          <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px] gap-5 items-start">
+            <div className="space-y-5 min-w-0">
+              {/* Dados básicos */}
+              <SecaoForm rotulo="Cadastro" titulo="Dados do Cliente" icone={Building2}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Campo rotulo="Nome" obrigatorio className="sm:col-span-2">
+                    <input required value={form.name} onChange={(e) => setField('name', e.target.value)} className={campo} placeholder="Nome da empresa" />
+                  </Campo>
+                  <Campo rotulo="CNPJ">
+                    <input value={form.cnpj} onChange={(e) => setField('cnpj', e.target.value)} className={campo} placeholder="00.000.000/0001-00" />
+                  </Campo>
+                  <Campo rotulo="Nicho">
+                    <input value={form.niche} onChange={(e) => setField('niche', e.target.value)} className={campo} placeholder="Ex: E-commerce, Saúde..." />
+                  </Campo>
+                  <Campo rotulo="Email">
+                    <input type="email" value={form.email} onChange={(e) => setField('email', e.target.value)} className={campo} />
+                  </Campo>
+                  <Campo rotulo="Telefone">
+                    <input value={form.phone} onChange={(e) => setField('phone', e.target.value)} className={campo} placeholder="(11) 99999-9999" />
+                  </Campo>
+                  <Campo rotulo="Status">
+                    <select value={form.status} onChange={(e) => setField('status', e.target.value)} className={campo}>
+                      <option value="ATIVO">Ativo</option>
+                      <option value="INATIVO">Inativo</option>
+                      <option value="PAUSADO">Pausado</option>
+                    </select>
+                  </Campo>
+                  <Campo
+                    rotulo="Grupo do cliente"
+                    dica={client?.tier ? `Atual: ${client.tier === 'START' ? 'Start' : client.tier === 'GROWTH' ? 'Growth' : 'Scale'}${client.tierManual ? ' (manual)' : ' (automático)'}` : 'Ainda não classificado'}
+                  >
+                    <select value={form.tier} onChange={(e) => setField('tier', e.target.value)} className={campo}>
+                      <option value="AUTO">Automático (pela faixa de ticket)</option>
+                      <option value="START">Start</option>
+                      <option value="GROWTH">Growth</option>
+                      <option value="SCALE">Scale</option>
+                    </select>
+                  </Campo>
                   {/* Grupo manual prevalece sobre o automático até ser devolvido
                       para "Automático"; o motivo entra no histórico do cliente. */}
                   {form.tier !== 'AUTO' && (
-                    <input
-                      value={form.tierReason}
-                      onChange={(e) => setField('tierReason', e.target.value)}
-                      className="input mt-2 text-sm"
-                      placeholder="Motivo da classificação manual (opcional)"
-                      maxLength={300}
-                    />
+                    <Campo rotulo="Motivo da classificação manual" className="sm:col-span-2">
+                      <input
+                        value={form.tierReason}
+                        onChange={(e) => setField('tierReason', e.target.value)}
+                        className={campo}
+                        placeholder="Motivo da classificação manual (opcional)"
+                        maxLength={300}
+                      />
+                    </Campo>
                   )}
                 </div>
-              </div>
-            </div>
+              </SecaoForm>
 
-            <ClientLinksFields value={form} onChange={setField} />
-
-            {/* Contrato */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6 space-y-4">
-              <h2 className="font-bold text-gray-900">Contrato</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Início do Contrato</label>
-                  <input type="date" value={form.contractStart} onChange={(e) => setField('contractStart', e.target.value)} className="input" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Duração (meses)</label>
-                  <input type="number" min="1" value={form.contractMonths} onChange={(e) => setField('contractMonths', e.target.value)} className="input" placeholder="Ex: 12" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Fim do Contrato</label>
-                  <input type="date" value={form.contractEnd} onChange={(e) => setField('contractEnd', e.target.value)} className="input" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Dia de Pagamento</label>
-                  <input type="number" min="1" max="31" value={form.paymentDay} onChange={(e) => setField('paymentDay', e.target.value)} className="input" placeholder="Ex: 10" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Valor total mensal</label>
-                  <div className="input bg-gray-50 text-gray-900 font-semibold cursor-default select-none">
-                    {formatCurrency(totalMensal)}
-                  </div>
-                  <p className="text-xs text-gray-400 mt-1">Calculado automaticamente pela soma dos serviços.</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Serviços */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="font-bold text-gray-900">Serviços Contratados</h2>
-                <p className="text-xs text-gray-500">
-                  Total mensal: <span className="font-bold text-[#030A8C]">{formatCurrency(totalMensal)}</span>
-                </p>
-              </div>
-              {services.length === 0 ? (
-                <p className="text-sm text-gray-500 text-center py-4">Nenhum serviço contratado cadastrado.</p>
-              ) : (
-                <div className="space-y-3">
-                  {services.map((service, i) => (
-                    <div key={service.id ?? `new-${i}`} className="border border-gray-200 rounded-lg p-4">
-                      <div className="flex gap-3 items-start">
-                        <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <input
-                            value={service.serviceName}
-                            onChange={(e) => updateService(i, 'serviceName', e.target.value)}
-                            className="input" placeholder="Nome do serviço *"
-                            aria-label={`Nome do serviço ${i + 1}`}
-                          />
-                          <CurrencyInput
-                            value={service.monthlyValue}
-                            onChange={(v) => updateService(i, 'monthlyValue', v)}
-                            ariaLabel={`Valor mensal do serviço ${i + 1}`}
-                          />
-                          <input
-                            value={service.description}
-                            onChange={(e) => updateService(i, 'description', e.target.value)}
-                            className="input sm:col-span-2" placeholder="Descrição do serviço (opcional)"
-                            aria-label={`Descrição do serviço ${i + 1}`}
-                          />
+              {/* Serviços */}
+              <SecaoForm
+                titulo="Serviços Contratados"
+                icone={Layers}
+                acoes={(
+                  <p className="t-rotulo text-muted-foreground text-right">
+                    Total mensal<br />
+                    <span className="font-display text-[17px] font-semibold tabular text-foreground">{formatCurrency(totalMensal)}</span>
+                  </p>
+                )}
+              >
+                {services.length === 0 ? (
+                  <p className="t-corpo text-muted-foreground text-center py-4 rounded-[16px] border border-dashed border-border">Nenhum serviço contratado cadastrado.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {services.map((service, i) => (
+                      <div key={service.id ?? `new-${i}`} className="rounded-[16px] border border-border bg-secondary/40 p-4">
+                        <div className="flex gap-3 items-start">
+                          <span className="mt-2 w-6 h-6 shrink-0 grid place-items-center rounded-full bg-card border border-border text-[11.5px] font-semibold text-muted-foreground tabular">{i + 1}</span>
+                          <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <input
+                              value={service.serviceName}
+                              onChange={(e) => updateService(i, 'serviceName', e.target.value)}
+                              className={campo} placeholder="Nome do serviço *"
+                              aria-label={`Nome do serviço ${i + 1}`}
+                            />
+                            <CurrencyInput
+                              value={service.monthlyValue}
+                              onChange={(v) => updateService(i, 'monthlyValue', v)}
+                              ariaLabel={`Valor mensal do serviço ${i + 1}`}
+                              className={campo}
+                            />
+                            <input
+                              value={service.description}
+                              onChange={(e) => updateService(i, 'description', e.target.value)}
+                              className={`${campo} sm:col-span-2`} placeholder="Descrição do serviço (opcional)"
+                              aria-label={`Descrição do serviço ${i + 1}`}
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (service.id && !confirm(`Remover o serviço "${service.serviceName}"? A remoção é aplicada ao salvar.`)) return
+                              removeService(i)
+                            }}
+                            title="Remover serviço"
+                            aria-label={`Remover serviço ${i + 1}`}
+                            className="mt-1 p-2 text-muted-foreground hover:text-destructive-texto hover:bg-destructive-suave rounded-lg transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (service.id && !confirm(`Remover o serviço "${service.serviceName}"? A remoção é aplicada ao salvar.`)) return
-                            removeService(i)
-                          }}
-                          title="Remover serviço"
-                          className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <button type="button" onClick={addService}
-                className="flex items-center gap-1 text-sm text-[#030A8C] hover:underline font-medium">
-                <Plus className="w-4 h-4" /> Adicionar outro serviço
-              </button>
-            </div>
+                    ))}
+                  </div>
+                )}
+                <Button type="button" variant="outline" size="sm" onClick={addService} className="mt-4">
+                  <Plus /> Adicionar outro serviço
+                </Button>
+              </SecaoForm>
 
-            {/* Faturamento e NFS-e */}
-            <ClientBillingSection
-              clientId={id}
-              form={billing}
-              onChange={setBillingField}
-              asaas={asaasInfo}
-              cnpj={form.cnpj}
-              email={form.email}
-            />
-
-            {/* Aviso de demanda concluída no grupo do cliente */}
-            <ClientAvisoSection form={aviso} onChange={setAvisoField} />
-
-            {/* Observações */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6 space-y-4">
-              <h2 className="font-bold text-gray-900">Observações</h2>
-              <textarea
-                value={form.notes}
-                onChange={(e) => setField('notes', e.target.value)}
-                rows={4}
-                className="input resize-none"
-                placeholder="Notas internas sobre o cliente..."
+              {/* Faturamento e NFS-e */}
+              <ClientBillingSection
+                clientId={id}
+                form={billing}
+                onChange={setBillingField}
+                asaas={asaasInfo}
+                cnpj={form.cnpj}
+                email={form.email}
               />
+
+              <ClientLinksFields value={form} onChange={setField} />
             </div>
 
-            {error && (
-              <p className="text-sm font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-3">
-                {error}
-              </p>
-            )}
+            <div className="space-y-5 min-w-0">
+              {/* Contrato */}
+              <SecaoForm titulo="Contrato" icone={FileSignature}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-4">
+                  <Campo rotulo="Início do Contrato">
+                    <input type="date" value={form.contractStart} onChange={(e) => setField('contractStart', e.target.value)} className={campo} />
+                  </Campo>
+                  <Campo rotulo="Duração (meses)">
+                    <input type="number" min="1" value={form.contractMonths} onChange={(e) => setField('contractMonths', e.target.value)} className={campo} placeholder="Ex: 12" />
+                  </Campo>
+                  <Campo rotulo="Fim do Contrato">
+                    <input type="date" value={form.contractEnd} onChange={(e) => setField('contractEnd', e.target.value)} className={campo} />
+                  </Campo>
+                  <Campo rotulo="Dia de Pagamento">
+                    <input type="number" min="1" max="31" value={form.paymentDay} onChange={(e) => setField('paymentDay', e.target.value)} className={campo} placeholder="Ex: 10" />
+                  </Campo>
+                  <Campo rotulo="Valor total mensal" dica="Calculado automaticamente pela soma dos serviços." className="sm:col-span-2 xl:col-span-1">
+                    <div className={campoLeitura}>{formatCurrency(totalMensal)}</div>
+                  </Campo>
+                </div>
+              </SecaoForm>
 
-            {/* Actions */}
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="submit"
-                disabled={saving}
-                className="flex items-center gap-2 px-5 py-2.5 bg-[#030A8C] text-white rounded-xl text-sm font-medium hover:bg-[#02077a] transition-colors disabled:opacity-50"
-              >
-                <Save className="w-4 h-4" />
-                {saving ? 'Salvando...' : 'Salvar Alterações'}
-              </button>
-              <Link href={`/clientes/${id}`} className="px-5 py-2.5 border border-gray-200 text-gray-500 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors">
-                Cancelar
-              </Link>
-              <button
-                type="button"
-                onClick={handleDelete}
-                className="ml-auto flex items-center gap-2 px-4 py-2.5 text-red-500 hover:bg-red-50 rounded-xl text-sm font-medium transition-colors"
-              >
-                <Trash2 className="w-4 h-4" />
-                Excluir Cliente
-              </button>
+              {/* Aviso de demanda concluída no grupo do cliente */}
+              <ClientAvisoSection form={aviso} onChange={setAvisoField} />
+
+              {/* Observações */}
+              <SecaoForm titulo="Observações" icone={StickyNote}>
+                <textarea
+                  value={form.notes}
+                  onChange={(e) => setField('notes', e.target.value)}
+                  rows={5}
+                  className={campoTexto}
+                  aria-label="Observações"
+                  placeholder="Notas internas sobre o cliente..."
+                />
+              </SecaoForm>
             </div>
-          </form>
-        </div>
+          </div>
+
+          {/* Actions */}
+          <RodapeForm
+            aviso={error ? (
+              <span className="inline-block font-medium text-destructive-texto bg-destructive-suave rounded-lg px-3 py-1.5">{error}</span>
+            ) : <span className="-ml-3 inline-block">{botaoExcluir}</span>}
+          >
+            {error && botaoExcluir}
+            <Button asChild variant="ghost">
+              <Link href={`/clientes/${id}`}>Cancelar</Link>
+            </Button>
+            <Button type="submit" disabled={saving}>
+              <Save />
+              {saving ? 'Salvando...' : 'Salvar Alterações'}
+            </Button>
+          </RodapeForm>
+        </form>
       </div>
     </div>
   )

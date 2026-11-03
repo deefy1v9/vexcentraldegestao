@@ -24,13 +24,13 @@ export function MonthPicker({
     onChange({ year: d.getFullYear(), month: d.getMonth() + 1 })
   }
   return (
-    <div className="inline-flex items-center rounded-lg border border-gray-200 bg-white h-9 overflow-hidden">
-      <button type="button" onClick={() => shift(-1)} aria-label="Mês anterior" className="w-8 h-full inline-flex items-center justify-center text-gray-500 hover:bg-gray-50">
+    <div className="inline-flex items-center rounded-xl border border-border bg-card h-10 overflow-hidden shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+      <button type="button" onClick={() => shift(-1)} aria-label="Mês anterior" className="w-9 h-full inline-flex items-center justify-center text-muted-foreground hover:bg-secondary hover:text-foreground">
         <ChevronLeft className="w-4 h-4" />
       </button>
       <label className="relative cursor-pointer h-full">
-        <span className="px-3 h-full inline-flex items-center text-xs font-semibold text-gray-900 border-x border-gray-200 min-w-[150px] justify-center gap-1.5">
-          <CalendarDays className="w-3.5 h-3.5 text-gray-400" />
+        <span className="px-3 h-full inline-flex items-center text-[13px] font-semibold text-foreground border-x border-border min-w-[170px] justify-center gap-2">
+          <CalendarDays className="w-4 h-4 text-muted-foreground" />
           {MONTHS[period.month - 1]} de {period.year}
         </span>
         <input
@@ -44,11 +44,11 @@ export function MonthPicker({
           className="absolute inset-0 opacity-0 cursor-pointer"
         />
       </label>
-      <button type="button" onClick={() => shift(1)} aria-label="Próximo mês" className="w-8 h-full inline-flex items-center justify-center text-gray-500 hover:bg-gray-50">
+      <button type="button" onClick={() => shift(1)} aria-label="Próximo mês" className="w-9 h-full inline-flex items-center justify-center text-muted-foreground hover:bg-secondary hover:text-foreground">
         <ChevronRight className="w-4 h-4" />
       </button>
       {!isCurrent && (
-        <button type="button" onClick={onToday} className="h-full px-2.5 text-[11px] font-semibold text-[#030A8C] border-l border-gray-200 hover:bg-gray-50">
+        <button type="button" onClick={onToday} className="h-full px-3 text-[12px] font-semibold text-marca-texto border-l border-border hover:bg-marca-suave">
           Hoje
         </button>
       )}
@@ -61,29 +61,30 @@ export function MonthPicker({
 export function FinanceTabs({ active, counts, onChange }: { active: FinTab; counts: Record<FinTab, number>; onChange: (t: FinTab) => void }) {
   const tabs: FinTab[] = ['bpo', 'conciliacao', 'recebiveis', 'atrasados', 'custos', 'salarios', 'caixa']
   return (
-    <div className="flex items-center gap-1 border-b border-gray-200 -mx-1 overflow-x-auto" role="tablist">
-      {tabs.map((t) => {
-        const on = active === t
-        const n = counts[t]
-        return (
-          <button
-            key={t}
-            type="button"
-            role="tab"
-            aria-selected={on}
-            onClick={() => onChange(t)}
-            className={`relative h-10 px-3 text-sm whitespace-nowrap inline-flex items-center gap-2 transition-colors ${on ? 'text-gray-900 font-bold' : 'text-gray-500 font-medium hover:text-gray-900'}`}
-          >
-            {FIN_TAB_LABEL[t]}
-            {t !== 'bpo' && t !== 'conciliacao' && t !== 'caixa' && (
-              <span className={`min-w-[22px] h-5 px-1.5 inline-flex items-center justify-center rounded-md text-[11px] font-bold ${
-                on ? 'bg-[#030A8C] text-white' : t === 'atrasados' && n > 0 ? 'bg-red-50 text-red-700' : 'bg-gray-100 text-gray-600'
-              }`}>{n}</span>
-            )}
-            {on && <span className="absolute left-2 right-2 -bottom-px h-0.5 rounded-full bg-[#030A8C]" />}
-          </button>
-        )
-      })}
+    <div className="max-w-full overflow-x-auto">
+      <div className="inline-flex items-center gap-1 rounded-2xl border border-border bg-card p-1 shadow-[0_1px_2px_rgba(16,24,40,0.04)]" role="tablist" aria-label="Seções do financeiro">
+        {tabs.map((t) => {
+          const on = active === t
+          const n = counts[t]
+          return (
+            <button
+              key={t}
+              type="button"
+              role="tab"
+              aria-selected={on}
+              onClick={() => onChange(t)}
+              className={`h-9 px-3.5 rounded-xl text-[13px] whitespace-nowrap inline-flex items-center gap-2 font-semibold transition-colors ${on ? 'bg-marca-suave text-marca-texto' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/70'}`}
+            >
+              {FIN_TAB_LABEL[t]}
+              {t !== 'bpo' && t !== 'conciliacao' && t !== 'caixa' && (
+                <span className={`min-w-[22px] h-5 px-1.5 inline-flex items-center justify-center rounded-full text-[11px] font-semibold tabular-nums ${
+                  on ? 'bg-card text-marca-texto' : t === 'atrasados' && n > 0 ? 'bg-destructive-suave text-destructive-texto' : 'bg-secondary text-muted-foreground'
+                }`}>{n}</span>
+              )}
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -116,16 +117,16 @@ function FiltersButton({
     <div className="p-4 space-y-3">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-          <label className="text-[11px] font-medium text-gray-600 mb-1 block">Situação</label>
-          <select value={draft.situation} onChange={(e) => setDraft((p) => ({ ...p, situation: e.target.value as '' | RowSituation }))} className="w-full h-9 px-2 text-xs border border-gray-200 rounded-lg bg-white">
+          <label className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-1 block">Situação</label>
+          <select value={draft.situation} onChange={(e) => setDraft((p) => ({ ...p, situation: e.target.value as '' | RowSituation }))} className="w-full h-9 px-2 text-xs text-foreground border border-border rounded-lg bg-card outline-none focus:border-marca">
             <option value="">Todas</option>
             {(Object.keys(SITUATION_LABEL) as RowSituation[]).map((k) => <option key={k} value={k}>{SITUATION_LABEL[k]}</option>)}
           </select>
         </div>
         {showKind && (
           <div>
-            <label className="text-[11px] font-medium text-gray-600 mb-1 block">Tipo</label>
-            <select value={draft.kind} onChange={(e) => setDraft((p) => ({ ...p, kind: e.target.value as FinFilters['kind'] }))} className="w-full h-9 px-2 text-xs border border-gray-200 rounded-lg bg-white">
+            <label className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-1 block">Tipo</label>
+            <select value={draft.kind} onChange={(e) => setDraft((p) => ({ ...p, kind: e.target.value as FinFilters['kind'] }))} className="w-full h-9 px-2 text-xs text-foreground border border-border rounded-lg bg-card outline-none focus:border-marca">
               <option value="">Todos</option>
               <option value="RECORRENTE">Recorrente</option>
               <option value="AVULSO">Avulso / único</option>
@@ -134,19 +135,19 @@ function FiltersButton({
         )}
         {categories.length > 0 && (
           <div>
-            <label className="text-[11px] font-medium text-gray-600 mb-1 block">Categoria</label>
-            <select value={draft.category} onChange={(e) => setDraft((p) => ({ ...p, category: e.target.value }))} className="w-full h-9 px-2 text-xs border border-gray-200 rounded-lg bg-white">
+            <label className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-1 block">Categoria</label>
+            <select value={draft.category} onChange={(e) => setDraft((p) => ({ ...p, category: e.target.value }))} className="w-full h-9 px-2 text-xs text-foreground border border-border rounded-lg bg-card outline-none focus:border-marca">
               <option value="">Todas</option>
               {categories.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
         )}
       </div>
-      <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-100">
-        <button type="button" onClick={() => { const limpo = { ...filters, situation: '' as const, kind: '' as const, category: '' }; setDraft(limpo); onApply(limpo); setOpen(false) }} className="text-[11px] font-semibold text-gray-500 hover:text-gray-900">
+      <div className="flex items-center justify-between gap-2 pt-3 border-t border-border">
+        <button type="button" onClick={() => { const limpo = { ...filters, situation: '' as const, kind: '' as const, category: '' }; setDraft(limpo); onApply(limpo); setOpen(false) }} className="text-[11px] font-semibold text-muted-foreground hover:text-foreground">
           Limpar filtros
         </button>
-        <button type="button" onClick={() => { onApply(draft); setOpen(false) }} className="px-4 h-9 bg-[#030A8C] text-white rounded-lg text-xs font-semibold hover:bg-[#02077a]">Aplicar</button>
+        <button type="button" onClick={() => { onApply(draft); setOpen(false) }} className="px-4 h-9 bg-primary text-primary-foreground rounded-lg text-xs font-semibold hover:bg-primary-hover">Aplicar</button>
       </div>
     </div>
   )
@@ -158,22 +159,22 @@ function FiltersButton({
         onClick={() => { setDraft(filters); setOpen((v) => !v) }}
         aria-haspopup="dialog"
         aria-expanded={open}
-        className={`h-9 px-3 inline-flex items-center gap-1.5 rounded-lg border text-xs font-medium transition-colors ${
-          count > 0 ? 'border-[#030A8C] text-[#030A8C] bg-[#030A8C]/5' : 'border-gray-200 text-gray-600 bg-white hover:border-gray-300'
+        className={`h-10 px-3.5 inline-flex items-center gap-1.5 rounded-xl border text-[13px] font-medium transition-colors ${
+          count > 0 ? 'border-marca/40 text-marca-texto bg-marca-suave' : 'border-border text-foreground bg-card hover:border-marca/40 hover:text-marca-texto'
         }`}
       >
         <Filter className="w-3.5 h-3.5" />
         <span className="hidden sm:inline">Filtros</span>
-        {count > 0 && <span className="min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center rounded-full bg-[#030A8C] text-white text-[10px] font-bold">{count}</span>}
+        {count > 0 && <span className="min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center rounded-full bg-marca text-white text-[10px] font-bold">{count}</span>}
       </button>
       {open && (
         <>
-          <div className="hidden sm:block absolute left-0 z-40 mt-1 w-[400px] bg-white border border-gray-200 rounded-xl shadow-lg" role="dialog" aria-label="Filtros">{painel}</div>
+          <div className="hidden sm:block absolute left-0 z-40 mt-1.5 w-[400px] bg-card border border-border rounded-2xl shadow-lg" role="dialog" aria-label="Filtros">{painel}</div>
           <div className="sm:hidden fixed inset-0 z-50 bg-black/40 flex items-end" onClick={() => setOpen(false)}>
-            <div className="bg-white w-full rounded-t-2xl max-h-[85dvh] overflow-y-auto" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Filtros">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-                <p className="font-bold text-gray-900 text-sm">Filtros</p>
-                <button onClick={() => setOpen(false)} aria-label="Fechar" className="p-1.5 hover:bg-gray-100 rounded-lg"><X className="w-4 h-4 text-gray-400" /></button>
+            <div className="bg-card w-full rounded-t-[24px] max-h-[85dvh] overflow-y-auto" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Filtros">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+                <p className="font-display font-semibold text-foreground text-[15px]">Filtros</p>
+                <button onClick={() => setOpen(false)} aria-label="Fechar" className="p-1.5 hover:bg-secondary rounded-lg"><X className="w-4 h-4 text-muted-foreground" /></button>
               </div>
               {painel}
             </div>
@@ -211,29 +212,29 @@ export function FinanceFilterRow({
   return (
     <div className="flex items-center gap-2 flex-wrap">
       <div className="relative flex-1 min-w-[180px] max-w-sm">
-        <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+        <Search className="w-4 h-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2" />
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder={placeholder}
-          className="w-full h-9 pl-9 pr-8 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-[#030A8C]"
+          className="w-full h-10 pl-10 pr-8 text-[13px] text-foreground placeholder:text-muted-foreground border border-border rounded-xl bg-card focus:outline-none focus:border-marca"
         />
         {draft && (
-          <button type="button" onClick={() => setDraft('')} aria-label="Limpar busca" className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-gray-100">
-            <X className="w-3.5 h-3.5 text-gray-400" />
+          <button type="button" onClick={() => setDraft('')} aria-label="Limpar busca" className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md hover:bg-secondary">
+            <X className="w-3.5 h-3.5 text-muted-foreground" />
           </button>
         )}
       </div>
       <FiltersButton filters={filters} categories={categories} showKind={showKind} onApply={(f) => onChange(f)} />
       {onAdd && addLabel && (
-        <button type="button" onClick={onAdd} className="h-9 px-3 inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white text-xs font-semibold text-gray-700 hover:border-[#030A8C] hover:text-[#030A8C] transition-colors">
+        <button type="button" onClick={onAdd} className="h-10 px-3.5 inline-flex items-center gap-1.5 rounded-xl border border-border bg-card text-[13px] font-semibold text-foreground hover:border-marca/40 hover:text-marca-texto transition-colors">
           <Plus className="w-3.5 h-3.5" /> {addLabel}
         </button>
       )}
-      <label className="ml-auto inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-gray-200 bg-white text-xs font-medium text-gray-600">
-        <ArrowUpDown className="w-3.5 h-3.5 text-gray-400" />
+      <label className="ml-auto inline-flex items-center gap-1.5 h-10 px-3.5 rounded-xl border border-border bg-card text-[13px] font-medium text-muted-foreground">
+        <ArrowUpDown className="w-3.5 h-3.5 text-muted-foreground" />
         <span className="sr-only">Ordenar por</span>
-        <select value={sort} onChange={(e) => onSort(e.target.value as FinSort)} className="bg-transparent outline-none text-gray-700 font-semibold">
+        <select value={sort} onChange={(e) => onSort(e.target.value as FinSort)} className="bg-transparent outline-none text-foreground font-semibold">
           {(Object.keys(FIN_SORT_LABEL) as FinSort[]).map((k) => <option key={k} value={k}>{FIN_SORT_LABEL[k]}</option>)}
         </select>
       </label>
@@ -252,12 +253,12 @@ export function FinanceChips({ filters, onRemove, onClear }: { filters: FinFilte
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {chips.map((c) => (
-        <span key={c.key} className="inline-flex items-center gap-1 h-7 pl-2.5 pr-1 rounded-full bg-[#030A8C]/5 border border-[#030A8C]/20 text-[11px] font-medium text-[#030A8C]">
+        <span key={c.key} className="inline-flex items-center gap-1 h-7 pl-2.5 pr-1 rounded-full bg-marca-suave border border-marca/20 text-[11.5px] font-semibold text-marca-texto">
           {c.label}
-          <button type="button" onClick={() => onRemove(c.key)} aria-label={`Remover filtro ${c.label}`} className="p-0.5 rounded-full hover:bg-[#030A8C]/10"><X className="w-3 h-3" /></button>
+          <button type="button" onClick={() => onRemove(c.key)} aria-label={`Remover filtro ${c.label}`} className="p-0.5 rounded-full hover:bg-marca/10"><X className="w-3 h-3" /></button>
         </span>
       ))}
-      <button type="button" onClick={onClear} className="text-[11px] font-semibold text-gray-500 hover:text-gray-900 px-1">Limpar tudo</button>
+      <button type="button" onClick={onClear} className="text-[11.5px] font-semibold text-muted-foreground hover:text-foreground px-1">Limpar tudo</button>
     </div>
   )
 }
@@ -266,18 +267,18 @@ export function FinanceChips({ filters, onRemove, onClear }: { filters: FinFilte
 
 export function Pagination({ page, pages, total, shown, onPage }: { page: number; pages: number; total: number; shown: number; onPage: (n: number) => void }) {
   return (
-    <div className="flex items-center justify-between pt-3 text-xs text-gray-500 shrink-0">
+    <div className="flex items-center justify-between gap-3 flex-wrap text-[12.5px] text-muted-foreground shrink-0">
       <p>Exibindo {shown} de {total} lançamento{total === 1 ? '' : 's'}</p>
       {pages > 1 && (
         <div className="inline-flex items-center gap-1">
-          <button type="button" onClick={() => onPage(Math.max(1, page - 1))} disabled={page === 1} aria-label="Página anterior" className="w-7 h-7 inline-flex items-center justify-center rounded-md border border-gray-200 bg-white disabled:opacity-40 hover:border-gray-300"><ChevronLeft className="w-3.5 h-3.5" /></button>
+          <button type="button" onClick={() => onPage(Math.max(1, page - 1))} disabled={page === 1} aria-label="Página anterior" className="w-8 h-8 inline-flex items-center justify-center rounded-lg border border-border bg-card text-muted-foreground disabled:opacity-40 hover:text-foreground"><ChevronLeft className="w-3.5 h-3.5" /></button>
           {Array.from({ length: pages }, (_, i) => i + 1).filter((n) => n === 1 || n === pages || Math.abs(n - page) <= 2).map((n, i, arr) => (
             <span key={n} className="inline-flex items-center">
-              {i > 0 && arr[i - 1] !== n - 1 && <span className="px-1 text-gray-300">…</span>}
-              <button type="button" onClick={() => onPage(n)} aria-current={n === page ? 'page' : undefined} className={`w-7 h-7 rounded-md text-xs font-semibold ${n === page ? 'bg-[#030A8C] text-white' : 'text-gray-600 hover:bg-gray-100'}`}>{n}</button>
+              {i > 0 && arr[i - 1] !== n - 1 && <span className="px-1 text-subtle">…</span>}
+              <button type="button" onClick={() => onPage(n)} aria-current={n === page ? 'page' : undefined} className={`w-8 h-8 rounded-lg text-[12.5px] font-semibold ${n === page ? 'bg-marca-suave text-marca-texto' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'}`}>{n}</button>
             </span>
           ))}
-          <button type="button" onClick={() => onPage(Math.min(pages, page + 1))} disabled={page === pages} aria-label="Próxima página" className="w-7 h-7 inline-flex items-center justify-center rounded-md border border-gray-200 bg-white disabled:opacity-40 hover:border-gray-300"><ChevronRight className="w-3.5 h-3.5" /></button>
+          <button type="button" onClick={() => onPage(Math.min(pages, page + 1))} disabled={page === pages} aria-label="Próxima página" className="w-8 h-8 inline-flex items-center justify-center rounded-lg border border-border bg-card text-muted-foreground disabled:opacity-40 hover:text-foreground"><ChevronRight className="w-3.5 h-3.5" /></button>
         </div>
       )}
     </div>
@@ -286,13 +287,13 @@ export function Pagination({ page, pages, total, shown, onPage }: { page: number
 
 /** Selo de situação, mesmo visual da lista de demandas. */
 export function SituationBadge({ situation }: { situation: RowSituation }) {
-  const cls = situation === 'pago' ? 'bg-green-50 text-green-700'
-    : situation === 'atrasado' ? 'bg-red-50 text-red-700'
-    : situation === 'cancelado' ? 'bg-gray-100 text-gray-500'
-    : 'bg-orange-50 text-orange-700'
-  const dot = situation === 'pago' ? 'bg-green-500' : situation === 'atrasado' ? 'bg-red-500' : situation === 'cancelado' ? 'bg-gray-400' : 'bg-orange-500'
+  const cls = situation === 'pago' ? 'bg-success-suave text-success'
+    : situation === 'atrasado' ? 'bg-destructive-suave text-destructive-texto'
+    : situation === 'cancelado' ? 'bg-secondary text-muted-foreground'
+    : 'bg-warning-suave text-warning'
+  const dot = situation === 'pago' ? 'bg-success' : situation === 'atrasado' ? 'bg-destructive' : situation === 'cancelado' ? 'bg-subtle' : 'bg-warning'
   return (
-    <span className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full ${cls}`}>
+    <span className={`inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-2.5 py-1 rounded-full whitespace-nowrap ${cls}`}>
       <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />{SITUATION_LABEL[situation]}
     </span>
   )
