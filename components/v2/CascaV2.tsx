@@ -57,11 +57,28 @@ const ABAS_TOPO = ['/v2', '/v2/agenda', '/demandas', '/clientes', '/financeiro',
 
 const ativa = (pathname: string, href: string) => (href === '/v2' ? pathname === '/v2' : pathname === href || pathname.startsWith(href + '/'))
 
+const rolaSozinho = (el: Element) => {
+  const { overflowY } = getComputedStyle(el)
+  return (overflowY === 'auto' || overflowY === 'scroll') && el.scrollHeight > el.clientHeight + 1
+}
+
+/** A maior área que rola dentro do conteúdo: é onde fica o corpo da página. */
+function areaDaPagina(raiz: HTMLElement) {
+  let maior: Element | null = null
+  let maiorArea = 0
+  for (const el of raiz.querySelectorAll('main [class*="overflow-y-auto"], main [class*="overflow-auto"]')) {
+    const area = el.clientWidth * el.clientHeight
+    if (area > maiorArea && rolaSozinho(el)) { maior = el; maiorArea = area }
+  }
+  return maior
+}
+
 export function CascaV2({ pessoa, admin = true, children }: { pessoa: { nome: string; email: string }; admin?: boolean; children: React.ReactNode }) {
   const pathname = usePathname()
   const [busca, setBusca] = useState(false)
   const [gaveta, setGaveta] = useState(false)
   const [escuro, setEscuro] = useState(false)
+  const raizRef = useRef<HTMLDivElement>(null)
 
   const destinos = DESTINOS.filter((d) => admin || !d.adminOnly)
   // O colaborador não tem a Visão geral (é financeira): o início dele é o Dashboard das demandas
@@ -83,6 +100,22 @@ export function CascaV2({ pessoa, admin = true, children }: { pessoa: { nome: st
   // eslint-disable-next-line react-hooks/set-state-in-effect -- a gaveta do celular fecha ao trocar de página
   useEffect(() => { setGaveta(false) }, [pathname])
 
+  // O topo, o título e o trilho ficam fora da área que rola: a roda do mouse
+  // em cima deles desce a página. Modal e gaveta (fixed) continuam de fora.
+  useEffect(() => {
+    const raiz = raizRef.current
+    if (!raiz) return
+    const aoRolar = (e: WheelEvent) => {
+      if (e.ctrlKey || Math.abs(e.deltaX) > Math.abs(e.deltaY) || !(e.target instanceof Element)) return
+      if (e.target.closest('.fixed') && !e.target.closest('[data-trilho]')) return
+      for (let el: Element | null = e.target; el && el !== raiz; el = el.parentElement) if (rolaSozinho(el)) return
+      const area = areaDaPagina(raiz)
+      if (area) area.scrollTop += e.deltaMode === WheelEvent.DOM_DELTA_LINE ? e.deltaY * 40 : e.deltaY
+    }
+    raiz.addEventListener('wheel', aoRolar, { passive: true })
+    return () => raiz.removeEventListener('wheel', aoRolar)
+  }, [])
+
   function alternarTema() {
     const novo = !escuro
     setEscuro(novo)
@@ -94,11 +127,11 @@ export function CascaV2({ pessoa, admin = true, children }: { pessoa: { nome: st
 
   return (
     <CascaContext.Provider value={casca}>
-      <div className="relative h-dvh flex flex-col overflow-hidden bg-background">
+      <div ref={raizRef} className="relative h-dvh flex flex-col overflow-hidden bg-background">
         <FundoDesfocado />
 
         {/* ── Trilho flutuante ─────────────────────────────────────────── */}
-        <div className="hidden md:block fixed left-4 top-1/2 -translate-y-1/2 z-40">
+        <div data-trilho className="hidden md:block fixed left-4 top-1/2 -translate-y-1/2 z-40">
           <aside className="flex flex-col items-center gap-1 rounded-full bg-foreground/90 backdrop-blur-xl p-2 shadow-[0_20px_50px_-20px_rgba(16,24,40,0.6)] v2-entrar-esq">
             <ItemDoTrilho rotulo="Buscar" atalho="Ctrl K" onClick={() => setBusca(true)}><Search /></ItemDoTrilho>
             {admin && <ItemDoTrilho rotulo="Nova demanda" href="/demandas" destaque><Plus /></ItemDoTrilho>}
@@ -157,7 +190,7 @@ export function CascaV2({ pessoa, admin = true, children }: { pessoa: { nome: st
                   <Logo altura={18} palavra />
                   <button onClick={() => setGaveta(false)} aria-label="Fechar" className="grid place-items-center w-9 h-9 rounded-full hover:bg-secondary"><X className="w-4 h-4" /></button>
                 </div>
-                {[...trilho, ...mais].map((d) => {
+                {[...trilho, ...(admin ? NO_MAIS : [])].map((d) => {
                   const Icone = d.icone
                   const on = ativa(pathname, d.href)
                   return (

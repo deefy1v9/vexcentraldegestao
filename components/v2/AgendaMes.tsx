@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { CalendarCheck, CalendarX, CheckCircle2, ChevronLeft, ChevronRight, Hourglass, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -47,6 +47,11 @@ export default function AgendaMes({ ano, mes, hoje, inicioGrade, itens, semData,
 }) {
   const [filtro, setFiltro] = useState<string>('todos')
   const [visao, setVisao] = useState<'mes' | 'lista'>('mes')
+  // No celular a grade do mês só cabe pontinhos: começa na lista, que dá para ler
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- só depois de montar dá para saber a largura da tela
+    if (window.matchMedia('(max-width: 767px)').matches) setVisao('lista')
+  }, [])
   const [diaAberto, setDiaAberto] = useState<string | null>(null)
   const chaveMes = `${ano}-${String(mes).padStart(2, '0')}`
 
@@ -87,6 +92,8 @@ export default function AgendaMes({ ano, mes, hoje, inicioGrade, itens, semData,
 
       {/* Filtros por processo + navegação */}
       <Entrada.Item className="flex flex-wrap items-center gap-2">
+        {/* No celular os filtros correm numa linha só, para o mês não ficar longe */}
+        <div className="flex items-center gap-2 max-sm:w-full max-sm:overflow-x-auto [&>button]:shrink-0 [&>button]:whitespace-nowrap sm:contents">
         <button type="button" onClick={() => setFiltro('todos')} className={cn('h-8 px-3.5 rounded-full text-[12.5px] font-semibold border transition-colors', filtro === 'todos' ? 'bg-marca text-white border-marca' : 'bg-card border-border text-muted-foreground hover:text-foreground')}>
           Todos <span className="ml-1 opacity-70">{itens.length}</span>
         </button>
@@ -100,7 +107,8 @@ export default function AgendaMes({ ano, mes, hoje, inicioGrade, itens, semData,
             <span className="w-2 h-2 rounded-full bg-info" />Eventos<span className="opacity-60">{contagem('eventos')}</span>
           </button>
         )}
-        <div className="ml-auto flex items-center gap-2">
+        </div>
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
           <Pilulas rotulo="Visão" valor={visao} aoMudar={setVisao} opcoes={[{ valor: 'mes', rotulo: 'Mês' }, { valor: 'lista', rotulo: 'Lista' }]} />
           <Link href={`/v2/agenda?mes=${mesParam(ano, mes - 1)}`} aria-label="Mês anterior" className="grid place-items-center w-9 h-9 rounded-full border border-border bg-card hover:bg-secondary"><ChevronLeft className="w-4 h-4" /></Link>
           <Link href="/v2/agenda" className="h-9 px-3.5 inline-flex items-center rounded-full border border-border bg-card text-[12.5px] font-semibold hover:bg-secondary">Hoje</Link>

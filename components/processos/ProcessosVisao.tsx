@@ -83,7 +83,7 @@ export default function ProcessosVisao({ processos }: { processos: ProcessoResum
       </div>
 
       {visao === 'fluxo' ? (
-        <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {processos.map((p) => {
             const etapas = p.stages.filter((s) => s.kind !== 'FINAL')
             const equipesDoProcesso = [...new Set(p.stages.map((s) => s.team?.name).filter(Boolean))]

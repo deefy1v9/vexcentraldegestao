@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { Loader2, RotateCcw, Send, X } from 'lucide-react'
 import { Button } from '@/components/vex/button'
 import { EstrelaIa } from '@/components/vex/estrela-ia'
@@ -9,6 +9,8 @@ import { EstrelaIa } from '@/components/vex/estrela-ia'
 interface Msg { role: 'user' | 'assistant'; content: string; erro?: boolean }
 
 const CHAVE = 'vex-chat-ia'
+/** Telas com barra de salvar no rodapé: o botão sobe para não cobrir a ação principal. */
+const TELA_COM_BARRA = /\/(novo|nova|editar)$|^\/briefings\/(?!respostas)[^/]+$/
 const SUGESTOES = [
   'Quais demandas estão atrasadas?',
   'Muda o prazo da #193 para sexta',
@@ -38,6 +40,7 @@ function Texto({ texto }: { texto: string }) {
  */
 export default function ChatIA() {
   const router = useRouter()
+  const pathname = usePathname()
   const [aberto, setAberto] = useState(false)
   // A conversa sobrevive à navegação e ao recarregar a página
   const [msgs, setMsgs] = useState<Msg[]>(() => {
@@ -93,7 +96,7 @@ export default function ChatIA() {
         <button
           type="button"
           onClick={() => setAberto(true)}
-          className="fixed z-40 bottom-5 right-5 h-11 pl-3 pr-4 rounded-full border border-border bg-card text-foreground shadow-[0_4px_16px_rgb(16_24_40/0.10)] inline-flex items-center gap-2 t-corpo font-semibold hover:bg-accent transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          className={`fixed z-40 ${TELA_COM_BARRA.test(pathname) ? 'bottom-24' : 'bottom-5'} right-5 h-11 pl-3 pr-4 rounded-full border border-border bg-card text-foreground shadow-[0_4px_16px_rgb(16_24_40/0.10)] inline-flex items-center gap-2 t-corpo font-semibold hover:bg-accent transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring`}
           aria-label="Abrir o assistente"
         >
           <EstrelaIa className="w-5 h-5" /> <span className="hidden sm:inline">Assistente</span>

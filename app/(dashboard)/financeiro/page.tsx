@@ -13,7 +13,7 @@ export default async function FinanceiroPage() {
   // selecionado — a navegação de período não recarrega a página. O cabeçalho
   // fica dentro do painel, porque o período e as ações do mês ficam nele.
   return (
-    <div className="flex flex-col min-h-full">
+    <div className="flex flex-col h-full overflow-y-auto">
       {/* O painel lê a competência da URL (useSearchParams) */}
       <Suspense fallback={(
         <>

@@ -354,7 +354,7 @@ export default function CalendarView({
           <div className="flex items-center gap-1">
             {total > 0 && (
               <span
-                className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full tabular ${
+                className={`hidden sm:inline text-[10px] font-semibold px-1.5 py-0.5 rounded-full tabular ${
                   overloaded ? 'bg-destructive-suave text-destructive-texto' : 'bg-secondary text-muted-foreground'
                 }`}
                 title={`${dayTasks.length} demanda(s) · capacidade ${capacity}`}
@@ -371,10 +371,10 @@ export default function CalendarView({
           <button type="button" onClick={abrirDia} className="w-full text-left space-y-1" title="Ver o dia">
             {dayTasks.length > 0 && (
               <span
-                className={`block text-[11px] font-semibold rounded-md border-l-[3px] px-2 py-1 truncate ${TONE_PILL[dayTone(dayTasks, today)]}`}
+                className={`block text-[11px] font-semibold rounded-md border-l-[3px] px-1 sm:px-2 py-1 truncate ${TONE_PILL[dayTone(dayTasks, today)]}`}
                 title={carga.map((c) => `${c.nome}: ${c.total}`).join(' · ')}
               >
-                {dayTasks.length} demanda{dayTasks.length === 1 ? '' : 's'}
+                {dayTasks.length}<span className="hidden sm:inline"> demanda{dayTasks.length === 1 ? '' : 's'}</span>
               </span>
             )}
             {dayTasks.length > 0 && carga.length > 0 && (
@@ -389,8 +389,8 @@ export default function CalendarView({
               </span>
             )}
             {dayEvents.length > 0 && (
-              <span className="block text-[11px] font-semibold text-muted-foreground bg-secondary rounded-md border-l-[3px] border-subtle px-2 py-1 truncate">
-                {dayEvents.length} evento{dayEvents.length === 1 ? '' : 's'}
+              <span className="block text-[11px] font-semibold text-muted-foreground bg-secondary rounded-md border-l-[3px] border-subtle px-1 sm:px-2 py-1 truncate">
+                {dayEvents.length}<span className="hidden sm:inline"> evento{dayEvents.length === 1 ? '' : 's'}</span>
               </span>
             )}
           </button>

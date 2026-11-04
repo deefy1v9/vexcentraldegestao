@@ -44,7 +44,8 @@ export default function Header({ title, subtitle, acoes }: HeaderProps) {
   if (casca.v2) {
     return (
       <div className="shrink-0 px-4 sm:px-8 pt-6 pb-4 flex flex-wrap items-end gap-x-6 gap-y-3 v2-entrar-cima">
-        <div className="min-w-0 flex-1">
+        {/* No celular o título fica inteiro numa linha e as ações vão para a de baixo */}
+        <div className="min-w-0 flex-[1_1_100%] md:flex-[1_1_0%]">
           <nav aria-label="Onde você está" className="flex items-center gap-1.5 text-[12.5px] text-muted-foreground">
             <Link href="/v2" className="hover:text-foreground">Início</Link>
             {secao && <><ChevronRight className="w-3.5 h-3.5 text-subtle" /><span>{secao}</span></>}
